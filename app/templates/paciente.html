@@ -59,7 +59,6 @@
                 <h3 class="text-lg font-bold text-slate-800 mb-3 px-1">Módulos de Avaliação</h3>
 
                 <div class="grid grid-cols-2 gap-3">
-                    
                     <button @click="window.location.href = '/paciente/' + paciente.id + '/pedi'" 
                             class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 text-left active:scale-95 transition-transform flex flex-col items-center justify-center gap-3 h-32 hover:border-clinica-500">
                         <div class="w-12 h-12 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center">
@@ -81,9 +80,43 @@
                         </div>
                         <span class="font-bold text-slate-400 text-xs text-center uppercase">Agenda & Evolução Diária</span>
                     </button>
-
                 </div>
-            </div>
+
+                <section class="mt-8">
+                    <h3 class="text-lg font-black text-slate-800 mb-3 px-1">Evolução do Paciente (PEDI)</h3>
+                    <div class="space-y-3">
+                        <template x-for="ava in avaliacoesPedi" :key="ava.id">
+                            <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
+                                <div class="flex justify-between items-center mb-3">
+                                    <span class="text-xs font-black text-slate-400 uppercase" x-text="ava.data_avaliacao"></span>
+                                    <span class="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase" x-text="ava.assistencia_cuidador"></span>
+                                </div>
+                                <div class="space-y-2">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-[9px] font-bold text-slate-400 w-16 uppercase">Autocuidado</span>
+                                        <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                            <div class="bg-blue-500 h-full" :style="'width: ' + ava.score_autocuidado + '%'"></div>
+                                        </div>
+                                        <span class="text-[10px] font-bold text-slate-600 w-8" x-text="ava.score_autocuidado + '%'"></span>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-[9px] font-bold text-slate-400 w-16 uppercase">Mobilidade</span>
+                                        <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                            <div class="bg-emerald-500 h-full" :style="'width: ' + ava.score_mobilidade + '%'"></div>
+                                        </div>
+                                        <span class="text-[10px] font-bold text-slate-600 w-8" x-text="ava.score_mobilidade + '%'"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                        <template x-if="avaliacoesPedi.length === 0">
+                            <div class="p-8 border-2 border-dashed border-slate-200 rounded-3xl text-center italic text-slate-400">
+                                Nenhuma avaliação PEDI registrada.
+                            </div>
+                        </template>
+                    </div>
+                </section>
+                </div>
         </template>
     </main>
 
@@ -92,23 +125,22 @@
             return {
                 pacienteId: id,
                 paciente: null,
+                avaliacoesPedi: [], // Adicionado para guardar o histórico
                 carregando: true,
 
                 carregarDados() {
-                    fetch('/api/pacientes/' + this.pacienteId)
-                        .then(res => {
-                            if (!res.ok) throw new Error('Paciente não encontrado');
-                            return res.json();
-                        })
-                        .then(data => {
-                            this.paciente = data;
-                            this.carregando = false;
-                        })
-                        .catch(err => {
-                            console.error(err);
-                            alert("Erro ao carregar prontuário.");
-                            window.location.href = '/';
-                        });
+                    // Agora buscamos o Paciente E as Avaliações simultaneamente
+                    Promise.all([
+                        fetch('/api/pacientes/' + this.pacienteId).then(res => res.json()),
+                        fetch('/api/pedi/' + this.pacienteId).then(res => res.json())
+                    ]).then(([dadosPaciente, dadosPedi]) => {
+                        this.paciente = dadosPaciente;
+                        this.avaliacoesPedi = Array.isArray(dadosPedi) ? dadosPedi : [];
+                        this.carregando = false;
+                    }).catch(err => {
+                        console.error('Erro ao carregar dados:', err);
+                        this.carregando = false;
+                    });
                 },
 
                 calcularIdade(dataNasc) {
