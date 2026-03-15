@@ -14,18 +14,23 @@ def create_app():
 
     db.init_app(app)
 
-    @app.route('/health')
-    def health_check():
-        return {"status": "Servidor APP-TO Ativo"}, 200
-
     # Importa os Blueprints
     from app.routes.paciente_bp import paciente_bp
     from app.routes.consulta_bp import consulta_bp
-    from app.routes.frontend_bp import frontend_bp # <--- NOVO
+    from app.routes.frontend_bp import frontend_bp
+    from app.routes.pedi_bp import pedi_bp  # <--- NOVO
     
     # Registra os Blueprints
     app.register_blueprint(paciente_bp)
     app.register_blueprint(consulta_bp)
-    app.register_blueprint(frontend_bp)            # <--- NOVO
+    app.register_blueprint(frontend_bp)
+    app.register_blueprint(pedi_bp)         # <--- NOVO
+
+    # Mágica do Fullstack: Força a criação das tabelas no Neon caso não existam
+    with app.app_context():
+        from app.models.paciente import Paciente
+        from app.models.consulta import Consulta
+        from app.models.pedi import AvaliacaoPEDI # <--- NOVO
+        db.create_all()
 
     return app
