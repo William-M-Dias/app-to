@@ -32,8 +32,8 @@
         </template>
 
         <template x-if="!carregando && paciente">
-            <div>
-                <section class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 mb-6 relative overflow-hidden">
+            <div class="space-y-6">
+                <section class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden">
                     <div class="absolute top-0 right-0 w-32 h-32 bg-clinica-50 rounded-full -mr-10 -mt-10 opacity-50 pointer-events-none"></div>
                     
                     <div class="flex items-center gap-4 mb-4 relative z-10">
@@ -60,25 +60,26 @@
 
                 <div class="grid grid-cols-2 gap-3">
                     
-                    <button class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 text-left active:scale-95 transition-transform flex flex-col items-center justify-center gap-3 h-32 hover:border-clinica-500">
+                    <button @click="window.location.href = '/paciente/' + paciente.id + '/pedi'" 
+                            class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 text-left active:scale-95 transition-transform flex flex-col items-center justify-center gap-3 h-32 hover:border-clinica-500">
                         <div class="w-12 h-12 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                         </div>
-                        <span class="font-bold text-slate-700 text-sm text-center leading-tight">Anamnese (PEDI)</span>
+                        <span class="font-bold text-slate-700 text-sm text-center leading-tight uppercase">Anamnese (PEDI)</span>
                     </button>
 
-                    <button @click="window.location.href = '/paciente/' + paciente.id + '/pedi'" class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 text-left active:scale-95 transition-transform flex flex-col items-center justify-center gap-3 h-32 hover:border-clinica-500">
-                        <div class="w-12 h-12 bg-purple-50 text-purple-500 rounded-full flex items-center justify-center">
+                    <button class="bg-slate-50 p-4 rounded-3xl border border-slate-100 flex flex-col items-center justify-center gap-3 h-32 opacity-60 grayscale cursor-not-allowed">
+                        <div class="w-12 h-12 bg-purple-50 text-purple-400 rounded-full flex items-center justify-center">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                         </div>
-                        <span class="font-bold text-slate-700 text-sm text-center leading-tight">Observação Clínica</span>
+                        <span class="font-bold text-slate-400 text-[10px] text-center uppercase tracking-tighter">Em Desenvolvimento</span>
                     </button>
 
-                    <button class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 text-left active:scale-95 transition-transform flex flex-col items-center justify-center gap-3 h-32 hover:border-clinica-500 col-span-2">
-                        <div class="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center">
+                    <button class="bg-slate-50 p-4 rounded-3xl border border-slate-100 flex flex-col items-center justify-center gap-3 h-24 col-span-2 opacity-60 grayscale cursor-not-allowed">
+                        <div class="w-12 h-12 bg-emerald-50 text-emerald-400 rounded-full flex items-center justify-center">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                         </div>
-                        <span class="font-bold text-slate-700 text-sm text-center">Agenda & Evolução</span>
+                        <span class="font-bold text-slate-400 text-xs text-center uppercase">Agenda & Evolução Diária</span>
                     </button>
 
                 </div>
@@ -94,7 +95,6 @@
                 carregando: true,
 
                 carregarDados() {
-                    // Busca os dados específicos deste paciente lá no nosso backend
                     fetch('/api/pacientes/' + this.pacienteId)
                         .then(res => {
                             if (!res.ok) throw new Error('Paciente não encontrado');
@@ -120,7 +120,7 @@
                     if (mes < 0 || (mes === 0 && hoje.getDate() < nascimento.getDate())) {
                         idade--;
                     }
-                    return idade === 1 ? '1 ano' : idade + ' anos';
+                    return idade + (idade === 1 ? ' ano' : ' anos');
                 }
             }
         }
