@@ -8,18 +8,16 @@
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script>
         tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        clinica: { 50: '#f0fdfa', 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 900: '#134e4a' }
-                    }
-                }
-            }
+            theme: { extend: { colors: { clinica: { 50: '#f0fdfa', 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 900: '#134e4a' } } } }
         }
     </script>
     <style>
         body { overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; }
         .gaveta-scroll { overflow-y: auto; max-height: 85vh; padding-bottom: 2rem; }
+        /* Barra de rolagem customizada para o dropdown múltiplo */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased font-sans" x-data="appTO()" x-init="buscarPacientes()">
@@ -58,24 +56,23 @@
             </div>
 
             <template x-if="carregando">
-                <div class="flex justify-center py-10">
-                    <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-clinica-600"></div>
-                </div>
+                <div class="flex justify-center py-10"><div class="animate-spin rounded-full h-10 w-10 border-b-2 border-clinica-600"></div></div>
             </template>
 
             <div class="space-y-4">
                 <template x-for="paciente in pacientes" :key="paciente.id">
-                    <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-4 active:scale-[0.98] transition-transform">
+                    <div @click="window.location.href = '/paciente/' + paciente.id" 
+                         class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-4 active:scale-[0.98] transition-transform cursor-pointer hover:border-clinica-300">
                         <div class="w-14 h-14 rounded-full bg-clinica-100 flex items-center justify-center text-clinica-600 font-black text-xl shadow-inner uppercase" x-text="paciente.nome.charAt(0)"></div>
-                        <div class="flex-1">
-                            <h3 class="font-bold text-slate-800 text-lg" x-text="paciente.nome"></h3>
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-bold text-slate-800 text-lg truncate" x-text="paciente.nome"></h3>
                             <div class="flex items-center gap-2 mt-1">
-                                <span class="bg-slate-100 text-slate-500 text-xs px-2 py-1 rounded-md font-medium truncate max-w-[150px]" x-text="paciente.diagnostico || 'Avaliação Inicial'"></span>
+                                <span class="bg-slate-100 text-slate-500 text-xs px-2 py-1 rounded-md font-medium truncate max-w-full" x-text="paciente.diagnostico || 'Avaliação Inicial'"></span>
                             </div>
                         </div>
-                        <button class="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-clinica-600 transition-colors">
+                        <div class="w-10 h-10 flex items-center justify-center text-clinica-500 shrink-0">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-                        </button>
+                        </div>
                     </div>
                 </template>
 
@@ -92,7 +89,7 @@
         </section>
     </main>
 
-    <button @click="modalCadastroAberto = true" class="fixed bottom-6 right-6 w-16 h-16 bg-clinica-600 text-white rounded-2xl shadow-lg shadow-clinica-600/40 flex items-center justify-center hover:bg-clinica-700 active:scale-95 transition-all z-30">
+    <button @click="abrirModalCadastro()" class="fixed bottom-6 right-6 w-16 h-16 bg-clinica-600 text-white rounded-2xl shadow-lg shadow-clinica-600/40 flex items-center justify-center hover:bg-clinica-700 active:scale-95 transition-all z-30">
         <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
     </button>
 
@@ -124,34 +121,40 @@
             </div>
 
             <div>
-                <label class="block text-sm font-bold text-slate-700 mb-1">Diagnóstico Clínico</label>
-                <div class="relative">
-                    <select x-model="novoPaciente.diagnostico" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 appearance-none focus:outline-none focus:ring-2 focus:ring-clinica-500 transition-shadow text-slate-700">
-                        <option value="" disabled selected>Selecione uma opção...</option>
-                        <option value="TEA (Transtorno do Espectro Autista)">TEA (Transtorno do Espectro Autista)</option>
-                        <option value="TDAH (Transtorno de Déficit de Atenção)">TDAH (Transtorno de Déficit de Atenção)</option>
-                        <option value="Atraso do Desenvolvimento Motor">Atraso do Desenvolvimento Motor</option>
-                        <option value="TPS (Transtorno do Processamento Sensorial)">TPS (Transtorno do Processamento Sensorial)</option>
-                        <option value="Dispraxia / TDC">Dispraxia / TDC</option>
-                        <option value="Paralisia Cerebral">Paralisia Cerebral</option>
-                        <option value="Síndrome de Down">Síndrome de Down</option>
-                        <option value="TOD (Transtorno Opositivo Desafiador)">TOD (Transtorno Opositivo Desafiador)</option>
-                        <option value="Deficiência Intelectual">Deficiência Intelectual</option>
-                        <option value="Em Investigação / Sem Laudo">Em Investigação / Sem Laudo</option>
-                        <option value="Outros">Outros</option>
-                    </select>
-                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
-                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                <label class="block text-sm font-bold text-slate-700 mb-1">Diagnóstico Clínico / Disfunções</label>
+                <div class="relative" x-data="{ open: false }">
+                    <button type="button" @click="open = !open" @click.away="open = false" 
+                            class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-left flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-clinica-500 transition-shadow">
+                        <span class="truncate text-slate-700 font-medium" 
+                              x-text="diagnosticosSelecionados.length === 0 ? 'Selecione uma ou mais opções...' : diagnosticosSelecionados.join(', ')">
+                        </span>
+                        <svg class="h-5 w-5 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" :class="{'rotate-180': open, 'transition-transform': true}"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
+
+                    <div x-show="open" style="display: none;" 
+                         class="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar p-2">
+                        <template x-for="opcao in listaDisfuncoes" :key="opcao">
+                            <label class="flex items-center gap-3 p-3 hover:bg-clinica-50 rounded-lg cursor-pointer transition-colors border-b border-slate-50 last:border-0">
+                                <input type="checkbox" :value="opcao" x-model="diagnosticosSelecionados" class="w-5 h-5 text-clinica-600 border-slate-300 rounded focus:ring-clinica-500 accent-clinica-600">
+                                <span class="text-sm font-semibold text-slate-700" x-text="opcao"></span>
+                            </label>
+                        </template>
                     </div>
                 </div>
             </div>
 
+            <div x-show="diagnosticosSelecionados.length > 0" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" style="display: none;" class="p-4 bg-clinica-50 rounded-xl border border-clinica-100">
+                <label class="block text-sm font-bold text-clinica-900 mb-1">Comorbidades Associadas (Outros)</label>
+                <input type="text" x-model="outrosDiagnosticos" placeholder="Ex: Ansiedade, Epilepsia, etc..." class="w-full bg-white border border-clinica-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-clinica-500 text-slate-700">
+                <p class="text-xs text-clinica-600 mt-1 font-medium">Opcional. Adicione condições não listadas acima.</p>
+            </div>
+
             <div>
-                <label class="block text-sm font-bold text-slate-700 mb-1">Queixa Principal</label>
+                <label class="block text-sm font-bold text-slate-700 mb-1 mt-2">Queixa Principal</label>
                 <textarea x-model="novoPaciente.queixa_principal" rows="3" placeholder="O que trouxe a família à clínica?" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-clinica-500 transition-shadow"></textarea>
             </div>
 
-            <button type="submit" :disabled="salvando" class="w-full bg-clinica-600 text-white font-extrabold py-4 rounded-xl active:bg-clinica-700 transition-colors mt-4 flex justify-center items-center disabled:opacity-70">
+            <button type="submit" :disabled="salvando || diagnosticosSelecionados.length === 0" class="w-full bg-clinica-600 text-white font-extrabold py-4 rounded-xl active:bg-clinica-700 transition-colors mt-4 flex justify-center items-center disabled:opacity-50 disabled:cursor-not-allowed shadow-md">
                 <span x-show="!salvando">Salvar Prontuário</span>
                 <div x-show="salvando" class="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
             </button>
@@ -173,19 +176,43 @@
             return {
                 pacientes: [],
                 carregando: true,
-                
                 sheetAberto: false, 
                 termoAtual: '', 
                 definicaoAtual: '',
-                
                 modalCadastroAberto: false,
                 salvando: false,
-                novoPaciente: { nome: '', data_nascimento: '', escolaridade: '', diagnostico: '', queixa_principal: '' },
+                
+                // Dados originais do paciente
+                novoPaciente: { nome: '', data_nascimento: '', escolaridade: '', queixa_principal: '' },
+                
+                // Controle do Diagnóstico Múltiplo
+                diagnosticosSelecionados: [],
+                outrosDiagnosticos: '',
+                listaDisfuncoes: [
+                    "TEA (Transtorno do Espectro Autista)",
+                    "TDAH (Transtorno de Déficit de Atenção)",
+                    "Atraso do Desenvolvimento Motor",
+                    "TPS (Transtorno do Processamento Sensorial)",
+                    "Dispraxia / TDC",
+                    "Paralisia Cerebral",
+                    "Síndrome de Down",
+                    "Síndrome de Tourette",
+                    "TOD (Transtorno Opositivo Desafiador)",
+                    "Deficiência Intelectual",
+                    "Em Investigação / Sem Laudo"
+                ],
 
                 abrirGlossario(termo, definicao) {
                     this.termoAtual = termo; 
                     this.definicaoAtual = definicao; 
                     this.sheetAberto = true;
+                },
+
+                abrirModalCadastro() {
+                    this.novoPaciente = { nome: '', data_nascimento: '', escolaridade: '', queixa_principal: '' };
+                    this.diagnosticosSelecionados = [];
+                    this.outrosDiagnosticos = '';
+                    this.modalCadastroAberto = true;
                 },
 
                 buscarPacientes() {
@@ -198,17 +225,26 @@
 
                 salvarPaciente() {
                     this.salvando = true;
+                    
+                    // Monta a string final unindo as checkboxes selecionadas e o campo Outros
+                    let diagFinal = this.diagnosticosSelecionados.join(', ');
+                    if (this.outrosDiagnosticos.trim() !== '') {
+                        diagFinal += ' | Outros: ' + this.outrosDiagnosticos.trim();
+                    }
+                    
+                    // Clona os dados e injeta a string montada
+                    const payload = { ...this.novoPaciente, diagnostico: diagFinal };
+
                     fetch('/api/pacientes/', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(this.novoPaciente)
+                        body: JSON.stringify(payload)
                     })
                     .then(res => {
                         if (!res.ok) throw new Error('Falha ao salvar');
                         return res.json();
                     })
                     .then(data => {
-                        this.novoPaciente = { nome: '', data_nascimento: '', escolaridade: '', diagnostico: '', queixa_principal: '' };
                         this.modalCadastroAberto = false;
                         this.salvando = false;
                         this.buscarPacientes();
