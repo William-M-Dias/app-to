@@ -122,8 +122,8 @@
 
             <div>
                 <label class="block text-sm font-bold text-slate-700 mb-1">Diagnóstico Clínico / Disfunções</label>
-                <div class="relative" x-data="{ open: false }">
-                    <button type="button" @click="open = !open" @click.away="open = false" 
+                <div class="relative" x-data="{ open: false }" @click.away="open = false">
+                    <button type="button" @click="open = !open" 
                             class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-left flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-clinica-500 transition-shadow">
                         <span class="truncate text-slate-700 font-medium" 
                               x-text="diagnosticosSelecionados.length === 0 ? 'Selecione uma ou mais opções...' : diagnosticosSelecionados.join(', ')">
@@ -134,7 +134,7 @@
                     <div x-show="open" style="display: none;" 
                          class="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto custom-scrollbar p-2">
                         <template x-for="opcao in listaDisfuncoes" :key="opcao">
-                            <label class="flex items-center gap-3 p-3 hover:bg-clinica-50 rounded-lg cursor-pointer transition-colors border-b border-slate-50 last:border-0">
+                            <label class="flex items-center gap-3 p-3 hover:bg-clinica-50 rounded-lg cursor-pointer transition-colors border-b border-slate-50 last:border-0" @click.stop>
                                 <input type="checkbox" :value="opcao" x-model="diagnosticosSelecionados" class="w-5 h-5 text-clinica-600 border-slate-300 rounded focus:ring-clinica-500 accent-clinica-600">
                                 <span class="text-sm font-semibold text-slate-700" x-text="opcao"></span>
                             </label>
@@ -182,10 +182,8 @@
                 modalCadastroAberto: false,
                 salvando: false,
                 
-                // Dados originais do paciente
                 novoPaciente: { nome: '', data_nascimento: '', escolaridade: '', queixa_principal: '' },
                 
-                // Controle do Diagnóstico Múltiplo
                 diagnosticosSelecionados: [],
                 outrosDiagnosticos: '',
                 listaDisfuncoes: [
@@ -226,13 +224,11 @@
                 salvarPaciente() {
                     this.salvando = true;
                     
-                    // Monta a string final unindo as checkboxes selecionadas e o campo Outros
                     let diagFinal = this.diagnosticosSelecionados.join(', ');
                     if (this.outrosDiagnosticos.trim() !== '') {
                         diagFinal += ' | Outros: ' + this.outrosDiagnosticos.trim();
                     }
                     
-                    // Clona os dados e injeta a string montada
                     const payload = { ...this.novoPaciente, diagnostico: diagFinal };
 
                     fetch('/api/pacientes/', {
