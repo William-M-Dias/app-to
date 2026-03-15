@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>APP-TO | Terapia Ocupacional</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        clinica: { 50: '#f0fdfa', 500: '#14b8a6', 600: '#0d9488', 900: '#134e4a' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>body { overscroll-behavior-y: contain; }</style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased font-sans" x-data="appTO()" x-init="buscarPacientes()">
+
+    <header class="bg-clinica-600 text-white shadow-md sticky top-0 z-30">
+        <div class="px-4 py-4 flex justify-between items-center">
+            <h1 class="text-xl font-bold tracking-wide">APP-TO</h1>
+            <div class="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+            </div>
+        </div>
+    </header>
+
+    <main class="p-4 pb-24">
+        <section class="mb-6 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+            <h2 class="text-sm text-slate-500 font-semibold mb-1">Glossário Rápido</h2>
+            <div class="flex items-center justify-between">
+                <span class="text-slate-800 font-medium">Somatodispraxia</span>
+                <button @click="abrirGlossario('Somatodispraxia', 'É um tipo grave de dispraxia. Ocorre devido ao processamento deficiente das informações táteis e proprioceptivas. A criança parece desajeitada, esbarra em coisas e tem extrema dificuldade em aprender novas sequências motoras.')" 
+                        class="w-8 h-8 rounded-full bg-clinica-50 text-clinica-600 flex items-center justify-center hover:bg-clinica-100 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </button>
+            </div>
+        </section>
+
+        <section>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-bold text-slate-800">Meus Pacientes</h2>
+            </div>
+            <template x-if="carregando">
+                <div class="flex justify-center py-8"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-clinica-600"></div></div>
+            </template>
+            <div class="space-y-3">
+                <template x-for="paciente in pacientes" :key="paciente.id">
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-clinica-600 font-bold text-lg" x-text="paciente.nome.charAt(0)"></div>
+                        <div class="flex-1">
+                            <h3 class="font-bold text-slate-800" x-text="paciente.nome"></h3>
+                            <p class="text-sm text-slate-500 line-clamp-1" x-text="paciente.diagnostico || 'Sem diagnóstico'"></p>
+                        </div>
+                    </div>
+                </template>
+                <template x-if="!carregando && pacientes.length === 0">
+                    <div class="text-center py-8"><p class="text-slate-500">Nenhum paciente encontrado.</p></div>
+                </template>
+            </div>
+        </section>
+    </main>
+
+    <div x-show="sheetAberto" style="display: none;" class="fixed inset-0 bg-black/40 z-40" x-transition.opacity @click="sheetAberto = false"></div>
+    <div x-show="sheetAberto" style="display: none;" class="fixed bottom-0 left-0 right-0 bg-white rounded-t-3xl z-50 p-6 shadow-2xl"
+         x-transition:enter="transition ease-out duration-300 transform" x-transition:enter-start="translate-y-full" x-transition:enter-end="translate-y-0"
+         x-transition:leave="transition ease-in duration-200 transform" x-transition:leave-start="translate-y-0" x-transition:leave-end="translate-y-full">
+        <div class="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-5"></div>
+        <h3 class="text-xl font-bold text-slate-800 mb-2" x-text="termoAtual"></h3>
+        <p class="text-slate-600 leading-relaxed mb-6" x-text="definicaoAtual"></p>
+        <button @click="sheetAberto = false" class="w-full bg-clinica-600 text-white font-bold py-3.5 rounded-xl">Entendi</button>
+    </div>
+
+    <script>
+        function appTO() {
+            return {
+                pacientes: [], carregando: true, sheetAberto: false, termoAtual: '', definicaoAtual: '',
+                abrirGlossario(termo, definicao) {
+                    this.termoAtual = termo; this.definicaoAtual = definicao; this.sheetAberto = true;
+                },
+                buscarPacientes() {
+                    // Agora usamos caminho relativo, pois Front e Back estão no mesmo lugar!
+                    fetch('/api/pacientes/')
+                        .then(res => res.json())
+                        .then(data => { this.pacientes = data; this.carregando = false; })
+                        .catch(err => { console.error(err); this.carregando = false; });
+                }
+            }
+        }
+    </script>
+</body>
+</html>
