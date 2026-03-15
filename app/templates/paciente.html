@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Prontuário | APP-TO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: { extend: { colors: { clinica: { 50: '#f0fdfa', 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 900: '#134e4a' } } } }
+        }
+    </script>
+    <style>body { overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; }</style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased font-sans" 
+      x-data="perfilPaciente({{ paciente_id }})" 
+      x-init="carregarDados()">
+
+    <header class="bg-clinica-600 text-white shadow-md sticky top-0 z-30">
+        <div class="px-4 py-4 flex items-center gap-3">
+            <a href="/" class="p-2 -ml-2 hover:bg-white/20 rounded-full transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+            </a>
+            <h1 class="text-xl font-extrabold tracking-wide">Prontuário</h1>
+        </div>
+    </header>
+
+    <main class="p-4 pb-20">
+        <template x-if="carregando">
+            <div class="flex justify-center py-20"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-clinica-600"></div></div>
+        </template>
+
+        <template x-if="!carregando && paciente">
+            <div>
+                <section class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 mb-6 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-clinica-50 rounded-full -mr-10 -mt-10 opacity-50 pointer-events-none"></div>
+                    
+                    <div class="flex items-center gap-4 mb-4 relative z-10">
+                        <div class="w-16 h-16 rounded-full bg-clinica-100 flex items-center justify-center text-clinica-600 font-black text-2xl shadow-inner uppercase" x-text="paciente.nome.charAt(0)"></div>
+                        <div>
+                            <h2 class="font-black text-xl text-slate-800 leading-tight" x-text="paciente.nome"></h2>
+                            <p class="text-clinica-600 font-bold text-sm mt-1" x-text="calcularIdade(paciente.data_nascimento)"></p>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                        <div class="flex items-start gap-2 mb-2">
+                            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mt-0.5">Diagnóstico</span>
+                            <span class="text-sm font-bold text-slate-700" x-text="paciente.diagnostico || 'Não informado'"></span>
+                        </div>
+                        <div class="flex items-start gap-2">
+                            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mt-0.5">Queixa</span>
+                            <span class="text-sm font-medium text-slate-600 line-clamp-2" x-text="paciente.queixa_principal || 'Nenhuma queixa registrada.'"></span>
+                        </div>
+                    </div>
+                </section>
+
+                <h3 class="text-lg font-bold text-slate-800 mb-3 px-1">Módulos de Avaliação</h3>
+
+                <div class="grid grid-cols-2 gap-3">
+                    
+                    <button class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 text-left active:scale-95 transition-transform flex flex-col items-center justify-center gap-3 h-32 hover:border-clinica-500">
+                        <div class="w-12 h-12 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        </div>
+                        <span class="font-bold text-slate-700 text-sm text-center leading-tight">Anamnese (PEDI)</span>
+                    </button>
+
+                    <button class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 text-left active:scale-95 transition-transform flex flex-col items-center justify-center gap-3 h-32 hover:border-clinica-500">
+                        <div class="w-12 h-12 bg-purple-50 text-purple-500 rounded-full flex items-center justify-center">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                        </div>
+                        <span class="font-bold text-slate-700 text-sm text-center leading-tight">Observação Clínica</span>
+                    </button>
+
+                    <button class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 text-left active:scale-95 transition-transform flex flex-col items-center justify-center gap-3 h-32 hover:border-clinica-500 col-span-2">
+                        <div class="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        </div>
+                        <span class="font-bold text-slate-700 text-sm text-center">Agenda & Evolução</span>
+                    </button>
+
+                </div>
+            </div>
+        </template>
+    </main>
+
+    <script>
+        function perfilPaciente(id) {
+            return {
+                pacienteId: id,
+                paciente: null,
+                carregando: true,
+
+                carregarDados() {
+                    // Busca os dados específicos deste paciente lá no nosso backend
+                    fetch('/api/pacientes/' + this.pacienteId)
+                        .then(res => {
+                            if (!res.ok) throw new Error('Paciente não encontrado');
+                            return res.json();
+                        })
+                        .then(data => {
+                            this.paciente = data;
+                            this.carregando = false;
+                        })
+                        .catch(err => {
+                            console.error(err);
+                            alert("Erro ao carregar prontuário.");
+                            window.location.href = '/';
+                        });
+                },
+
+                calcularIdade(dataNasc) {
+                    if (!dataNasc) return 'Idade não informada';
+                    const hoje = new Date();
+                    const nascimento = new Date(dataNasc);
+                    let idade = hoje.getFullYear() - nascimento.getFullYear();
+                    const mes = hoje.getMonth() - nascimento.getMonth();
+                    if (mes < 0 || (mes === 0 && hoje.getDate() < nascimento.getDate())) {
+                        idade--;
+                    }
+                    return idade === 1 ? '1 ano' : idade + ' anos';
+                }
+            }
+        }
+    </script>
+</body>
+</html>

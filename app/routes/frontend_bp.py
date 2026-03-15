@@ -1,9 +1,13 @@
 from flask import Blueprint, render_template
 
-# Criamos o Blueprint sem prefixo de URL, pois ele vai responder na raiz do site ("/")
 frontend_bp = Blueprint('frontend_bp', __name__)
 
 @frontend_bp.route('/')
 def index():
-    # O Flask procura automaticamente dentro da pasta 'templates'
+    # Carrega a tela inicial (lista de pacientes)
     return render_template('index.html')
+
+@frontend_bp.route('/paciente/<int:id>')
+def perfil_paciente(id):
+    # Carrega a tela do prontuário e passa o ID do paciente para o HTML
+    return render_template('paciente.html', paciente_id=id)
