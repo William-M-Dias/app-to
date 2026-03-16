@@ -18,19 +18,22 @@ def create_app():
     from app.routes.paciente_bp import paciente_bp
     from app.routes.consulta_bp import consulta_bp
     from app.routes.frontend_bp import frontend_bp
-    from app.routes.pedi_bp import pedi_bp  # <--- NOVO
-    
+    from app.routes.pedi_bp import pedi_bp
+    from app.routes.obs_clinica_bp import obs_clinica_bp  # <--- NOVO
+
     # Registra os Blueprints
     app.register_blueprint(paciente_bp)
     app.register_blueprint(consulta_bp)
     app.register_blueprint(frontend_bp)
-    app.register_blueprint(pedi_bp)         # <--- NOVO
+    app.register_blueprint(pedi_bp)
+    app.register_blueprint(obs_clinica_bp)              # <--- NOVO
 
     # Mágica do Fullstack: Força a criação das tabelas no Neon caso não existam
     with app.app_context():
         from app.models.paciente import Paciente
         from app.models.consulta import Consulta
-        from app.models.pedi import AvaliacaoPEDI # <--- NOVO
+        from app.models.pedi import AvaliacaoPEDI
+        from app.models.obs_clinica import ObsClinica  # <--- NOVO
         db.create_all()
 
     return app
