@@ -59,6 +59,7 @@
                 <h3 class="text-lg font-bold text-slate-800 mb-3 px-1">Módulos de Avaliação</h3>
 
                 <div class="grid grid-cols-2 gap-3">
+                    
                     <button @click="window.location.href = '/paciente/' + paciente.id + '/pedi'" 
                             class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 text-left active:scale-95 transition-transform flex flex-col items-center justify-center gap-3 h-32 hover:border-clinica-500">
                         <div class="w-12 h-12 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center">
@@ -67,11 +68,12 @@
                         <span class="font-bold text-slate-700 text-sm text-center leading-tight uppercase">Anamnese (PEDI)</span>
                     </button>
 
-                    <button class="bg-slate-50 p-4 rounded-3xl border border-slate-100 flex flex-col items-center justify-center gap-3 h-32 opacity-60 grayscale cursor-not-allowed">
-                        <div class="w-12 h-12 bg-purple-50 text-purple-400 rounded-full flex items-center justify-center">
+                    <button @click="window.location.href = '/paciente/' + paciente.id + '/observacao'" 
+                            class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 text-left active:scale-95 transition-transform flex flex-col items-center justify-center gap-3 h-32 hover:border-purple-500">
+                        <div class="w-12 h-12 bg-purple-50 text-purple-500 rounded-full flex items-center justify-center">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                         </div>
-                        <span class="font-bold text-slate-400 text-[10px] text-center uppercase tracking-tighter">Em Desenvolvimento</span>
+                        <span class="font-bold text-purple-700 text-sm text-center leading-tight uppercase">Obs. Clínica</span>
                     </button>
 
                     <button class="bg-slate-50 p-4 rounded-3xl border border-slate-100 flex flex-col items-center justify-center gap-3 h-24 col-span-2 opacity-60 grayscale cursor-not-allowed">
@@ -116,7 +118,7 @@
                         </template>
                     </div>
                 </section>
-                </div>
+            </div>
         </template>
     </main>
 
@@ -125,11 +127,11 @@
             return {
                 pacienteId: id,
                 paciente: null,
-                avaliacoesPedi: [], // Adicionado para guardar o histórico
+                avaliacoesPedi: [],
                 carregando: true,
 
                 carregarDados() {
-                    // Agora buscamos o Paciente E as Avaliações simultaneamente
+                    // Sincroniza a busca de dados do paciente e histórico do PEDI
                     Promise.all([
                         fetch('/api/pacientes/' + this.pacienteId).then(res => res.json()),
                         fetch('/api/pedi/' + this.pacienteId).then(res => res.json())
@@ -138,7 +140,7 @@
                         this.avaliacoesPedi = Array.isArray(dadosPedi) ? dadosPedi : [];
                         this.carregando = false;
                     }).catch(err => {
-                        console.error('Erro ao carregar dados:', err);
+                        console.error('Erro ao carregar prontuário:', err);
                         this.carregando = false;
                     });
                 },
