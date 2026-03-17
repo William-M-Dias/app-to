@@ -15,15 +15,15 @@ class Consulta(db.Model):
     
     evolucao_texto = db.Column(db.Text) 
     
-    # Mantido para garantir Risco Zero (não crashar o Neon)
+    # Mantido para garantir Risco Zero
     dados_sensoriais_executivos = db.Column(db.JSON, nullable=True) 
     
-    # NOVO: O MOTOR DE INFERÊNCIA DO PEDI
+    # O MOTOR DE INFERÊNCIA DO PEDI
     micro_metas = db.Column(JSONB, nullable=True)
     
     data_registro = db.Column(db.DateTime, default=datetime.utcnow)
 
-    paciente = db.relationship('Paciente', backref=db.backref('consultas', lazy=True))
+    # A linha que causava o conflito foi removida daqui, pois o paciente.py já faz esse trabalho.
 
     def __repr__(self):
         return f'<Consulta {self.data_hora} - Paciente ID {self.paciente_id}>'
