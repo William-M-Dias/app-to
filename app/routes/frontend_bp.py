@@ -10,17 +10,19 @@ def index():
 def perfil_paciente(id):
     return render_template('paciente.html', paciente_id=id)
 
-# <--- ROTA 1: TRIAGEM INICIAL (NOVO) --->
 @frontend_bp.route('/paciente/<int:id>/anamnese')
 def anamnese_paciente(id):
     return render_template('anamnese.html', paciente_id=id)
 
-# <--- ROTA 2: AVALIAÇÃO PEDI --->
 @frontend_bp.route('/paciente/<int:id>/pedi')
 def pedi_paciente(id):
     return render_template('pedi.html', paciente_id=id)
 
-# <--- ROTA 3: OBSERVAÇÃO CLÍNICA --->
 @frontend_bp.route('/paciente/<int:id>/observacao')
 def obs_clinica_paciente(id):
     return render_template('obs_clinica.html', paciente_id=id)
+
+# <--- ROTA 4: AGENDA E EVOLUÇÃO DIÁRIA --->
+@frontend_bp.route('/paciente/<int:id>/evolucao')
+def evolucao_paciente(id):
+    return render_template('evolucao.html', paciente_id=id)

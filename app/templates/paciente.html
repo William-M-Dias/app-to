@@ -84,12 +84,14 @@
                         <span class="font-bold text-purple-700 text-xs text-center leading-tight uppercase">3. Obs. Clínica</span>
                     </button>
 
-                    <button class="bg-slate-50 p-4 rounded-3xl border border-slate-100 flex flex-col items-center justify-center gap-3 h-32 opacity-60 grayscale cursor-not-allowed">
-                        <div class="w-12 h-12 bg-emerald-50 text-emerald-400 rounded-full flex items-center justify-center">
+                    <button @click="window.location.href = '/paciente/' + paciente.id + '/evolucao'" 
+                            class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 text-left active:scale-95 transition-transform flex flex-col items-center justify-center gap-3 h-32 hover:border-emerald-500">
+                        <div class="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                         </div>
-                        <span class="font-bold text-slate-400 text-xs text-center uppercase">4. Evolução Diária</span>
+                        <span class="font-bold text-emerald-700 text-xs text-center leading-tight uppercase">4. Evolução Diária</span>
                     </button>
+
                 </div>
 
                 <section class="mt-8">
@@ -139,7 +141,6 @@
                 carregando: true,
 
                 carregarDados() {
-                    // Sincroniza a busca de dados do paciente e histórico do PEDI
                     Promise.all([
                         fetch('/api/pacientes/' + this.pacienteId).then(res => res.json()),
                         fetch('/api/pedi/' + this.pacienteId).then(res => res.json())
