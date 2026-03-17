@@ -33,6 +33,7 @@
 
         <template x-if="!carregando && paciente">
             <div class="space-y-6">
+                
                 <section class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden">
                     <div class="absolute top-0 right-0 w-32 h-32 bg-clinica-50 rounded-full -mr-10 -mt-10 opacity-50 pointer-events-none"></div>
                     
@@ -51,51 +52,84 @@
                         </div>
                         <div class="flex items-start gap-2">
                             <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mt-0.5">Queixa</span>
-                            <span class="text-sm font-medium text-slate-600 line-clamp-2" x-text="paciente.queixa_principal || 'Nenhuma queixa registrada.'"></span>
+                            <span class="text-sm font-medium text-slate-600 line-clamp-2" x-text="paciente.queixa_principal || 'Nenhuma queixa registada.'"></span>
                         </div>
                     </div>
                 </section>
 
-                <h3 class="text-lg font-bold text-slate-800 mb-3 px-1">Módulos Clínicos</h3>
+                <template x-if="ultimaAnamnese && ultimaAnamnese.dados">
+                    <section class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
+                        <div class="flex items-center justify-between mb-4 border-b border-slate-50 pb-2">
+                            <h3 class="text-sm font-black text-slate-800 uppercase flex items-center gap-2">
+                                <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                Mapa Clínico de Alerta
+                            </h3>
+                            <span class="text-[9px] text-slate-400 font-bold uppercase" x-text="'Triagem: ' + ultimaAnamnese.data"></span>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <template x-if="ultimaAnamnese.dados.comportamento && ultimaAnamnese.dados.comportamento.length > 0">
+                                <div>
+                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Comportamento e Regulação</span>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        <template x-for="item in ultimaAnamnese.dados.comportamento">
+                                            <span class="bg-red-50 text-red-700 border border-red-100 text-[10px] font-bold px-2 py-1 rounded-lg leading-tight" x-text="item.split(':')[0]"></span>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <template x-if="ultimaAnamnese.dados.sensorial && ultimaAnamnese.dados.sensorial.length > 0">
+                                <div>
+                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Perfil Sensorial (TEA/TPS)</span>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        <template x-for="item in ultimaAnamnese.dados.sensorial">
+                                            <span class="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-bold px-2 py-1 rounded-lg leading-tight" x-text="item"></span>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                            
+                            <template x-if="ultimaAnamnese.dados.avds && ultimaAnamnese.dados.avds.length > 0">
+                                <div>
+                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Atividades de Vida Diária</span>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        <template x-for="item in ultimaAnamnese.dados.avds">
+                                            <span class="bg-orange-50 text-orange-700 border border-orange-100 text-[10px] font-bold px-2 py-1 rounded-lg leading-tight" x-text="item"></span>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </section>
+                </template>
+
+                <h3 class="text-lg font-bold text-slate-800 mb-2 mt-4 px-1">Módulos Clínicos</h3>
 
                 <div class="grid grid-cols-2 gap-3">
-                    
-                    <button @click="window.location.href = '/paciente/' + paciente.id + '/anamnese'" 
-                            class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 text-left active:scale-95 transition-transform flex flex-col items-center justify-center gap-3 h-32 hover:border-orange-500">
-                        <div class="w-12 h-12 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
-                        </div>
+                    <button @click="window.location.href = '/paciente/' + paciente.id + '/anamnese'" class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 text-left active:scale-95 transition-transform flex flex-col items-center justify-center gap-3 h-32 hover:border-orange-500">
+                        <div class="w-12 h-12 bg-orange-50 text-orange-500 rounded-full flex items-center justify-center"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg></div>
                         <span class="font-bold text-orange-700 text-xs text-center leading-tight uppercase">1. Triagem Inicial</span>
                     </button>
 
-                    <button @click="window.location.href = '/paciente/' + paciente.id + '/pedi'" 
-                            class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 text-left active:scale-95 transition-transform flex flex-col items-center justify-center gap-3 h-32 hover:border-blue-500">
-                        <div class="w-12 h-12 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
-                        </div>
+                    <button @click="window.location.href = '/paciente/' + paciente.id + '/pedi'" class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 text-left active:scale-95 transition-transform flex flex-col items-center justify-center gap-3 h-32 hover:border-blue-500">
+                        <div class="w-12 h-12 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg></div>
                         <span class="font-bold text-blue-700 text-xs text-center leading-tight uppercase">2. Avaliação PEDI</span>
                     </button>
 
-                    <button @click="window.location.href = '/paciente/' + paciente.id + '/observacao'" 
-                            class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 text-left active:scale-95 transition-transform flex flex-col items-center justify-center gap-3 h-32 hover:border-purple-500">
-                        <div class="w-12 h-12 bg-purple-50 text-purple-500 rounded-full flex items-center justify-center">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
-                        </div>
+                    <button @click="window.location.href = '/paciente/' + paciente.id + '/observacao'" class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 text-left active:scale-95 transition-transform flex flex-col items-center justify-center gap-3 h-32 hover:border-purple-500">
+                        <div class="w-12 h-12 bg-purple-50 text-purple-500 rounded-full flex items-center justify-center"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg></div>
                         <span class="font-bold text-purple-700 text-xs text-center leading-tight uppercase">3. Obs. Clínica</span>
                     </button>
 
-                    <button @click="window.location.href = '/paciente/' + paciente.id + '/evolucao'" 
-                            class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 text-left active:scale-95 transition-transform flex flex-col items-center justify-center gap-3 h-32 hover:border-emerald-500">
-                        <div class="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                        </div>
+                    <button @click="window.location.href = '/paciente/' + paciente.id + '/evolucao'" class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 text-left active:scale-95 transition-transform flex flex-col items-center justify-center gap-3 h-32 hover:border-emerald-500">
+                        <div class="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></div>
                         <span class="font-bold text-emerald-700 text-xs text-center leading-tight uppercase">4. Evolução Diária</span>
                     </button>
-
                 </div>
 
                 <section class="mt-8">
-                    <h3 class="text-lg font-black text-slate-800 mb-3 px-1">Evolução do Paciente (PEDI)</h3>
+                    <h3 class="text-lg font-black text-slate-800 mb-3 px-1">Evolução Quantitativa (PEDI)</h3>
                     <div class="space-y-3">
                         <template x-for="ava in avaliacoesPedi" :key="ava.id">
                             <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
@@ -123,7 +157,7 @@
                         </template>
                         <template x-if="avaliacoesPedi.length === 0">
                             <div class="p-8 border-2 border-dashed border-slate-200 rounded-3xl text-center italic text-slate-400">
-                                Nenhuma avaliação PEDI registrada.
+                                Nenhuma avaliação PEDI registada.
                             </div>
                         </template>
                     </div>
@@ -138,15 +172,24 @@
                 pacienteId: id,
                 paciente: null,
                 avaliacoesPedi: [],
+                ultimaAnamnese: null,
                 carregando: true,
 
                 carregarDados() {
+                    // Adicionamos a busca da Anamnese à nossa Promise.all
                     Promise.all([
                         fetch('/api/pacientes/' + this.pacienteId).then(res => res.json()),
-                        fetch('/api/pedi/' + this.pacienteId).then(res => res.json())
-                    ]).then(([dadosPaciente, dadosPedi]) => {
+                        fetch('/api/pedi/' + this.pacienteId).then(res => res.json()),
+                        fetch('/api/anamnese/' + this.pacienteId).then(res => res.json())
+                    ]).then(([dadosPaciente, dadosPedi, dadosAnamnese]) => {
                         this.paciente = dadosPaciente;
                         this.avaliacoesPedi = Array.isArray(dadosPedi) ? dadosPedi : [];
+                        
+                        // Se houver uma anamnese, guardamos a mais recente (índice 0)
+                        if (Array.isArray(dadosAnamnese) && dadosAnamnese.length > 0) {
+                            this.ultimaAnamnese = dadosAnamnese[0];
+                        }
+                        
                         this.carregando = false;
                     }).catch(err => {
                         console.error('Erro ao carregar prontuário:', err);
