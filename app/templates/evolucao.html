@@ -1,124 +1,209 @@
 <!DOCTYPE html>
-<html lang="pt-PT">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Evolução Diária | APP-TO</title>
+    <title>Evolução Diária (GAS) | APP-TO</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Nunito', 'sans-serif'] },
+                    colors: { 
+                        clinica: { 50: '#f0fdfa', 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 900: '#134e4a' } 
+                    } 
+                } 
+            }
+        }
+    </script>
+    <style>body { background-color: #f8fafc; overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; }</style>
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans pb-32" x-data="formEvolucao({{ paciente_id }})" x-init="carregarHistorico()">
+<body class="text-slate-800 antialiased" x-data="formEvolucao({{ paciente_id }})">
 
-    <header class="bg-emerald-600 text-white p-4 sticky top-0 z-50 shadow-lg">
-        <div class="flex items-center gap-3">
-            <a :href="'/paciente/' + pacienteId" class="p-1 hover:bg-white/20 rounded-full transition"> 
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> 
-            </a>
-            <h1 class="text-xl font-black uppercase tracking-wide">Evolução Diária</h1>
-        </div>
-    </header>
-
-    <main class="p-4 space-y-6">
+    <div class="max-w-4xl mx-auto min-h-screen bg-white md:shadow-2xl md:shadow-slate-200/50 md:border-x border-slate-100 relative pb-32">
         
-        <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-200 space-y-4">
-            <h2 class="font-bold text-emerald-800 border-b pb-2">Registo da Sessão</h2>
+        <header class="bg-emerald-600 text-white p-4 sticky top-0 z-50 shadow-md">
+            <div class="flex items-center gap-3">
+                <a :href="'/paciente/' + pacienteId" class="p-2 -ml-2 hover:bg-white/20 rounded-full transition-colors active:scale-95"> 
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg> 
+                </a>
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <h1 class="text-xl font-black uppercase tracking-widest">Evolução Diária</h1>
+                </div>
+            </div>
+        </header>
+
+        <main class="p-4 md:p-6 space-y-6">
             
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="text-xs font-bold text-slate-500 uppercase">Data da Sessão</label>
-                    <input type="date" x-model="form.data_hora" class="w-full mt-1 p-2 bg-slate-50 rounded-xl border-none focus:ring-emerald-500 text-sm">
-                </div>
-                <div>
-                    <label class="text-xs font-bold text-slate-500 uppercase">Status</label>
-                    <select x-model="form.status" class="w-full mt-1 p-2 bg-slate-50 rounded-xl border-none focus:ring-emerald-500 text-sm">
-                        <option>Realizado</option><option>Faltou</option><option>Cancelado</option>
-                    </select>
-                </div>
-            </div>
-
-            <div>
-                <label class="text-xs font-bold text-slate-500 uppercase">Evolução Clínica (Texto Livre)</label>
-                <textarea x-model="form.evolucao_texto" rows="3" placeholder="Resumo do que foi trabalhado hoje..." class="w-full mt-1 p-3 bg-slate-50 rounded-xl border-none focus:ring-emerald-500 text-sm"></textarea>
-            </div>
-
-            <div class="bg-emerald-50 p-3 rounded-2xl border border-emerald-100 space-y-2">
-                <label class="text-xs font-black text-emerald-800 uppercase">Micro-Metas Alcançadas Hoje</label>
-                <div class="flex flex-col gap-2">
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" x-model="form.micro_metas.autocuidado" class="w-4 h-4 accent-emerald-600">
-                        <span class="text-xs font-bold text-emerald-900">Avanço em Autocuidado (Ex: Alimentação/Vestuário)</span>
-                    </label>
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" x-model="form.micro_metas.mobilidade" class="w-4 h-4 accent-emerald-600">
-                        <span class="text-xs font-bold text-emerald-900">Avanço em Mobilidade e Coordenação</span>
-                    </label>
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" x-model="form.micro_metas.funcao_social" class="w-4 h-4 accent-emerald-600">
-                        <span class="text-xs font-bold text-emerald-900">Avanço em Regulação e Função Social</span>
-                    </label>
-                </div>
-            </div>
-
-            <button @click="salvar" class="w-full bg-emerald-600 text-white font-black py-3 rounded-xl shadow-md active:scale-95 transition-transform uppercase text-sm">
-                Guardar Evolução
-            </button>
-        </div>
-
-        <div>
-            <h3 class="font-black text-slate-700 mb-3 px-1 uppercase text-sm">Histórico de Sessões</h3>
-            <div class="space-y-3">
-                <template x-for="ev in historico" :key="ev.id">
-                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-xs font-black text-emerald-600" x-text="ev.data_hora"></span>
-                            <span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-1 rounded-lg font-bold uppercase" x-text="ev.status"></span>
+            <section class="bg-slate-50 p-5 rounded-3xl border border-slate-100 shadow-sm">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Data e Hora da Sessão</label>
+                        <input type="datetime-local" x-model="form.data_hora" class="w-full p-3 bg-white rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none text-sm font-bold text-slate-700 shadow-sm transition-shadow">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Tipo</label>
+                            <select x-model="form.tipo_sessao" class="w-full p-3 bg-white rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none text-sm font-bold text-slate-700 shadow-sm">
+                                <option>Intervenção</option>
+                                <option>Avaliação</option>
+                                <option>Reunião Familiar</option>
+                            </select>
                         </div>
-                        <p class="text-sm text-slate-600 leading-relaxed" x-text="ev.evolucao_texto || 'Sem descrição textual.'"></p>
-                        
-                        <div class="flex gap-1 mt-3 flex-wrap">
-                            <template x-if="ev.micro_metas.autocuidado"><span class="bg-blue-100 text-blue-700 text-[9px] font-bold px-2 py-0.5 rounded-full">Autocuidado</span></template>
-                            <template x-if="ev.micro_metas.mobilidade"><span class="bg-orange-100 text-orange-700 text-[9px] font-bold px-2 py-0.5 rounded-full">Mobilidade</span></template>
-                            <template x-if="ev.micro_metas.funcao_social"><span class="bg-purple-100 text-purple-700 text-[9px] font-bold px-2 py-0.5 rounded-full">Função Social</span></template>
+                        <div>
+                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Status</label>
+                            <select x-model="form.status" class="w-full p-3 bg-white rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none text-sm font-bold text-slate-700 shadow-sm">
+                                <option>Realizado</option>
+                                <option>Faltou</option>
+                                <option>Cancelado</option>
+                            </select>
                         </div>
                     </div>
-                </template>
-                <template x-if="historico.length === 0">
-                    <div class="text-center p-6 border-2 border-dashed rounded-2xl text-slate-400 text-xs font-bold">Nenhuma sessão registada ainda.</div>
-                </template>
-            </div>
-        </div>
+                </div>
+            </section>
 
-    </main>
+            <section x-show="form.status === 'Realizado'" class="bg-white p-5 rounded-3xl border border-emerald-100 shadow-sm relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full -mr-10 -mt-10 opacity-50 pointer-events-none"></div>
+                
+                <div class="relative z-10 mb-5 pb-3 border-b border-slate-50">
+                    <h2 class="text-sm font-black text-emerald-800 uppercase flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        Índice de Resposta Diária (GAS)
+                    </h2>
+                    <p class="text-xs font-bold text-slate-400 mt-1 leading-snug">Avalie o desempenho do paciente nas micro-metas de hoje comparado ao esperado.</p>
+                </div>
+
+                <div class="space-y-6 relative z-10">
+                    <template x-for="dominio in [{id: 'autocuidado', nome: 'Autocuidado'}, {id: 'mobilidade', nome: 'Mobilidade'}, {id: 'funcao_social', nome: 'Função Social'}]">
+                        <div>
+                            <div class="flex justify-between items-end mb-2">
+                                <label class="text-[11px] font-black text-slate-600 uppercase tracking-widest" x-text="dominio.nome"></label>
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-md" 
+                                      :class="getLegendaCor(form.micro_metas[dominio.id])" 
+                                      x-text="getLegendaTexto(form.micro_metas[dominio.id])"></span>
+                            </div>
+                            
+                            <div class="flex gap-1.5">
+                                <template x-for="valor in [-2, -1, 0, 1, 2]">
+                                    <button @click="setGas(dominio.id, valor)" 
+                                            type="button"
+                                            class="flex-1 py-3 rounded-xl border font-black text-sm transition-all duration-200 active:scale-95 flex flex-col items-center justify-center gap-0.5"
+                                            :class="getGasColor(form.micro_metas[dominio.id], valor)">
+                                        <span x-text="valor > 0 ? '+' + valor : valor"></span>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </section>
+
+            <section class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Evolução Clínica (Descrição Livre)</label>
+                <textarea x-model="form.evolucao_texto" rows="5" placeholder="Descreva os detalhes da sessão, comportamento, atividades realizadas e resposta terapêutica..." class="w-full p-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 outline-none text-sm font-semibold text-slate-700 shadow-inner resize-none"></textarea>
+            </section>
+
+        </main>
+
+        <div class="fixed bottom-0 max-w-4xl w-full p-4 bg-gradient-to-t from-white via-white to-transparent z-40">
+            <button @click="salvar()" :disabled="salvando" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-2xl shadow-xl hover:shadow-2xl active:scale-[0.98] transition-all disabled:opacity-70 flex items-center justify-center gap-2 uppercase tracking-widest">
+                <svg x-show="salvando" class="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                <span x-text="salvando ? 'A Gravar Dados...' : 'Assinar Prontuário'"></span>
+            </button>
+        </div>
+    </div>
 
     <script>
         function formEvolucao(id) {
+            // Formata a data atual para YYYY-MM-DDTHH:MM local
+            const agora = new Date();
+            agora.setMinutes(agora.getMinutes() - agora.getTimezoneOffset());
+            const dataIso = agora.toISOString().slice(0, 16);
+
             return {
                 pacienteId: id,
-                historico: [],
+                salvando: false,
                 form: {
-                    data_hora: new Date().toISOString().split('T')[0],
-                    tipo_sessao: 'Intervenção de Rotina',
+                    paciente_id: id,
+                    data_hora: dataIso,
+                    tipo_sessao: 'Intervenção',
                     status: 'Realizado',
                     evolucao_texto: '',
-                    micro_metas: { autocuidado: false, mobilidade: false, funcao_social: false }
+                    micro_metas: {
+                        autocuidado: null,
+                        mobilidade: null,
+                        funcao_social: null
+                    }
                 },
-                carregarHistorico() {
-                    fetch('/api/consultas/paciente/' + this.pacienteId)
-                        .then(res => res.json())
-                        .then(data => this.historico = data);
+
+                // Marca o valor da escala GAS
+                setGas(dominio, valor) {
+                    // Se clicar no mesmo valor, ele desmarca (null)
+                    if(this.form.micro_metas[dominio] === valor) {
+                        this.form.micro_metas[dominio] = null;
+                    } else {
+                        this.form.micro_metas[dominio] = valor;
+                    }
                 },
+
+                // Cores dinâmicas para os botões da Escala
+                getGasColor(selecionado, botaoValor) {
+                    if (selecionado !== botaoValor) return 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50';
+                    
+                    if (botaoValor === -2) return 'bg-rose-500 text-white border-rose-600 shadow-inner scale-105';
+                    if (botaoValor === -1) return 'bg-orange-400 text-white border-orange-500 shadow-inner scale-105';
+                    if (botaoValor === 0) return 'bg-slate-500 text-white border-slate-600 shadow-inner scale-105';
+                    if (botaoValor === 1) return 'bg-clinica-400 text-white border-clinica-500 shadow-inner scale-105';
+                    if (botaoValor === 2) return 'bg-clinica-600 text-white border-clinica-700 shadow-inner scale-105';
+                },
+
+                // Traduz o número para a explicação clínica para os pais
+                getLegendaTexto(valor) {
+                    if (valor === -2) return 'Pior que o esperado (Recusa)';
+                    if (valor === -1) return 'Abaixo (Muita ajuda)';
+                    if (valor === 0) return 'O esperado hoje';
+                    if (valor === 1) return 'Acima (Pouca ajuda)';
+                    if (valor === 2) return 'Muito acima (Autónomo)';
+                    return 'Não avaliado hoje';
+                },
+
+                getLegendaCor(valor) {
+                    if (valor === -2) return 'bg-rose-100 text-rose-700';
+                    if (valor === -1) return 'bg-orange-100 text-orange-700';
+                    if (valor === 0) return 'bg-slate-200 text-slate-700';
+                    if (valor === 1) return 'bg-clinica-100 text-clinica-700';
+                    if (valor === 2) return 'bg-clinica-100 text-clinica-800';
+                    return 'bg-slate-100 text-slate-400';
+                },
+
                 salvar() {
-                    const payload = { ...this.form, paciente_id: this.pacienteId };
+                    this.salvando = true;
+                    const payload = { ...this.form };
+                    payload.data_hora = payload.data_hora.replace('T', ' ');
+
                     fetch('/api/consultas/', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
-                    }).then(res => res.json()).then(data => {
-                        if(data.mensagem) {
-                            this.form.evolucao_texto = '';
-                            this.form.micro_metas = { autocuidado: false, mobilidade: false, funcao_social: false };
-                            this.carregarHistorico();
-                        } else { alert('Erro: ' + data.erro); }
+                    })
+                    .then(res => {
+                        if (!res.ok) throw new Error('Falha ao salvar a Evolução');
+                        return res.json();
+                    })
+                    .then(data => {
+                        this.salvando = false;
+                        window.location.href = '/paciente/' + this.pacienteId;
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        alert('Erro ao guardar evolução. Verifique a ligação à internet.');
+                        this.salvando = false;
                     });
                 }
             }
