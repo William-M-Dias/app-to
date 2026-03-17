@@ -104,9 +104,50 @@
                 </div>
             </section>
 
+            <section x-show="form.status === 'Realizado'" class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
+                <div class="flex justify-between items-center mb-4">
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Atividades Aplicadas (Tags)</label>
+                    <span class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg" x-text="atividadesSelecionadas.length + ' selecionadas'"></span>
+                </div>
+
+                <div class="flex flex-wrap gap-2 mb-4" x-show="atividadesSelecionadas.length > 0">
+                    <template x-for="ativ in atividadesSelecionadas" :key="ativ">
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-clinica-100 text-clinica-700 text-xs font-bold rounded-xl border border-clinica-200">
+                            <span x-text="ativ"></span>
+                            <button type="button" @click="toggleAtividade(ativ)" class="text-clinica-500 hover:text-clinica-800 focus:outline-none">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
+                        </span>
+                    </template>
+                </div>
+
+                <div class="space-y-2">
+                    <template x-for="(categoria, index) in bibliotecaAtividades" :key="index">
+                        <div class="border border-slate-100 rounded-2xl overflow-hidden">
+                            <button type="button" @click="categoriaAberta = (categoriaAberta === index ? null : index)" 
+                                    class="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left focus:outline-none">
+                                <span class="text-xs font-black text-slate-700 uppercase tracking-wide" x-text="categoria.nome"></span>
+                                <svg class="w-4 h-4 text-slate-400 transition-transform" :class="{'rotate-180': categoriaAberta === index}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </button>
+                            <div x-show="categoriaAberta === index" x-collapse class="bg-white p-3 border-t border-slate-100">
+                                <div class="flex flex-wrap gap-1.5">
+                                    <template x-for="item in categoria.itens" :key="item">
+                                        <button type="button" @click="toggleAtividade(item)" 
+                                                class="px-3 py-1.5 text-[11px] font-bold rounded-lg transition-colors border text-left"
+                                                :class="atividadesSelecionadas.includes(item) ? 'bg-clinica-600 text-white border-clinica-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'">
+                                            <span x-text="item"></span>
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </section>
+
             <section class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
-                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Evolução Clínica (Descrição Livre)</label>
-                <textarea x-model="form.evolucao_texto" rows="5" placeholder="Descreva os detalhes da sessão, comportamento, atividades realizadas e resposta terapêutica..." class="w-full p-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 outline-none text-sm font-semibold text-slate-700 shadow-inner resize-none"></textarea>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Evolução Clínica (Descrição Adicional)</label>
+                <textarea x-model="form.evolucao_texto" rows="4" placeholder="Adicione detalhes extras da sessão, comportamento ou resposta terapêutica que não foram cobertos pelas tags acima..." class="w-full p-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 outline-none text-sm font-semibold text-slate-700 shadow-inner resize-none"></textarea>
             </section>
 
         </main>
@@ -121,7 +162,6 @@
 
     <script>
         function formEvolucao(id) {
-            // Formata a data atual para YYYY-MM-DDTHH:MM local
             const agora = new Date();
             agora.setMinutes(agora.getMinutes() - agora.getTimezoneOffset());
             const dataIso = agora.toISOString().slice(0, 16);
@@ -129,6 +169,8 @@
             return {
                 pacienteId: id,
                 salvando: false,
+                categoriaAberta: null, 
+                atividadesSelecionadas: [], // Guarda as tags que a Edna clicou
                 form: {
                     paciente_id: id,
                     data_hora: dataIso,
@@ -138,13 +180,41 @@
                     micro_metas: {
                         autocuidado: null,
                         mobilidade: null,
-                        funcao_social: null
+                        funcao_social: null,
+                        atividades: [] // Vamos embutir as tags aqui no JSONB!
                     }
                 },
 
-                // Marca o valor da escala GAS
+                // A Lista Oficial da Edna categorizada
+                bibliotecaAtividades: [
+                    {
+                        nome: 'Motricidade Fina e Destreza',
+                        itens: ['Coordenação motora fina', 'Destreza manual', 'Dissociação dedos e mãos', 'Força mãos e dedos', 'Graduação de Força', 'Atividade com prendedor', 'Atividade com massinha', 'Coordenação olho mãos', 'Coordenação / integração bilateral', 'Atividade com tesoura (reta)', 'Atividade com tesoura (curvas)']
+                    },
+                    {
+                        nome: 'Cognitivo e Percepção Visual',
+                        itens: ['Encaixe', 'Pareamento de figuras e cores', 'Quebra cabeça', 'Atenção sustentada', 'Percepção visual', 'Resolução de problemas', 'Atenção geral', 'Contextualização']
+                    },
+                    {
+                        nome: 'Integração Sensorial e Global',
+                        itens: ['Circuito Motor', 'Planejamento motor', 'Estímulo proprioceptivo, vestibular e tátil', 'Na plataforma (baixar nível de alerta)', 'Proprioceptivo / Consciência Corporal', 'Noção espacial', 'Equilíbrio Postural', 'Atividade de lateralidade', 'Andar nas almofadas e jogar bola', 'Prono na plataforma (jogando argola)']
+                    },
+                    {
+                        nome: 'Emocional e AVDs',
+                        itens: ['Tolerância a frustração', 'Habilidades emocionais', 'AVDs (Vestir e despir)', 'AVDs (Colocar e retirar meias)']
+                    }
+                ],
+
+                toggleAtividade(atividade) {
+                    const index = this.atividadesSelecionadas.indexOf(atividade);
+                    if (index > -1) {
+                        this.atividadesSelecionadas.splice(index, 1); // Remove se já existe
+                    } else {
+                        this.atividadesSelecionadas.push(atividade); // Adiciona
+                    }
+                },
+
                 setGas(dominio, valor) {
-                    // Se clicar no mesmo valor, ele desmarca (null)
                     if(this.form.micro_metas[dominio] === valor) {
                         this.form.micro_metas[dominio] = null;
                     } else {
@@ -152,10 +222,8 @@
                     }
                 },
 
-                // Cores dinâmicas para os botões da Escala
                 getGasColor(selecionado, botaoValor) {
                     if (selecionado !== botaoValor) return 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50';
-                    
                     if (botaoValor === -2) return 'bg-rose-500 text-white border-rose-600 shadow-inner scale-105';
                     if (botaoValor === -1) return 'bg-orange-400 text-white border-orange-500 shadow-inner scale-105';
                     if (botaoValor === 0) return 'bg-slate-500 text-white border-slate-600 shadow-inner scale-105';
@@ -163,7 +231,6 @@
                     if (botaoValor === 2) return 'bg-clinica-600 text-white border-clinica-700 shadow-inner scale-105';
                 },
 
-                // Traduz o número para a explicação clínica para os pais
                 getLegendaTexto(valor) {
                     if (valor === -2) return 'Pior que o esperado (Recusa)';
                     if (valor === -1) return 'Abaixo (Muita ajuda)';
@@ -186,6 +253,9 @@
                     this.salvando = true;
                     const payload = { ...this.form };
                     payload.data_hora = payload.data_hora.replace('T', ' ');
+                    
+                    // Injeta as tags selecionadas secretamente no Buraco Negro JSONB antes de enviar
+                    payload.micro_metas.atividades = this.atividadesSelecionadas;
 
                     fetch('/api/consultas/', {
                         method: 'POST',
