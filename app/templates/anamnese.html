@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Triagem Inicial | APP-TO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans pb-32" x-data="formTriagem({{ paciente_id }})">
+
+    <header class="bg-orange-500 text-white p-4 sticky top-0 z-50 shadow-lg">
+        <div class="flex items-center gap-3">
+            <a :href="'/paciente/' + pacienteId" class="p-1 hover:bg-white/20 rounded-full"> 
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> 
+            </a>
+            <h1 class="text-xl font-black uppercase tracking-wide">Triagem Inicial</h1>
+        </div>
+    </header>
+
+    <main class="p-4 space-y-4">
+        
+        <div class="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+            <button @click="abrirSecao('avds')" class="w-full bg-orange-50 p-4 font-bold text-orange-800 flex justify-between">
+                <span>1. Atividades de Vida Diária (AVDs)</span><span x-text="secao === 'avds' ? '▲' : '▼'"></span>
+            </button>
+            <div x-show="secao === 'avds'" class="p-4 space-y-3">
+                <template x-for="item in ['Seletividade alimentar (recusa texturas/cores)', 'Dificuldade extrema em iniciar/manter o sono', 'Resistência a cortar unhas/cabelo ou lavar a cabeça', 'Não se veste sozinho / Irrita-se com etiquetas', 'Desfralde tardio ou escapes frequentes']">
+                    <label class="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-orange-50">
+                        <input type="checkbox" :value="item" x-model="form.dados_triagem.avds" class="w-5 h-5 mt-0.5 accent-orange-500 rounded">
+                        <span class="text-xs font-bold text-slate-600" x-text="item"></span>
+                    </label>
+                </template>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+            <button @click="abrirSecao('sensorial')" class="w-full bg-emerald-50 p-4 font-bold text-emerald-800 flex justify-between">
+                <span>2. Perfil Sensorial (TEA / TPS)</span><span x-text="secao === 'sensorial' ? '▲' : '▼'"></span>
+            </button>
+            <div x-show="secao === 'sensorial'" class="p-4 space-y-3">
+                <template x-for="item in ['Tapa os ouvidos para sons altos ou do quotidiano', 'Agitação motora constante (parece movido a motor)', 'Busca impacto (esbarra nas coisas, atira-se ao chão)', 'Anda na ponta dos pés frequentemente', 'Cheira ou lambe objetos não comestíveis', 'Baixa reação à dor (não chora quando se magoa muito)']">
+                    <label class="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-emerald-50">
+                        <input type="checkbox" :value="item" x-model="form.dados_triagem.sensorial" class="w-5 h-5 mt-0.5 accent-emerald-500 rounded">
+                        <span class="text-xs font-bold text-slate-600" x-text="item"></span>
+                    </label>
+                </template>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+            <button @click="abrirSecao('comportamento')" class="w-full bg-red-50 p-4 font-bold text-red-800 flex justify-between">
+                <span>3. Comportamento e Regulação</span><span x-text="secao === 'comportamento' ? '▲' : '▼'"></span>
+            </button>
+            <div x-show="secao === 'comportamento'" class="p-4 space-y-3">
+                <template x-for="item in ['TOD: Desafia regras e adultos ativamente', 'TDAH: Age sem pensar no perigo / Não espera a vez', 'TEA: Crises severas (Meltdowns) em mudanças de rotina', 'Tourette: Tiques motores ou vocais repetitivos', 'Baixíssima tolerância à frustração ao errar']">
+                    <label class="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-red-50">
+                        <input type="checkbox" :value="item" x-model="form.dados_triagem.comportamento" class="w-5 h-5 mt-0.5 accent-red-500 rounded">
+                        <span class="text-xs font-bold text-slate-600" x-text="item"></span>
+                    </label>
+                </template>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+            <button @click="abrirSecao('social_motor')" class="w-full bg-blue-50 p-4 font-bold text-blue-800 flex justify-between">
+                <span>4. Social, Brincar e Práxis Motora</span><span x-text="secao === 'social_motor' ? '▲' : '▼'"></span>
+            </button>
+            <div x-show="secao === 'social_motor'" class="p-4 space-y-3">
+                <template x-for="item in ['Evita contacto visual prolongado', 'Brincar atípico (alinha peças, foca em rodas)', 'Linguagem literal (não compreende sarcasmo/ironia)', 'Dispraxia: Cai muito ou parece desajeitado', 'Foge de atividades com lápis, tesoura ou montagens']">
+                    <label class="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:bg-blue-50">
+                        <input type="checkbox" :value="item" x-model="form.dados_triagem.social_motor" class="w-5 h-5 mt-0.5 accent-blue-500 rounded">
+                        <span class="text-xs font-bold text-slate-600" x-text="item"></span>
+                    </label>
+                </template>
+            </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-200">
+            <label class="block text-sm font-black text-slate-700 mb-2 uppercase">Queixa Principal (Resumo da Família)</label>
+            <textarea x-model="form.queixa_principal" rows="4" placeholder="Ex: A mãe relata que a criança não consegue estar na sala de aula devido ao barulho..." class="w-full p-3 bg-slate-50 rounded-xl border-slate-200 text-sm focus:ring-orange-500"></textarea>
+        </div>
+
+    </main>
+
+    <div class="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t z-50">
+        <button @click="salvarAnamnese" class="w-full bg-orange-500 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-transform uppercase tracking-widest text-sm flex justify-center items-center gap-2">
+            Gravar Mapa Clínico
+        </button>
+    </div>
+
+    <script>
+        function formTriagem(id) {
+            return {
+                pacienteId: id,
+                secao: 'avds', // Secção aberta por defeito
+                form: {
+                    dados_triagem: { avds: [], sensorial: [], comportamento: [], social_motor: [] },
+                    queixa_principal: ''
+                },
+                abrirSecao(nome) {
+                    this.secao = this.secao === nome ? '' : nome;
+                },
+                salvarAnamnese() {
+                    fetch('/api/anamnese/' + this.pacienteId, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(this.form)
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if(data.mensagem) {
+                            alert('Sucesso! O Perfil da Criança foi mapeado e guardado.');
+                            window.location.href = '/paciente/' + this.pacienteId;
+                        } else {
+                            alert('Erro ao guardar: ' + data.erro);
+                        }
+                    });
+                }
+            }
+        }
+    </script>
+</body>
+</html>
