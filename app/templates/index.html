@@ -9,7 +9,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <script>
         tailwind.config = {
-            theme: { extend: { fontFamily: { sans: ['Nunito', 'sans-serif'] }, colors: { clinica: { 50: '#f0fdfa', 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 900: '#134e4a' } } } }
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Nunito', 'sans-serif'] },
+                    colors: { 
+                        clinica: { 50: '#f0fdfa', 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 900: '#134e4a' } 
+                    } 
+                } 
+            }
         }
     </script>
     <style>
@@ -86,14 +93,13 @@
                 <div x-show="modalCadastroAberto" x-transition.opacity class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" @click="fecharModal()"></div>
                 <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
                 <div x-show="modalCadastroAberto" x-transition.scale class="inline-block align-bottom bg-white rounded-t-3xl sm:rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle w-full sm:max-w-lg">
-                    
-                    <div class="bg-white px-6 pt-6 pb-6">
+                    <div class="bg-white px-6 pt-6 pb-6 text-center">
                         <div class="flex justify-between items-center mb-6">
                             <h3 class="text-xl font-black text-slate-800">Novo Paciente</h3>
                             <button @click="fecharModal()" class="text-slate-400 hover:text-slate-600 p-2"><svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
                         </div>
                         
-                        <div class="space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar px-1">
+                        <div class="space-y-4 max-h-[65vh] overflow-y-auto custom-scrollbar px-1 text-left">
                             <div>
                                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Nome da Criança</label>
                                 <input type="text" x-model="novoPaciente.nome" class="w-full p-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-clinica-500 outline-none text-sm font-bold" placeholder="Nome completo">
@@ -125,7 +131,7 @@
                                     </select>
                                 </div>
                             </div>
-                            
+
                             <div class="relative" x-data="{ open: false }">
                                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Diagnóstico (Laudo)</label>
                                 <button type="button" @click="open = !open" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-left flex justify-between items-center focus:ring-2 focus:ring-clinica-500 outline-none">
@@ -141,9 +147,15 @@
                                     </template>
                                 </div>
                             </div>
+
+                            <div>
+                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">Motivo / Queixa Principal</label>
+                                <textarea x-model="novoPaciente.queixa_principal" rows="3" placeholder="Relato inicial da família sobre as dificuldades da criança..." 
+                                          class="w-full p-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-clinica-500 outline-none text-sm font-bold shadow-inner resize-none"></textarea>
+                            </div>
                         </div>
                     </div>
-                    
+
                     <div class="bg-slate-50 px-6 py-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 rounded-b-3xl">
                         <button type="button" @click="fecharModal()" class="w-full sm:w-auto px-6 py-3 font-bold text-slate-600">Cancelar</button>
                         <button type="button" @click="salvarPaciente()" :disabled="salvando" class="w-full sm:w-auto px-6 py-3 rounded-xl shadow-md text-white bg-clinica-600 font-black flex items-center justify-center">
