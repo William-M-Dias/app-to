@@ -38,3 +38,40 @@ def criar_paciente():
     except Exception as e:
         db.session.rollback()
         return jsonify({"erro": str(e)}), 500
+
+# ==========================================
+# NOVAS ROTAS FASE 2: EDITAR E EXCLUIR
+# ==========================================
+
+@paciente_bp.route('/<int:id>', methods=['PUT'])
+def atualizar_paciente(id):
+    paciente = Paciente.query.get_or_404(id)
+    dados = request.get_json()
+    
+    try:
+        if 'nome' in dados: paciente.nome = dados['nome']
+        if 'data_nascimento' in dados:
+            paciente.data_nascimento = datetime.strptime(dados['data_nascimento'], '%Y-%m-%d').date()
+        if 'escolaridade' in dados: paciente.escolaridade = dados['escolaridade']
+        if 'diagnostico' in dados: paciente.diagnostico = dados['diagnostico']
+        if 'queixa_principal' in dados: paciente.queixa_principal = dados['queixa_principal']
+        if 'nome_responsavel' in dados: paciente.nome_responsavel = dados['nome_responsavel']
+        if 'telefone_responsavel' in dados: paciente.telefone_responsavel = dados['telefone_responsavel']
+        if 'email_responsavel' in dados: paciente.email_responsavel = dados['email_responsavel']
+        
+        db.session.commit()
+        return jsonify({"mensagem": "Paciente atualizado com sucesso!"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"erro": str(e)}), 500
+
+@paciente_bp.route('/<int:id>', methods=['DELETE'])
+def deletar_paciente(id):
+    paciente = Paciente.query.get_or_404(id)
+    try:
+        db.session.delete(paciente)
+        db.session.commit()
+        return jsonify({"mensagem": "Paciente excluído com sucesso!"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"erro": str(e)}), 500

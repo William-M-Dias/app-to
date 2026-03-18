@@ -50,3 +50,18 @@ def registrar_evolucao():
     except Exception as e:
         db.session.rollback()
         return jsonify({"erro": str(e)}), 500
+
+# ==========================================
+# NOVA ROTA FASE 2: EXCLUIR EVOLUÇÃO
+# ==========================================
+
+@consulta_bp.route('/<int:id>', methods=['DELETE'])
+def deletar_consulta(id):
+    consulta = Consulta.query.get_or_404(id)
+    try:
+        db.session.delete(consulta)
+        db.session.commit()
+        return jsonify({"mensagem": "Evolução excluída com sucesso!"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"erro": str(e)}), 500
