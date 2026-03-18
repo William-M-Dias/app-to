@@ -9,22 +9,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <script>
         tailwind.config = {
-            theme: { 
-                extend: { 
-                    fontFamily: { sans: ['Nunito', 'sans-serif'] },
-                    colors: { 
-                        clinica: { 50: '#f0fdfa', 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 900: '#134e4a' },
-                        // Cores pasteis para os modulos
-                        pastel: { blue: '#eff6ff', orange: '#fff7ed', purple: '#faf5ff', green: '#ecfdf5' }
-                    } 
-                } 
-            }
+            theme: { extend: { fontFamily: { sans: ['Nunito', 'sans-serif'] }, colors: { clinica: { 50: '#f0fdfa', 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 900: '#134e4a' } } } }
         }
     </script>
     <style>
         body { background-color: #f8fafc; overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     </style>
 </head>
@@ -34,21 +25,17 @@
 
         <header class="bg-clinica-600 text-white p-6 md:rounded-b-3xl shadow-md relative overflow-hidden">
             <div class="absolute top-0 right-0 w-48 h-48 bg-white opacity-5 rounded-full -mr-16 -mt-16 pointer-events-none"></div>
-            <div class="absolute bottom-0 right-20 w-24 h-24 bg-white opacity-10 rounded-full -mb-10 pointer-events-none"></div>
-
             <div class="flex justify-between items-center relative z-10">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-                        <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17c0 1.1.9 2 2 2h4c1.1 0 2-.9 2-2v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7zm0 10.5c-1.93 0-3.5-1.57-3.5-3.5S10.07 5.5 12 5.5s3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/>
-                        </svg>
+                        <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17c0 1.1.9 2 2 2h4c1.1 0 2-.9 2-2v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7z"/></svg>
                     </div>
                     <div>
                         <h1 class="text-2xl font-black tracking-tight leading-none">APP-TO</h1>
-                        <p class="text-clinica-100 text-xs font-bold uppercase tracking-widest mt-1">Terapia Pediátrica</p>
+                        <p class="text-clinica-100 text-xs font-bold uppercase tracking-widest mt-1 leading-none">Terapia Pediátrica</p>
                     </div>
                 </div>
-                <div class="w-10 h-10 rounded-full bg-clinica-900 border-2 border-clinica-500 overflow-hidden shadow-inner flex items-center justify-center">
+                <div class="w-10 h-10 rounded-full bg-clinica-900 border-2 border-clinica-500 flex items-center justify-center shadow-inner">
                     <span class="font-black text-sm text-clinica-100">ED</span>
                 </div>
             </div>
@@ -58,139 +45,114 @@
                     <p class="text-clinica-100 text-xs font-bold uppercase mb-1">Pacientes Ativos</p>
                     <p class="text-3xl font-black" x-text="pacientes.length || '0'"></p>
                 </div>
-                <button @click="abrirModalCadastro()" class="bg-white text-clinica-600 rounded-2xl p-4 flex flex-col items-center justify-center gap-1 hover:bg-clinica-50 transition-colors shadow-sm active:scale-95">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                <button @click="abrirModalCadastro()" class="bg-white text-clinica-600 rounded-2xl p-4 flex flex-col items-center justify-center gap-1 hover:bg-clinica-50 shadow-sm active:scale-95 transition-all">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg>
                     <span class="text-xs font-black uppercase mt-1">Novo Paciente</span>
                 </button>
             </div>
         </header>
 
         <main class="p-6">
-            
             <div class="relative mb-6">
                 <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                 </div>
                 <input type="text" x-model="pesquisa" placeholder="Buscar paciente por nome ou diagnóstico..." 
-                       class="w-full pl-11 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-clinica-500 focus:border-clinica-500 transition-shadow outline-none text-sm font-semibold text-slate-700 shadow-sm placeholder:font-normal">
+                       class="w-full pl-11 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-clinica-500 transition-shadow outline-none text-sm font-semibold text-slate-700 shadow-sm">
             </div>
-
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-lg font-black text-slate-800">Meus Pacientes</h2>
-                <span class="text-xs font-bold text-slate-400 uppercase" x-text="pacientesFiltrados().length + ' registros'"></span>
-            </div>
-
-            <template x-if="carregando">
-                <div class="flex flex-col items-center justify-center py-12">
-                    <div class="animate-spin rounded-full h-10 w-10 border-b-4 border-clinica-600 mb-3"></div>
-                    <p class="text-sm font-bold text-slate-400 animate-pulse">Carregando clínica...</p>
-                </div>
-            </template>
 
             <div class="space-y-3">
                 <template x-for="paciente in pacientesFiltrados()" :key="paciente.id">
                     <div @click="window.location.href = '/paciente/' + paciente.id" 
                          class="group bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 cursor-pointer hover:border-clinica-300 hover:shadow-md transition-all active:scale-[0.98]">
-                        
                         <div class="w-14 h-14 rounded-full bg-clinica-50 text-clinica-600 font-black text-xl flex items-center justify-center uppercase shrink-0 group-hover:bg-clinica-600 group-hover:text-white transition-colors">
                             <span x-text="paciente.nome.charAt(0)"></span>
                         </div>
-                        
                         <div class="flex-1 min-w-0">
-                            <h3 class="font-black text-slate-800 text-base truncate leading-tight mb-1" x-text="paciente.nome"></h3>
+                            <h3 class="font-black text-slate-800 text-base truncate mb-1" x-text="paciente.nome"></h3>
                             <span class="inline-block bg-slate-100 text-slate-500 text-[10px] px-2.5 py-1 rounded-md font-bold truncate max-w-full uppercase tracking-wider" 
                                   x-text="paciente.diagnostico || 'Triagem Inicial'"></span>
                         </div>
-                        
                         <div class="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-clinica-50 group-hover:text-clinica-600 transition-colors shrink-0">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                         </div>
                     </div>
                 </template>
-
-                <template x-if="!carregando && pacientesFiltrados().length === 0">
-                    <div class="text-center py-12 bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl">
-                        <svg class="mx-auto h-12 w-12 text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                        <h3 class="text-sm font-black text-slate-500 mb-1">Nenhum paciente encontrado</h3>
-                        <p class="text-xs font-bold text-slate-400">Verifique a busca ou cadastre um novo.</p>
-                    </div>
-                </template>
             </div>
         </main>
 
-        <div x-show="modalCadastroAberto" style="display: none;" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div x-show="modalCadastroAberto" style="display: none;" class="fixed inset-0 z-50 overflow-y-auto">
             <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-                <div x-show="modalCadastroAberto" x-transition.opacity class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" @click="fecharModal()"></div>
-                <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+                <div x-show="modalCadastroAberto" x-transition.opacity class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" @click="fecharModal()"></div>
+                <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
                 <div x-show="modalCadastroAberto" x-transition.scale class="inline-block align-bottom bg-white rounded-t-3xl sm:rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle w-full sm:max-w-lg">
                     
                     <div class="bg-white px-6 pt-6 pb-6">
                         <div class="flex justify-between items-center mb-6">
-                            <h3 class="text-xl font-black text-slate-800" id="modal-title">Novo Paciente</h3>
-                            <button @click="fecharModal()" class="text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-slate-50 transition"><svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                            <h3 class="text-xl font-black text-slate-800">Novo Paciente</h3>
+                            <button @click="fecharModal()" class="text-slate-400 hover:text-slate-600 p-2"><svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
                         </div>
                         
-                        <div class="space-y-4">
+                        <div class="space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar px-1">
                             <div>
-                                <label class="block text-xs font-black text-slate-500 mb-1 uppercase">Nome da Criança</label>
+                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Nome da Criança</label>
                                 <input type="text" x-model="novoPaciente.nome" class="w-full p-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-clinica-500 outline-none text-sm font-bold" placeholder="Nome completo">
                             </div>
+
+                            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                                <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-1">Responsáveis</p>
+                                <input type="text" x-model="novoPaciente.nome_responsavel" placeholder="Nome da Mãe/Pai" class="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm font-bold outline-none">
+                                <div class="grid grid-cols-2 gap-3">
+                                    <input type="tel" x-model="novoPaciente.telefone_responsavel" placeholder="WhatsApp" class="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm font-bold outline-none">
+                                    <input type="email" x-model="novoPaciente.email_responsavel" placeholder="E-mail" class="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm font-bold outline-none">
+                                </div>
+                            </div>
+
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-xs font-black text-slate-500 mb-1 uppercase">Nascimento</label>
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Nascimento</label>
                                     <input type="date" x-model="novoPaciente.data_nascimento" class="w-full p-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-clinica-500 outline-none text-sm font-bold">
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-black text-slate-500 mb-1 uppercase">Escolaridade</label>
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Escolaridade</label>
                                     <select x-model="novoPaciente.escolaridade" class="w-full p-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-clinica-500 outline-none text-sm font-bold">
                                         <option value="">Selecione...</option>
                                         <option value="Creche">Creche</option>
                                         <option value="Educação Infantil">Educação Infantil</option>
-                                        <option value="Ensino Fundamental I">Ensino Fundamental I</option>
-                                        <option value="Ensino Fundamental II">Ensino Fundamental II</option>
+                                        <option value="Fundamental I">Fundamental I</option>
+                                        <option value="Fundamental II">Fundamental II</option>
                                         <option value="Não frequenta">Não frequenta</option>
                                     </select>
                                 </div>
                             </div>
                             
                             <div class="relative" x-data="{ open: false }">
-                                <label class="block text-xs font-black text-slate-500 mb-1 uppercase">Hipótese Diagnóstica (Laudo)</label>
-                                <button type="button" @click="open = !open" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-left flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-clinica-500 transition-shadow">
-                                    <span class="truncate text-slate-700 font-bold text-sm" x-text="diagnosticosSelecionados.length === 0 ? 'Selecione as opções...' : diagnosticosSelecionados.join(', ')"></span>
-                                    <svg class="h-5 w-5 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" :class="{'rotate-180': open, 'transition-transform': true}"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Diagnóstico (Laudo)</label>
+                                <button type="button" @click="open = !open" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-left flex justify-between items-center focus:ring-2 focus:ring-clinica-500 outline-none">
+                                    <span class="truncate text-slate-700 font-bold text-sm" x-text="diagnosticosSelecionados.length === 0 ? 'Selecione...' : diagnosticosSelecionados.join(', ')"></span>
+                                    <svg class="h-5 w-5 text-slate-500 transition-transform" :class="{'rotate-180': open}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                                 </button>
-                                <div x-show="open" @click.away="open = false" style="display: none;" class="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar p-2">
+                                <div x-show="open" @click.away="open = false" class="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar p-2">
                                     <template x-for="opcao in listaDisfuncoes" :key="opcao">
-                                        <label class="flex items-center gap-3 p-3 hover:bg-clinica-50 rounded-lg cursor-pointer transition-colors border-b border-slate-50 last:border-0">
-                                            <input type="checkbox" :value="opcao" x-model="diagnosticosSelecionados" class="w-5 h-5 text-clinica-600 rounded focus:ring-clinica-500 accent-clinica-600">
+                                        <label class="flex items-center gap-3 p-3 hover:bg-clinica-50 rounded-lg cursor-pointer">
+                                            <input type="checkbox" :value="opcao" x-model="diagnosticosSelecionados" class="w-5 h-5 text-clinica-600 rounded">
                                             <span class="text-sm font-bold text-slate-700" x-text="opcao"></span>
                                         </label>
                                     </template>
                                 </div>
                             </div>
-
-                            <div x-show="diagnosticosSelecionados.includes('Outro')" style="display: none;">
-                                <input type="text" x-model="outrosDiagnosticos" class="w-full p-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-clinica-500 outline-none text-sm font-bold mt-2" placeholder="Especifique o diagnóstico...">
-                            </div>
-
-                            <div>
-                                <label class="block text-xs font-black text-slate-500 mb-1 uppercase mt-2">Queixa Principal / Motivo da Busca</label>
-                                <textarea x-model="novoPaciente.queixa_principal" rows="3" class="w-full p-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-clinica-500 outline-none text-sm font-bold" placeholder="Ex: Escola relatou agitação motora..."></textarea>
-                            </div>
                         </div>
                     </div>
                     
                     <div class="bg-slate-50 px-6 py-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 rounded-b-3xl">
-                        <button type="button" @click="fecharModal()" class="w-full sm:w-auto px-6 py-3 font-bold text-slate-600 hover:bg-slate-200 bg-slate-100 rounded-xl transition-colors">Cancelar</button>
-                        <button type="button" @click="salvarPaciente()" :disabled="salvando" class="w-full sm:w-auto inline-flex justify-center items-center px-6 py-3 border border-transparent rounded-xl shadow-md text-white bg-clinica-600 hover:bg-clinica-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-clinica-500 font-black transition-colors disabled:opacity-70">
-                            <svg x-show="salvando" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        <button type="button" @click="fecharModal()" class="w-full sm:w-auto px-6 py-3 font-bold text-slate-600">Cancelar</button>
+                        <button type="button" @click="salvarPaciente()" :disabled="salvando" class="w-full sm:w-auto px-6 py-3 rounded-xl shadow-md text-white bg-clinica-600 font-black flex items-center justify-center">
                             <span x-text="salvando ? 'Salvando...' : 'Cadastrar Paciente'"></span>
                         </button>
                     </div>
                 </div>
             </div>
         </div>
-
     </div>
 
     <script>
@@ -201,55 +163,36 @@
                 pesquisa: '',
                 modalCadastroAberto: false,
                 salvando: false,
-                novoPaciente: { nome: '', data_nascimento: '', escolaridade: '', queixa_principal: '' },
+                novoPaciente: { nome: '', data_nascimento: '', escolaridade: '', queixa_principal: '', nome_responsavel: '', telefone_responsavel: '', email_responsavel: '' },
                 diagnosticosSelecionados: [],
-                outrosDiagnosticos: '',
-                listaDisfuncoes: [
-                    "TEA (Transtorno do Espectro Autista)", "TDAH", "TPS (Transtorno do Processamento Sensorial)",
-                    "TDC", "Paralisia Cerebral", "Síndrome de Down", "Síndrome de Tourette", 
-                    "TOD (Transtorno Opositivo Desafiador)", "Deficiência Intelectual", "Em Investigação / Sem Laudo"
-                ],
+                listaDisfuncoes: ["TEA", "TDAH", "TPS", "TDC", "Paralisia Cerebral", "Síndrome de Down", "TOD", "Em Investigação", "Outro"],
                 abrirModalCadastro() {
-                    this.novoPaciente = { nome: '', data_nascimento: '', escolaridade: '', queixa_principal: '' };
+                    this.novoPaciente = { nome: '', data_nascimento: '', escolaridade: '', queixa_principal: '', nome_responsavel: '', telefone_responsavel: '', email_responsavel: '' };
                     this.diagnosticosSelecionados = [];
-                    this.outrosDiagnosticos = '';
                     this.modalCadastroAberto = true;
                 },
                 fecharModal() { this.modalCadastroAberto = false; },
                 buscarPacientes() {
                     this.carregando = true;
-                    fetch('/api/pacientes/')
-                        .then(res => res.json())
-                        .then(data => { this.pacientes = data; this.carregando = false; })
-                        .catch(err => { console.error(err); this.carregando = false; });
+                    fetch('/api/pacientes/').then(res => res.json()).then(data => { this.pacientes = data; this.carregando = false; });
                 },
                 salvarPaciente() {
+                    if (!this.novoPaciente.nome || !this.novoPaciente.data_nascimento) { alert("Nome e Nascimento obrigatórios."); return; }
                     this.salvando = true;
-                    let diagFinal = this.diagnosticosSelecionados.join(', ');
-                    if (this.outrosDiagnosticos.trim() !== '') { diagFinal += ' | Outros: ' + this.outrosDiagnosticos.trim(); }
-                    
-                    const payload = { ...this.novoPaciente, diagnostico: diagFinal };
+                    const payload = { ...this.novoPaciente, diagnostico: this.diagnosticosSelecionados.join(', ') };
                     fetch('/api/pacientes/', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     }).then(res => res.json()).then(data => {
-                        if (data.id) {
-                            this.fecharModal();
-                            this.buscarPacientes();
-                        } else { alert("Erro: " + (data.erro || "Desconhecido")); }
+                        if (data.id) { this.fecharModal(); this.buscarPacientes(); }
                         this.salvando = false;
-                    }).catch(err => {
-                        console.error(err); alert("Erro de conexão."); this.salvando = false;
-                    });
+                    }).catch(() => { this.salvando = false; });
                 },
                 pacientesFiltrados() {
                     if (this.pesquisa === '') return this.pacientes;
-                    const termo = this.pesquisa.toLowerCase();
-                    return this.pacientes.filter(p => 
-                        p.nome.toLowerCase().includes(termo) || 
-                        (p.diagnostico && p.diagnostico.toLowerCase().includes(termo))
-                    );
+                    const t = this.pesquisa.toLowerCase();
+                    return this.pacientes.filter(p => p.nome.toLowerCase().includes(t) || (p.diagnostico && p.diagnostico.toLowerCase().includes(t)));
                 }
             }
         }
