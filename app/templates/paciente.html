@@ -77,10 +77,20 @@
                                     <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-0.5">Diagnóstico Base</span>
                                     <span class="text-sm font-black text-slate-700" x-text="paciente.diagnostico || 'Não informado'"></span>
                                 </div>
-                                <div>
-                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-0.5">Motivo / Queixa Principal</span>
-                                    <span class="text-sm font-semibold text-slate-600 leading-snug" x-text="paciente.queixa_principal || 'Nenhuma queixa registada.'"></span>
+                                
+                                <div x-data="{ mostrarQueixa: false }" class="bg-slate-50 p-3 rounded-2xl border border-slate-100 shadow-sm">
+                                    <button @click="mostrarQueixa = !mostrarQueixa" type="button" class="w-full flex justify-between items-center focus:outline-none group">
+                                        <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-clinica-600 transition-colors">Motivo / Queixa Principal</span>
+                                        <div class="w-6 h-6 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 group-hover:border-clinica-300 group-hover:text-clinica-600 shadow-sm transition-all">
+                                            <svg x-show="!mostrarQueixa" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m-6-6h12"></path></svg>
+                                            <svg x-show="mostrarQueixa" style="display: none;" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
+                                        </div>
+                                    </button>
+                                    <div x-show="mostrarQueixa" x-transition style="display: none;" class="mt-3 pt-3 border-t border-slate-200">
+                                        <p class="text-[13px] font-semibold text-slate-600 leading-relaxed whitespace-pre-line text-justify" x-text="paciente.queixa_principal || 'Nenhuma queixa registada.'"></p>
+                                    </div>
                                 </div>
+
                                 <div class="mt-2 p-4 bg-slate-50 rounded-2xl border border-slate-100">
                                     <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2 border-b border-slate-200 pb-1">Responsável e Contato</span>
                                     <p class="text-xs font-black text-slate-700 mb-3 truncate" x-text="paciente.nome_responsavel || 'Não informado'"></p>
@@ -342,7 +352,6 @@
                 historicoEvolucoes: [],
                 carregando: true,
                 
-                // Variáveis da Fase 2
                 modalEdicaoAberto: false,
                 formEdicao: {},
                 diagnosticosSelecionados: [],
@@ -382,7 +391,6 @@
                     return 'bg-slate-50 text-slate-500 border-slate-100';
                 },
 
-                // FUNÇÕES DA FASE 2 (Lápis e Borracha)
                 abrirEdicao() {
                     this.formEdicao = { ...this.paciente };
                     this.diagnosticosSelecionados = this.paciente.diagnostico ? this.paciente.diagnostico.split(', ') : [];
