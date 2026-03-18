@@ -22,7 +22,11 @@ def pedi_paciente(id):
 def obs_clinica_paciente(id):
     return render_template('obs_clinica.html', paciente_id=id)
 
-# <--- ROTA 4: AGENDA E EVOLUÇÃO DIÁRIA --->
 @frontend_bp.route('/paciente/<int:id>/evolucao')
 def evolucao_paciente(id):
     return render_template('evolucao.html', paciente_id=id)
+
+# <--- ROTA 5: RELATÓRIO CLÍNICO (FASE 3) --->
+@frontend_bp.route('/paciente/<int:id>/relatorio')
+def relatorio_paciente(id):
+    return render_template('relatorio.html', paciente_id=id)

@@ -162,6 +162,11 @@
                                     <span class="font-black text-clinica-700 text-xs text-center mt-3 block uppercase">4. Evolução Diária</span>
                                 </button>
                             </div>
+                            
+                            <button @click="window.location.href = '/paciente/' + paciente.id + '/relatorio'" class="w-full mt-4 bg-slate-800 text-white p-4 rounded-3xl shadow-sm hover:shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2 font-black uppercase tracking-widest text-xs">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                                Gerar Relatório Clínico (PDF)
+                            </button>
                         </div>
 
                         <div>
