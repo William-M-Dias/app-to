@@ -161,42 +161,82 @@
                         </div>
 
                         <div>
-                            <h3 class="text-sm font-black text-slate-500 mb-3 px-1 uppercase tracking-widest">Evolução Quantitativa</h3>
-                            <div class="space-y-4">
-                                <template x-for="ava in avaliacoesPedi" :key="ava.id">
-                                    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
-                                        <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-50">
-                                            <span class="text-xs font-black text-slate-500 flex items-center gap-2">
-                                                <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                                                <span x-text="ava.data_avaliacao"></span>
-                                            </span>
-                                            <span class="bg-blue-50 text-blue-700 text-[10px] font-black px-3 py-1 rounded-lg uppercase tracking-wider" x-text="ava.assistencia_cuidador"></span>
-                                        </div>
-                                        <div class="space-y-3">
-                                            <div>
-                                                <div class="flex justify-between items-end mb-1">
-                                                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Autocuidado</span>
-                                                    <span class="text-xs font-black text-blue-600" x-text="ava.score_autocuidado + '%'"></span>
+                            <h3 class="text-sm font-black text-slate-500 mb-4 px-1 uppercase tracking-widest flex justify-between items-center">
+                                Histórico de Evoluções
+                                <span class="bg-slate-100 text-slate-500 text-[10px] px-2 py-1 rounded-lg" x-text="historicoEvolucoes.length + ' Registros'"></span>
+                            </h3>
+                            
+                            <template x-if="historicoEvolucoes.length === 0">
+                                <div class="p-8 bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl text-center">
+                                    <svg class="mx-auto h-10 w-10 text-slate-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Nenhuma evolução registada ainda.</p>
+                                </div>
+                            </template>
+
+                            <div class="space-y-6 border-l-2 border-slate-100 ml-3 pl-6 relative">
+                                <template x-for="evo in historicoEvolucoes" :key="evo.id">
+                                    <div class="relative group">
+                                        <div class="absolute -left-[33px] top-2 w-4 h-4 rounded-full border-4 border-white shadow-sm"
+                                             :class="evo.status === 'Realizado' ? 'bg-emerald-500' : (evo.status === 'Faltou' ? 'bg-red-500' : 'bg-slate-400')"></div>
+                                        
+                                        <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 group-hover:border-slate-200 transition-colors">
+                                            
+                                            <div class="flex justify-between items-start mb-3 border-b border-slate-50 pb-3">
+                                                <div>
+                                                    <span class="text-sm font-black text-slate-800" x-text="evo.data_hora"></span>
+                                                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest" x-text="evo.tipo_sessao"></p>
                                                 </div>
-                                                <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden shadow-inner">
-                                                    <div class="bg-blue-500 h-full rounded-full transition-all duration-1000" :style="'width: ' + ava.score_autocuidado + '%'"></div>
-                                                </div>
+                                                <span class="text-[9px] font-black px-2 py-1 rounded-md uppercase tracking-wider"
+                                                      :class="evo.status === 'Realizado' ? 'bg-emerald-50 text-emerald-700' : (evo.status === 'Faltou' ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-600')"
+                                                      x-text="evo.status"></span>
                                             </div>
-                                            <div>
-                                                <div class="flex justify-between items-end mb-1">
-                                                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mobilidade</span>
-                                                    <span class="text-xs font-black text-clinica-600" x-text="ava.score_mobilidade + '%'"></span>
+
+                                            <template x-if="evo.status === 'Realizado' && evo.micro_metas && (evo.micro_metas.autocuidado || evo.micro_metas.mobilidade || evo.micro_metas.funcao_social)">
+                                                <div class="flex flex-wrap gap-2 mb-4">
+                                                    <template x-if="evo.micro_metas.autocuidado !== null">
+                                                        <span class="flex items-center gap-1.5 text-[10px] font-bold px-2 py-1 rounded-lg border" :class="getEstiloGAS(evo.micro_metas.autocuidado)">
+                                                            <span class="uppercase tracking-widest opacity-80">Autocuidado</span>
+                                                            <span class="text-xs font-black" x-text="evo.micro_metas.autocuidado > 0 ? '+' + evo.micro_metas.autocuidado : evo.micro_metas.autocuidado"></span>
+                                                        </span>
+                                                    </template>
+                                                    <template x-if="evo.micro_metas.mobilidade !== null">
+                                                        <span class="flex items-center gap-1.5 text-[10px] font-bold px-2 py-1 rounded-lg border" :class="getEstiloGAS(evo.micro_metas.mobilidade)">
+                                                            <span class="uppercase tracking-widest opacity-80">Mobilidade</span>
+                                                            <span class="text-xs font-black" x-text="evo.micro_metas.mobilidade > 0 ? '+' + evo.micro_metas.mobilidade : evo.micro_metas.mobilidade"></span>
+                                                        </span>
+                                                    </template>
+                                                    <template x-if="evo.micro_metas.funcao_social !== null">
+                                                        <span class="flex items-center gap-1.5 text-[10px] font-bold px-2 py-1 rounded-lg border" :class="getEstiloGAS(evo.micro_metas.funcao_social)">
+                                                            <span class="uppercase tracking-widest opacity-80">Social</span>
+                                                            <span class="text-xs font-black" x-text="evo.micro_metas.funcao_social > 0 ? '+' + evo.micro_metas.funcao_social : evo.micro_metas.funcao_social"></span>
+                                                        </span>
+                                                    </template>
                                                 </div>
-                                                <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden shadow-inner">
-                                                    <div class="bg-clinica-500 h-full rounded-full transition-all duration-1000" :style="'width: ' + ava.score_mobilidade + '%'"></div>
+                                            </template>
+
+                                            <template x-if="evo.status === 'Realizado' && evo.micro_metas && evo.micro_metas.atividades && evo.micro_metas.atividades.length > 0">
+                                                <div class="mb-4">
+                                                    <span class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Atividades (Tags)</span>
+                                                    <div class="flex flex-wrap gap-1.5">
+                                                        <template x-for="ativ in evo.micro_metas.atividades">
+                                                            <span class="bg-clinica-50 text-clinica-700 text-[10px] font-bold px-2 py-1 rounded-md" x-text="ativ"></span>
+                                                        </template>
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            </template>
+
+                                            <template x-if="evo.evolucao_texto">
+                                                <p class="text-sm font-semibold text-slate-600 leading-relaxed whitespace-pre-line" x-text="evo.evolucao_texto"></p>
+                                            </template>
+                                            <template x-if="!evo.evolucao_texto && evo.status === 'Realizado'">
+                                                <p class="text-sm font-semibold text-slate-400 italic">Sem anotações de texto adicionais.</p>
+                                            </template>
                                         </div>
                                     </div>
                                 </template>
                             </div>
                         </div>
-                    </section>
+                        </section>
                 </div>
             </template>
         </main>
@@ -209,18 +249,21 @@
                 paciente: null,
                 avaliacoesPedi: [],
                 ultimaAnamnese: null,
+                historicoEvolucoes: [], // NOVO: Guarda o histórico
                 carregando: true,
                 carregarDados() {
                     Promise.all([
                         fetch('/api/pacientes/' + this.pacienteId).then(res => res.json()),
                         fetch('/api/pedi/' + this.pacienteId).then(res => res.json()),
-                        fetch('/api/anamnese/' + this.pacienteId).then(res => res.json())
-                    ]).then(([dadosPaciente, dadosPedi, dadosAnamnese]) => {
+                        fetch('/api/anamnese/' + this.pacienteId).then(res => res.json()),
+                        fetch('/api/consultas/paciente/' + this.pacienteId).then(res => res.json()) // BUSCA O HISTÓRICO
+                    ]).then(([dadosPaciente, dadosPedi, dadosAnamnese, dadosConsultas]) => {
                         this.paciente = dadosPaciente;
                         this.avaliacoesPedi = Array.isArray(dadosPedi) ? dadosPedi : [];
                         if (Array.isArray(dadosAnamnese) && dadosAnamnese.length > 0) {
                             this.ultimaAnamnese = dadosAnamnese[0];
                         }
+                        this.historicoEvolucoes = Array.isArray(dadosConsultas) ? dadosConsultas : [];
                         this.carregando = false;
                     }).catch(err => {
                         console.error('Erro ao carregar prontuário:', err);
@@ -235,6 +278,15 @@
                     const mes = hoje.getMonth() - nascimento.getMonth();
                     if (mes < 0 || (mes === 0 && hoje.getDate() < nascimento.getDate())) { idade--; }
                     return idade + (idade === 1 ? ' ano' : ' anos');
+                },
+                // NOVO: Função para colorir as notas GAS no histórico
+                getEstiloGAS(valor) {
+                    if (valor === -2) return 'bg-rose-50 text-rose-700 border-rose-200';
+                    if (valor === -1) return 'bg-orange-50 text-orange-700 border-orange-200';
+                    if (valor === 0) return 'bg-slate-100 text-slate-600 border-slate-200';
+                    if (valor === 1) return 'bg-clinica-50 text-clinica-600 border-clinica-200';
+                    if (valor === 2) return 'bg-clinica-100 text-clinica-800 border-clinica-300';
+                    return 'bg-slate-50 text-slate-500 border-slate-100';
                 }
             }
         }
