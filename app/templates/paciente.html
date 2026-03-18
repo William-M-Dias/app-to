@@ -23,13 +23,16 @@
         body { background-color: #f8fafc; overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     </style>
 </head>
 <body class="text-slate-800 antialiased" x-data="perfilPaciente({{ paciente_id }})" x-init="carregarDados()">
 
     <div class="max-w-5xl mx-auto min-h-screen bg-white md:shadow-2xl md:shadow-slate-200/50 md:border-x border-slate-100 relative pb-20 md:pb-10">
 
-        <header class="bg-clinica-600 text-white p-4 sticky top-0 z-50 shadow-md">
+        <header class="bg-clinica-600 text-white p-4 sticky top-0 z-40 shadow-md">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                     <a href="/" class="p-2 -ml-2 hover:bg-white/20 rounded-full transition-colors active:scale-95">
@@ -38,9 +41,7 @@
                     <h1 class="text-xl font-black uppercase tracking-widest">Prontuário</h1>
                 </div>
                 <div class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
-                    <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17c0 1.1.9 2 2 2h4c1.1 0 2-.9 2-2v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7z"/>
-                    </svg>
+                    <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17c0 1.1.9 2 2 2h4c1.1 0 2-.9 2-2v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7z"/></svg>
                 </div>
             </div>
         </header>
@@ -54,13 +55,15 @@
             </template>
 
             <template x-if="!carregando && paciente">
-                
                 <div class="flex flex-col md:flex-row gap-6 items-start">
                     
                     <aside class="w-full md:w-1/3 flex flex-col gap-4 md:sticky md:top-24">
-                        
-                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden text-center">
+                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden text-center group">
                             <div class="absolute top-0 right-0 w-32 h-32 bg-clinica-50 rounded-full -mr-10 -mt-10 opacity-50 pointer-events-none"></div>
+                            
+                            <button @click="abrirEdicao()" class="absolute top-4 right-4 p-2 bg-white border border-slate-100 text-slate-400 hover:text-clinica-600 rounded-full shadow-sm hover:shadow-md transition-all active:scale-95 z-20" title="Editar Paciente">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                            </button>
                             
                             <div class="w-20 h-20 mx-auto rounded-full bg-clinica-100 flex items-center justify-center text-clinica-600 font-black text-3xl shadow-inner uppercase mb-4 relative z-10">
                                 <span x-text="paciente.nome.charAt(0)"></span>
@@ -74,16 +77,13 @@
                                     <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-0.5">Diagnóstico Base</span>
                                     <span class="text-sm font-black text-slate-700" x-text="paciente.diagnostico || 'Não informado'"></span>
                                 </div>
-                                
                                 <div>
                                     <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-0.5">Motivo / Queixa Principal</span>
                                     <span class="text-sm font-semibold text-slate-600 leading-snug" x-text="paciente.queixa_principal || 'Nenhuma queixa registada.'"></span>
                                 </div>
-
                                 <div class="mt-2 p-4 bg-slate-50 rounded-2xl border border-slate-100">
                                     <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2 border-b border-slate-200 pb-1">Responsável e Contato</span>
                                     <p class="text-xs font-black text-slate-700 mb-3 truncate" x-text="paciente.nome_responsavel || 'Não informado'"></p>
-                                    
                                     <div class="grid grid-cols-2 gap-2">
                                         <template x-if="paciente.telefone_responsavel">
                                             <a :href="'https://wa.me/55' + paciente.telefone_responsavel.replace(/\D/g, '')" target="_blank" class="bg-white p-2 rounded-xl flex items-center justify-center gap-1 shadow-sm border border-slate-100 active:scale-95 transition-transform">
@@ -111,7 +111,6 @@
                                     </h3>
                                     <span class="text-[9px] text-slate-400 font-bold uppercase" x-text="ultimaAnamnese.data"></span>
                                 </div>
-                                
                                 <div class="space-y-4">
                                     <template x-if="ultimaAnamnese.dados.comportamento && ultimaAnamnese.dados.comportamento.length > 0">
                                         <div>
@@ -126,6 +125,11 @@
                                 </div>
                             </div>
                         </template>
+
+                        <button @click="apagarPaciente()" class="w-full p-4 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white border border-red-100 hover:border-red-500 rounded-3xl text-xs font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2 group shadow-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            Excluir Prontuário
+                        </button>
 
                     </aside>
 
@@ -179,9 +183,13 @@
                                         <div class="absolute -left-[33px] top-2 w-4 h-4 rounded-full border-4 border-white shadow-sm"
                                              :class="evo.status === 'Realizado' ? 'bg-emerald-500' : (evo.status === 'Faltou' ? 'bg-red-500' : 'bg-slate-400')"></div>
                                         
-                                        <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 group-hover:border-slate-200 transition-colors">
+                                        <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 group-hover:border-slate-200 transition-colors relative">
                                             
-                                            <div class="flex justify-between items-start mb-3 border-b border-slate-50 pb-3">
+                                            <button @click="apagarEvolucao(evo.id)" class="absolute top-4 right-4 text-slate-300 hover:text-red-500 transition-colors p-1 bg-white rounded-full hover:bg-red-50" title="Excluir Registro">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                            </button>
+
+                                            <div class="flex justify-between items-start mb-3 border-b border-slate-50 pb-3 pr-8">
                                                 <div>
                                                     <span class="text-sm font-black text-slate-800" x-text="evo.data_hora"></span>
                                                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest" x-text="evo.tipo_sessao"></p>
@@ -191,7 +199,7 @@
                                                       x-text="evo.status"></span>
                                             </div>
 
-                                            <template x-if="evo.status === 'Realizado' && evo.micro_metas && (evo.micro_metas.autocuidado || evo.micro_metas.mobilidade || evo.micro_metas.funcao_social)">
+                                            <template x-if="evo.status === 'Realizado' && evo.micro_metas && (evo.micro_metas.autocuidado !== null || evo.micro_metas.mobilidade !== null || evo.micro_metas.funcao_social !== null)">
                                                 <div class="flex flex-wrap gap-2 mb-4">
                                                     <template x-if="evo.micro_metas.autocuidado !== null">
                                                         <span class="flex items-center gap-1.5 text-[10px] font-bold px-2 py-1 rounded-lg border" :class="getEstiloGAS(evo.micro_metas.autocuidado)">
@@ -229,17 +237,94 @@
                                                 <p class="text-sm font-semibold text-slate-600 leading-relaxed whitespace-pre-line" x-text="evo.evolucao_texto"></p>
                                             </template>
                                             <template x-if="!evo.evolucao_texto && evo.status === 'Realizado'">
-                                                <p class="text-sm font-semibold text-slate-400 italic">Sem anotações de texto adicionais.</p>
+                                                <p class="text-sm font-semibold text-slate-400 italic">Sem anotações adicionais.</p>
                                             </template>
                                         </div>
                                     </div>
                                 </template>
                             </div>
                         </div>
-                        </section>
+                    </section>
                 </div>
             </template>
         </main>
+
+        <div x-show="modalEdicaoAberto" style="display: none;" class="fixed inset-0 z-[60] overflow-y-auto">
+            <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                <div x-show="modalEdicaoAberto" x-transition.opacity class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" @click="fecharEdicao()"></div>
+                <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+                <div x-show="modalEdicaoAberto" x-transition.scale class="inline-block align-bottom bg-white rounded-t-3xl sm:rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle w-full sm:max-w-lg">
+                    <div class="bg-white px-6 pt-6 pb-6 text-center">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-xl font-black text-slate-800">Editar Paciente</h3>
+                            <button @click="fecharEdicao()" class="text-slate-400 hover:text-slate-600 p-2"><svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                        </div>
+                        
+                        <div class="space-y-4 max-h-[65vh] overflow-y-auto custom-scrollbar px-1 text-left">
+                            <div>
+                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Nome da Criança</label>
+                                <input type="text" x-model="formEdicao.nome" class="w-full p-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-clinica-500 outline-none text-sm font-bold">
+                            </div>
+
+                            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                                <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-1">Responsáveis</p>
+                                <input type="text" x-model="formEdicao.nome_responsavel" placeholder="Nome da Mãe/Pai" class="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm font-bold outline-none">
+                                <div class="grid grid-cols-2 gap-3">
+                                    <input type="tel" x-model="formEdicao.telefone_responsavel" placeholder="WhatsApp" class="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm font-bold outline-none">
+                                    <input type="email" x-model="formEdicao.email_responsavel" placeholder="E-mail" class="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm font-bold outline-none">
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Nascimento</label>
+                                    <input type="date" x-model="formEdicao.data_nascimento" class="w-full p-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-clinica-500 outline-none text-sm font-bold">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Escolaridade</label>
+                                    <select x-model="formEdicao.escolaridade" class="w-full p-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-clinica-500 outline-none text-sm font-bold">
+                                        <option value="Creche">Creche</option>
+                                        <option value="Educação Infantil">Educação Infantil</option>
+                                        <option value="Fundamental I">Fundamental I</option>
+                                        <option value="Fundamental II">Fundamental II</option>
+                                        <option value="Não frequenta">Não frequenta</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="relative" x-data="{ open: false }">
+                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Diagnóstico (Laudo)</label>
+                                <button type="button" @click="open = !open" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-left flex justify-between items-center focus:ring-2 focus:ring-clinica-500 outline-none">
+                                    <span class="truncate text-slate-700 font-bold text-sm" x-text="diagnosticosSelecionados.length === 0 ? 'Selecione...' : diagnosticosSelecionados.join(', ')"></span>
+                                    <svg class="h-5 w-5 text-slate-500 transition-transform" :class="{'rotate-180': open}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                </button>
+                                <div x-show="open" @click.away="open = false" class="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar p-2">
+                                    <template x-for="opcao in ['TEA', 'TDAH', 'TPS', 'TDC', 'Paralisia Cerebral', 'Síndrome de Down', 'TOD', 'Em Investigação', 'Outro']" :key="opcao">
+                                        <label class="flex items-center gap-3 p-3 hover:bg-clinica-50 rounded-lg cursor-pointer">
+                                            <input type="checkbox" :value="opcao" x-model="diagnosticosSelecionados" class="w-5 h-5 text-clinica-600 rounded">
+                                            <span class="text-sm font-bold text-slate-700" x-text="opcao"></span>
+                                        </label>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">Motivo / Queixa Principal</label>
+                                <textarea x-model="formEdicao.queixa_principal" rows="3" class="w-full p-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-clinica-500 outline-none text-sm font-bold shadow-inner resize-none"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 px-6 py-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 rounded-b-3xl">
+                        <button type="button" @click="fecharEdicao()" class="w-full sm:w-auto px-6 py-3 font-bold text-slate-600">Cancelar</button>
+                        <button type="button" @click="salvarEdicao()" class="w-full sm:w-auto px-6 py-3 rounded-xl shadow-md text-white bg-clinica-600 font-black flex items-center justify-center hover:bg-clinica-700 transition-colors">
+                            Salvar Alterações
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <script>
@@ -249,20 +334,24 @@
                 paciente: null,
                 avaliacoesPedi: [],
                 ultimaAnamnese: null,
-                historicoEvolucoes: [], // NOVO: Guarda o histórico
+                historicoEvolucoes: [],
                 carregando: true,
+                
+                // Variáveis da Fase 2
+                modalEdicaoAberto: false,
+                formEdicao: {},
+                diagnosticosSelecionados: [],
+
                 carregarDados() {
                     Promise.all([
                         fetch('/api/pacientes/' + this.pacienteId).then(res => res.json()),
                         fetch('/api/pedi/' + this.pacienteId).then(res => res.json()),
                         fetch('/api/anamnese/' + this.pacienteId).then(res => res.json()),
-                        fetch('/api/consultas/paciente/' + this.pacienteId).then(res => res.json()) // BUSCA O HISTÓRICO
+                        fetch('/api/consultas/paciente/' + this.pacienteId).then(res => res.json())
                     ]).then(([dadosPaciente, dadosPedi, dadosAnamnese, dadosConsultas]) => {
                         this.paciente = dadosPaciente;
                         this.avaliacoesPedi = Array.isArray(dadosPedi) ? dadosPedi : [];
-                        if (Array.isArray(dadosAnamnese) && dadosAnamnese.length > 0) {
-                            this.ultimaAnamnese = dadosAnamnese[0];
-                        }
+                        if (Array.isArray(dadosAnamnese) && dadosAnamnese.length > 0) this.ultimaAnamnese = dadosAnamnese[0];
                         this.historicoEvolucoes = Array.isArray(dadosConsultas) ? dadosConsultas : [];
                         this.carregando = false;
                     }).catch(err => {
@@ -279,7 +368,6 @@
                     if (mes < 0 || (mes === 0 && hoje.getDate() < nascimento.getDate())) { idade--; }
                     return idade + (idade === 1 ? ' ano' : ' anos');
                 },
-                // NOVO: Função para colorir as notas GAS no histórico
                 getEstiloGAS(valor) {
                     if (valor === -2) return 'bg-rose-50 text-rose-700 border-rose-200';
                     if (valor === -1) return 'bg-orange-50 text-orange-700 border-orange-200';
@@ -287,6 +375,48 @@
                     if (valor === 1) return 'bg-clinica-50 text-clinica-600 border-clinica-200';
                     if (valor === 2) return 'bg-clinica-100 text-clinica-800 border-clinica-300';
                     return 'bg-slate-50 text-slate-500 border-slate-100';
+                },
+
+                // FUNÇÕES DA FASE 2 (Lápis e Borracha)
+                abrirEdicao() {
+                    this.formEdicao = { ...this.paciente };
+                    this.diagnosticosSelecionados = this.paciente.diagnostico ? this.paciente.diagnostico.split(', ') : [];
+                    this.modalEdicaoAberto = true;
+                },
+                fecharEdicao() {
+                    this.modalEdicaoAberto = false;
+                },
+                salvarEdicao() {
+                    this.formEdicao.diagnostico = this.diagnosticosSelecionados.join(', ');
+                    fetch('/api/pacientes/' + this.pacienteId, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(this.formEdicao)
+                    }).then(res => {
+                        if(res.ok) {
+                            this.fecharEdicao();
+                            this.carregando = true;
+                            this.carregarDados();
+                        } else { alert("Erro ao salvar."); }
+                    });
+                },
+                apagarPaciente() {
+                    if(confirm('ATENÇÃO: Tem certeza absoluta que deseja excluir este paciente e TODO o seu histórico? Esta ação NÃO tem volta.')) {
+                        fetch('/api/pacientes/' + this.pacienteId, { method: 'DELETE' })
+                        .then(res => {
+                            if(res.ok) window.location.href = '/';
+                            else alert('Falha ao excluir o paciente.');
+                        });
+                    }
+                },
+                apagarEvolucao(idConsulta) {
+                    if(confirm('Tem certeza que deseja apagar esta evolução da linha do tempo?')) {
+                        fetch('/api/consultas/' + idConsulta, { method: 'DELETE' })
+                        .then(res => {
+                            if(res.ok) this.carregarDados();
+                            else alert('Falha ao excluir a evolução.');
+                        });
+                    }
                 }
             }
         }
