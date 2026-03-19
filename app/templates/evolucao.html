@@ -25,7 +25,7 @@
 
     <div class="max-w-4xl mx-auto min-h-screen bg-white md:shadow-2xl md:shadow-slate-200/50 md:border-x border-slate-100 relative pb-32">
         
-        <header class="bg-emerald-600 text-white p-4 sticky top-0 z-50 shadow-md">
+        <header class="bg-emerald-600 text-white p-4 sticky top-0 z-50 shadow-md" :class="form.status === 'Agendado' ? 'bg-slate-800' : 'bg-emerald-600'">
             <div class="flex items-center gap-3">
                 <a :href="'/paciente/' + pacienteId" class="p-2 -ml-2 hover:bg-white/20 rounded-full transition-colors active:scale-95"> 
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg> 
@@ -34,7 +34,7 @@
                     <div class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
                         <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                     </div>
-                    <h1 class="text-xl font-black uppercase tracking-widest">Evolução Diária</h1>
+                    <h1 class="text-xl font-black uppercase tracking-widest" x-text="form.status === 'Agendado' ? 'Agendar Sessão' : 'Evolução Diária'"></h1>
                 </div>
             </div>
         </header>
@@ -60,6 +60,7 @@
                             <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Status</label>
                             <select x-model="form.status" class="w-full p-3 bg-white rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none text-sm font-bold text-slate-700 shadow-sm">
                                 <option>Realizado</option>
+                                <option>Agendado</option>
                                 <option>Faltou</option>
                                 <option>Cancelado</option>
                             </select>
@@ -146,16 +147,18 @@
             </section>
 
             <section class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
-                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Evolução Clínica (Descrição Adicional)</label>
-                <textarea x-model="form.evolucao_texto" rows="4" placeholder="Adicione detalhes extras da sessão, comportamento ou resposta terapêutica que não foram cobertos pelas tags acima..." class="w-full p-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 outline-none text-sm font-semibold text-slate-700 shadow-inner resize-none"></textarea>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2" x-text="form.status === 'Agendado' ? 'Anotações do Agendamento' : 'Evolução Clínica (Descrição Adicional)'"></label>
+                <textarea x-model="form.evolucao_texto" rows="4" placeholder="Adicione detalhes extras da sessão, observações ou planejamento..." class="w-full p-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 outline-none text-sm font-semibold text-slate-700 shadow-inner resize-none"></textarea>
             </section>
 
         </main>
 
         <div class="fixed bottom-0 max-w-4xl w-full p-4 bg-gradient-to-t from-white via-white to-transparent z-40">
-            <button @click="salvar()" :disabled="salvando" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-2xl shadow-xl hover:shadow-2xl active:scale-[0.98] transition-all disabled:opacity-70 flex items-center justify-center gap-2 uppercase tracking-widest">
+            <button @click="salvar()" :disabled="salvando" 
+                    class="w-full text-white font-black py-4 rounded-2xl shadow-xl hover:shadow-2xl active:scale-[0.98] transition-all disabled:opacity-70 flex items-center justify-center gap-2 uppercase tracking-widest"
+                    :class="form.status === 'Agendado' ? 'bg-slate-800 hover:bg-slate-900' : 'bg-emerald-600 hover:bg-emerald-700'">
                 <svg x-show="salvando" class="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                <span x-text="salvando ? 'A Gravar Dados...' : 'Assinar Prontuário'"></span>
+                <span x-text="salvando ? 'A Gravar Dados...' : (form.status === 'Agendado' ? 'Confirmar Agendamento' : 'Assinar Prontuário')"></span>
             </button>
         </div>
     </div>
@@ -170,7 +173,7 @@
                 pacienteId: id,
                 salvando: false,
                 categoriaAberta: null, 
-                atividadesSelecionadas: [], // Guarda as tags que a Edna clicou
+                atividadesSelecionadas: [],
                 form: {
                     paciente_id: id,
                     data_hora: dataIso,
@@ -181,11 +184,10 @@
                         autocuidado: null,
                         mobilidade: null,
                         funcao_social: null,
-                        atividades: [] // Vamos embutir as tags aqui no JSONB!
+                        atividades: [] 
                     }
                 },
 
-                // A Lista Oficial da Edna categorizada
                 bibliotecaAtividades: [
                     {
                         nome: 'Motricidade Fina e Destreza',
@@ -208,9 +210,9 @@
                 toggleAtividade(atividade) {
                     const index = this.atividadesSelecionadas.indexOf(atividade);
                     if (index > -1) {
-                        this.atividadesSelecionadas.splice(index, 1); // Remove se já existe
+                        this.atividadesSelecionadas.splice(index, 1);
                     } else {
-                        this.atividadesSelecionadas.push(atividade); // Adiciona
+                        this.atividadesSelecionadas.push(atividade);
                     }
                 },
 
@@ -254,8 +256,12 @@
                     const payload = { ...this.form };
                     payload.data_hora = payload.data_hora.replace('T', ' ');
                     
-                    // Injeta as tags selecionadas secretamente no Buraco Negro JSONB antes de enviar
-                    payload.micro_metas.atividades = this.atividadesSelecionadas;
+                    if(payload.status === 'Realizado') {
+                        payload.micro_metas.atividades = this.atividadesSelecionadas;
+                    } else {
+                        // Se for agendamento, não envia metas nem tags
+                        payload.micro_metas = {};
+                    }
 
                     fetch('/api/consultas/', {
                         method: 'POST',
