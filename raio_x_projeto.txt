@@ -1,0 +1,1663 @@
+=== RAIO-X COMPLETO DO PROJETO APP-TO ===
+
+
+============================================================
+ARQUIVO: audit_projeto.py
+============================================================
+
+import os
+
+def auditoria_completa():
+    # Lista dos ficheiros que definem a alma do APP-TO
+    arquivos_alvo = [
+        'app/templates/index.html',
+        'app/templates/anamnese.html',
+        'app/templates/pedi.html',
+        'app/templates/obs_clinica.html',
+        'app/templates/evolucao.html',
+        'app/models/paciente.py',
+        'app/routes/paciente_bp.py',
+        'app/__init__.py'
+    ]
+    
+    separador = "\n" + "="*60 + "\n"
+    print(f"{separador}INÍCIO DA AUDITORIA DO PROJETO APP-TO{separador}")
+    
+    for caminho in arquivos_alvo:
+        if os.path.exists(caminho):
+            print(f"FICHEIRO: {caminho}")
+            try:
+                with open(caminho, 'r', encoding='utf-8') as f:
+                    print(f.read())
+            except Exception as e:
+                print(f"Erro ao ler {caminho}: {e}")
+            print(separador)
+        else:
+            print(f"AVISO: Ficheiro não encontrado em {caminho}")
+            print(separador)
+
+if __name__ == "__main__":
+    auditoria_completa()
+
+============================================================
+ARQUIVO: raio_x_projeto.txt
+============================================================
+
+
+
+============================================================
+ARQUIVO: requirements.txt
+============================================================
+
+Flask==3.0.0
+SQLAlchemy==2.0.23
+Flask-SQLAlchemy==3.1.1
+psycopg2-binary==2.9.9
+python-dotenv==1.0.0
+gunicorn==21.2.0
+
+============================================================
+ARQUIVO: run.py
+============================================================
+
+from app import create_app
+from app.extensions import db
+from dotenv import load_dotenv
+import os
+
+# Carrega as variáveis do .env
+load_dotenv()
+
+# Cria a instância da aplicação
+app = create_app()
+
+# Garante que as tabelas sejam criadas no Neon antes da primeira requisição
+with app.app_context():
+    # Importar os modelos aqui garante que o SQLAlchemy os reconheça antes de criar as tabelas
+    from app.models import paciente, consulta
+    db.create_all()
+
+if __name__ == '__main__':
+    # Define a porta (Render usa a variável PORT, localmente usamos 5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)
+
+============================================================
+ARQUIVO: app\extensions.py
+============================================================
+
+from flask_sqlalchemy import SQLAlchemy
+
+# Instância do banco de dados (será inicializada no __init__.py)
+db = SQLAlchemy()
+
+============================================================
+ARQUIVO: app\__init__.py
+============================================================
+
+import os
+from flask import Flask
+from sqlalchemy import text
+from app.extensions import db
+
+def create_app():
+    app = Flask(__name__)
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {"pool_pre_ping": True, "pool_recycle": 300}
+
+    db.init_app(app)
+
+    # Blueprints
+    from app.routes.paciente_bp import paciente_bp
+    from app.routes.consulta_bp import consulta_bp
+    from app.routes.frontend_bp import frontend_bp
+    from app.routes.pedi_bp import pedi_bp
+    from app.routes.obs_clinica_bp import obs_clinica_bp
+    from app.routes.anamnese_bp import anamnese_bp
+
+    app.register_blueprint(paciente_bp)
+    app.register_blueprint(consulta_bp)
+    app.register_blueprint(frontend_bp)
+    app.register_blueprint(pedi_bp)
+    app.register_blueprint(obs_clinica_bp)
+    app.register_blueprint(anamnese_bp)
+
+    with app.app_context():
+        from app.models.paciente import Paciente
+        from app.models.consulta import Consulta
+        db.create_all()
+        
+        # A PICARETA: Garante colunas dos pais
+        try:
+            with db.engine.connect() as conexao:
+                conexao.execute(text('ALTER TABLE consultas ADD COLUMN IF NOT EXISTS micro_metas JSONB;'))
+                conexao.execute(text('ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS nome_responsavel VARCHAR(150);'))
+                conexao.execute(text('ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS telefone_responsavel VARCHAR(20);'))
+                conexao.execute(text('ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS email_responsavel VARCHAR(120);'))
+                conexao.commit()
+                print("Banco Neon: Estrutura OK.")
+        except Exception:
+            print("Banco Neon: Verificação concluída.")
+
+    return app
+
+============================================================
+ARQUIVO: app\models\anamnese.py
+============================================================
+
+from app.extensions import db
+from datetime import datetime
+from sqlalchemy.dialects.postgresql import JSONB
+
+class Anamnese(db.Model):
+    __tablename__ = 'anamnese'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    paciente_id = db.Column(db.Integer, db.ForeignKey('pacientes.id'), nullable=False)
+    data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # O "Buraco Negro" que vai guardar TDAH, TEA, TOD, Sensorial, etc.
+    dados_triagem = db.Column(JSONB, nullable=False) 
+    queixa_principal = db.Column(db.Text)
+
+    paciente = db.relationship('Paciente', backref=db.backref('anamneses', lazy=True))
+
+============================================================
+ARQUIVO: app\models\consulta.py
+============================================================
+
+from app.extensions import db
+from datetime import datetime
+from sqlalchemy.dialects.postgresql import JSONB
+
+class Consulta(db.Model):
+    __tablename__ = 'consultas'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    paciente_id = db.Column(db.Integer, db.ForeignKey('pacientes.id'), nullable=False)
+    data_hora = db.Column(db.DateTime, nullable=False)
+    
+    recorrente = db.Column(db.Boolean, default=False) 
+    tipo_sessao = db.Column(db.String(100), nullable=False) 
+    status = db.Column(db.String(50), default='Agendado') 
+    
+    evolucao_texto = db.Column(db.Text) 
+    
+    # Mantido para garantir Risco Zero
+    dados_sensoriais_executivos = db.Column(db.JSON, nullable=True) 
+    
+    # O MOTOR DE INFERÊNCIA DO PEDI
+    micro_metas = db.Column(JSONB, nullable=True)
+    
+    data_registro = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # A linha que causava o conflito foi removida daqui, pois o paciente.py já faz esse trabalho.
+
+    def __repr__(self):
+        return f'<Consulta {self.data_hora} - Paciente ID {self.paciente_id}>'
+
+============================================================
+ARQUIVO: app\models\obs_clinica.py
+============================================================
+
+from app.extensions import db
+from datetime import datetime
+from sqlalchemy.dialects.postgresql import JSONB
+
+class ObsClinica(db.Model):
+    __tablename__ = 'obs_clinica'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    paciente_id = db.Column(db.Integer, db.ForeignKey('pacientes.id'), nullable=False)
+    data_observacao = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Armazena Psicomotora, Executivas, Sensorial e Práxis do seu DOC
+    dados_json = db.Column(JSONB, nullable=False)
+    observacoes_texto = db.Column(db.Text)
+
+    paciente = db.relationship('Paciente', backref=db.backref('observacoes_clinicas', lazy=True))
+
+============================================================
+ARQUIVO: app\models\paciente.py
+============================================================
+
+from app.extensions import db
+from datetime import datetime
+
+class Paciente(db.Model):
+    __tablename__ = 'pacientes'
+
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(150), nullable=False)
+    data_nascimento = db.Column(db.Date, nullable=False)
+    escolaridade = db.Column(db.String(100))
+
+    # NOVOS CAMPOS: Responsáveis
+    nome_responsavel = db.Column(db.String(150))
+    telefone_responsavel = db.Column(db.String(20))
+    email_responsavel = db.Column(db.String(120))
+
+    diagnostico = db.Column(db.String(255)) # Aumentado para 255
+    queixa_principal = db.Column(db.Text)
+    historico_desenvolvimento = db.Column(db.Text)
+    intervencoes_atuais = db.Column(db.Text)
+    
+    data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)
+
+    consultas = db.relationship('Consulta', backref='paciente', lazy=True, cascade="all, delete-orphan")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "nome": self.nome,
+            "data_nascimento": self.data_nascimento.strftime('%Y-%m-%d') if self.data_nascimento else None,
+            "escolaridade": self.escolaridade,
+            "diagnostico": self.diagnostico,
+            "queixa_principal": self.queixa_principal,
+            "nome_responsavel": self.nome_responsavel,
+            "telefone_responsavel": self.telefone_responsavel,
+            "email_responsavel": self.email_responsavel
+        }
+
+============================================================
+ARQUIVO: app\models\pedi.py
+============================================================
+
+from app.extensions import db
+from datetime import datetime
+
+class AvaliacaoPEDI(db.Model):
+    __tablename__ = 'avaliacoes_pedi'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    paciente_id = db.Column(db.Integer, db.ForeignKey('pacientes.id'), nullable=False)
+    data_avaliacao = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Pontuações de Independência (0 a 100)
+    score_autocuidado = db.Column(db.Integer, default=0)
+    score_mobilidade = db.Column(db.Integer, default=0)
+    score_funcao_social = db.Column(db.Integer, default=0)
+    
+    # Assistência e Observações
+    assistencia_cuidador = db.Column(db.String(100), nullable=True)
+    observacoes = db.Column(db.Text, nullable=True)
+
+    # Relação com o Paciente (para facilitar buscas futuras)
+    paciente = db.relationship('Paciente', backref=db.backref('avaliacoes_pedi', lazy=True))
+
+============================================================
+ARQUIVO: app\models\__init__.py
+============================================================
+
+from app.models.paciente import Paciente
+from app.models.consulta import Consulta
+from app.models.pedi import AvaliacaoPEDI
+from app.models.obs_clinica import ObsClinica
+from app.models.anamnese import Anamnese  # <--- NOVO
+
+============================================================
+ARQUIVO: app\routes\anamnese_bp.py
+============================================================
+
+from flask import Blueprint, request, jsonify
+from app.extensions import db
+from app.models.anamnese import Anamnese
+
+anamnese_bp = Blueprint('anamnese_bp', __name__, url_prefix='/api/anamnese')
+
+@anamnese_bp.route('/<int:paciente_id>', methods=['POST'])
+def salvar_anamnese(paciente_id):
+    dados = request.get_json()
+    try:
+        nova_anamnese = Anamnese(
+            paciente_id=paciente_id,
+            dados_triagem=dados.get('dados_triagem', {}),
+            queixa_principal=dados.get('queixa_principal', '')
+        )
+        db.session.add(nova_anamnese)
+        db.session.commit()
+        return jsonify({"mensagem": "Anamnese salva com sucesso!"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"erro": str(e)}), 500
+
+@anamnese_bp.route('/<int:paciente_id>', methods=['GET'])
+def listar_anamnese(paciente_id):
+    anamneses = Anamnese.query.filter_by(paciente_id=paciente_id).order_by(Anamnese.data_criacao.desc()).all()
+    return jsonify([{
+        "id": a.id,
+        "data": a.data_criacao.strftime('%d/%m/%Y'),
+        "dados": a.dados_triagem,
+        "queixa": a.queixa_principal
+    } for a in anamneses]), 200
+
+============================================================
+ARQUIVO: app\routes\consulta_bp.py
+============================================================
+
+from flask import Blueprint, request, jsonify
+from app.extensions import db
+from app.models.consulta import Consulta
+from datetime import datetime
+
+consulta_bp = Blueprint('consulta_bp', __name__, url_prefix='/api/consultas')
+
+@consulta_bp.route('/paciente/<int:paciente_id>', methods=['GET'])
+def listar_consultas_paciente(paciente_id):
+    consultas = Consulta.query.filter_by(paciente_id=paciente_id).order_by(Consulta.data_hora.desc()).all()
+    resultado = [{
+        "id": c.id,
+        "data_hora": c.data_hora.strftime('%d/%m/%Y'),
+        "tipo_sessao": c.tipo_sessao,
+        "status": c.status,
+        "evolucao_texto": c.evolucao_texto,
+        "micro_metas": c.micro_metas or {}
+    } for c in consultas]
+    return jsonify(resultado), 200
+
+@consulta_bp.route('/', methods=['POST'])
+def registrar_evolucao():
+    dados = request.get_json()
+    
+    if not dados or not dados.get('paciente_id') or not dados.get('data_hora'):
+        return jsonify({"erro": "Dados incompletos para registo da evolução."}), 400
+        
+    try:
+        data_string = dados['data_hora']
+        if 'T' in data_string:
+            data_string = data_string.replace('T', ' ')
+        if len(data_string) == 10:
+            data_string += ' 00:00'
+            
+        data_hora_consulta = datetime.strptime(data_string, '%Y-%m-%d %H:%M')
+        
+        nova_consulta = Consulta(
+            paciente_id=dados['paciente_id'],
+            data_hora=data_hora_consulta,
+            tipo_sessao=dados.get('tipo_sessao', 'Intervenção de Rotina'),
+            status=dados.get('status', 'Realizado'),
+            evolucao_texto=dados.get('evolucao_texto', ''),
+            micro_metas=dados.get('micro_metas', {})
+        )
+        
+        db.session.add(nova_consulta)
+        db.session.commit()
+        return jsonify({"mensagem": "Evolução Diária registada com sucesso!"}), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"erro": str(e)}), 500
+
+============================================================
+ARQUIVO: app\routes\frontend_bp.py
+============================================================
+
+from flask import Blueprint, render_template
+
+frontend_bp = Blueprint('frontend_bp', __name__)
+
+@frontend_bp.route('/')
+def index():
+    return render_template('index.html')
+
+@frontend_bp.route('/paciente/<int:id>')
+def perfil_paciente(id):
+    return render_template('paciente.html', paciente_id=id)
+
+@frontend_bp.route('/paciente/<int:id>/anamnese')
+def anamnese_paciente(id):
+    return render_template('anamnese.html', paciente_id=id)
+
+@frontend_bp.route('/paciente/<int:id>/pedi')
+def pedi_paciente(id):
+    return render_template('pedi.html', paciente_id=id)
+
+@frontend_bp.route('/paciente/<int:id>/observacao')
+def obs_clinica_paciente(id):
+    return render_template('obs_clinica.html', paciente_id=id)
+
+# <--- ROTA 4: AGENDA E EVOLUÇÃO DIÁRIA --->
+@frontend_bp.route('/paciente/<int:id>/evolucao')
+def evolucao_paciente(id):
+    return render_template('evolucao.html', paciente_id=id)
+
+============================================================
+ARQUIVO: app\routes\obs_clinica_bp.py
+============================================================
+
+from flask import Blueprint, request, jsonify
+from app.extensions import db
+from app.models.obs_clinica import ObsClinica
+
+obs_clinica_bp = Blueprint('obs_clinica_bp', __name__, url_prefix='/api/obs-clinica')
+
+@obs_clinica_bp.route('/<int:paciente_id>', methods=['POST'])
+def salvar_obs(paciente_id):
+    dados = request.get_json()
+    try:
+        nova_obs = ObsClinica(
+            paciente_id=paciente_id,
+            dados_json=dados.get('dados_json'),
+            observacoes_texto=dados.get('observacoes_texto', '')
+        )
+        db.session.add(nova_obs)
+        db.session.commit()
+        return jsonify({"mensagem": "Observação salva!"}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"erro": str(e)}), 500
+
+@obs_clinica_bp.route('/<int:paciente_id>', methods=['GET'])
+def listar_obs(paciente_id):
+    obs = ObsClinica.query.filter_by(paciente_id=paciente_id).order_by(ObsClinica.data_observacao.desc()).all()
+    return jsonify([{
+        "id": o.id,
+        "data": o.data_observacao.strftime('%d/%m/%Y'),
+        "dados": o.dados_json
+    } for o in obs]), 200
+
+============================================================
+ARQUIVO: app\routes\paciente_bp.py
+============================================================
+
+from flask import Blueprint, request, jsonify
+from app.extensions import db
+from app.models.paciente import Paciente
+from datetime import datetime
+
+paciente_bp = Blueprint('paciente_bp', __name__, url_prefix='/api/pacientes')
+
+@paciente_bp.route('/', methods=['GET'])
+def listar_pacientes():
+    pacientes = Paciente.query.all()
+    return jsonify([p.to_dict() for p in pacientes]), 200
+
+@paciente_bp.route('/<int:id>', methods=['GET'])
+def obter_paciente(id):
+    paciente = Paciente.query.get_or_404(id)
+    return jsonify(paciente.to_dict()), 200
+
+@paciente_bp.route('/', methods=['POST'])
+def criar_paciente():
+    dados = request.get_json()
+    if not dados or not dados.get('nome') or not dados.get('data_nascimento'):
+        return jsonify({"erro": "Nome e nascimento obrigatórios."}), 400
+    try:
+        data_nasc = datetime.strptime(dados['data_nascimento'], '%Y-%m-%d').date()
+        novo = Paciente(
+            nome=dados['nome'],
+            data_nascimento=data_nasc,
+            escolaridade=dados.get('escolaridade', ''),
+            diagnostico=dados.get('diagnostico', ''),
+            queixa_principal=dados.get('queixa_principal', ''),
+            nome_responsavel=dados.get('nome_responsavel', ''),
+            telefone_responsavel=dados.get('telefone_responsavel', ''),
+            email_responsavel=dados.get('email_responsavel', '')
+        )
+        db.session.add(novo)
+        db.session.commit()
+        return jsonify({"mensagem": "Sucesso!", "id": novo.id}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"erro": str(e)}), 500
+
+============================================================
+ARQUIVO: app\routes\pedi_bp.py
+============================================================
+
+from flask import Blueprint, request, jsonify
+from app.extensions import db
+from app.models.pedi import AvaliacaoPEDI
+from app.models.paciente import Paciente
+
+# Certifique-se de que o nome da variável abaixo é EXATAMENTE pedi_bp
+pedi_bp = Blueprint('pedi_bp', __name__, url_prefix='/api/pedi')
+
+@pedi_bp.route('/<int:paciente_id>', methods=['GET'])
+def buscar_avaliacoes(paciente_id):
+    avaliacoes = AvaliacaoPEDI.query.filter_by(paciente_id=paciente_id).order_by(AvaliacaoPEDI.data_avaliacao.desc()).all()
+    
+    resultado = [{
+        "id": a.id,
+        "data_avaliacao": a.data_avaliacao.strftime('%d/%m/%Y'),
+        "score_autocuidado": a.score_autocuidado,
+        "score_mobilidade": a.score_mobilidade,
+        "score_funcao_social": a.score_funcao_social,
+        "assistencia_cuidador": a.assistencia_cuidador,
+        "observacoes": a.observacoes
+    } for a in avaliacoes]
+    
+    return jsonify(resultado), 200
+
+@pedi_bp.route('/<int:paciente_id>', methods=['POST'])
+def salvar_avaliacao(paciente_id):
+    Paciente.query.get_or_404(paciente_id)
+    dados = request.get_json()
+    
+    try:
+        nova_avaliacao = AvaliacaoPEDI(
+            paciente_id=paciente_id,
+            score_autocuidado=int(dados.get('score_autocuidado', 0)),
+            score_mobilidade=int(dados.get('score_mobilidade', 0)),
+            score_funcao_social=int(dados.get('score_funcao_social', 0)),
+            assistencia_cuidador=dados.get('assistencia_cuidador', ''),
+            observacoes=dados.get('observacoes', '')
+        )
+        db.session.add(nova_avaliacao)
+        db.session.commit()
+        return jsonify({"mensagem": "Avaliação PEDI salva com sucesso!"}), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"erro": str(e)}), 500
+
+============================================================
+ARQUIVO: app\routes\__init__.py
+============================================================
+
+
+
+============================================================
+ARQUIVO: app\templates\anamnese.html
+============================================================
+
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Triagem Inicial | APP-TO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <style>body { background-color: #f8fafc; font-family: 'Nunito', sans-serif; }</style>
+</head>
+<body class="text-slate-800 antialiased" x-data="formTriagem({{ paciente_id }})">
+
+    <div class="max-w-4xl mx-auto min-h-screen bg-white md:shadow-2xl md:shadow-slate-200/50 md:border-x border-slate-100 relative pb-32">
+        
+        <header class="bg-orange-500 text-white p-4 sticky top-0 z-50 shadow-lg md:rounded-b-2xl">
+            <div class="flex items-center gap-3">
+                <a :href="'/paciente/' + pacienteId" class="p-2 hover:bg-white/20 rounded-full transition-all">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </a>
+                <h1 class="text-xl font-black uppercase tracking-wide">Triagem Inicial</h1>
+            </div>
+        </header>
+
+        <main class="p-6 space-y-4">
+            <div class="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+                <button @click="abrirSecao('avds')" class="w-full bg-orange-50 p-5 font-black text-orange-800 flex justify-between items-center transition-colors">
+                    <span>1. Atividades de Vida Diária (AVDs)</span><span x-text="secao === 'avds' ? '▲' : '▼'"></span>
+                </button>
+                <div x-show="secao === 'avds'" x-collapse class="p-4 space-y-3 bg-white">
+                    <template x-for="item in ['Seletividade alimentar (recusa texturas/cores)', 'Dificuldade extrema em iniciar/manter o sono', 'Resistência a cortar unhas/cabelo ou lavar a cabeça', 'Não se veste sozinho / Irrita-se com etiquetas', 'Desfralde tardio ou escapes frequentes']">
+                        <label class="flex items-start gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100 cursor-pointer hover:bg-orange-50 transition-colors">
+                            <input type="checkbox" :value="item" x-model="form.dados_triagem.avds" class="w-6 h-6 mt-0.5 accent-orange-500 rounded-lg">
+                            <span class="text-sm font-bold text-slate-600" x-text="item"></span>
+                        </label>
+                    </template>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+                <button @click="abrirSecao('sensorial')" class="w-full bg-emerald-50 p-5 font-black text-emerald-800 flex justify-between items-center transition-colors">
+                    <span>2. Perfil Sensorial (TEA / TPS)</span><span x-text="secao === 'sensorial' ? '▲' : '▼'"></span>
+                </button>
+                <div x-show="secao === 'sensorial'" x-collapse class="p-4 space-y-3 bg-white">
+                    <template x-for="item in ['Tapa os ouvidos para sons altos', 'Agitação motora constante', 'Busca impacto (esbarra nas coisas)', 'Anda na ponta dos pés frequentemente', 'Cheira ou lambe objetos não comestíveis', 'Baixa reação à dor']">
+                        <label class="flex items-start gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100 cursor-pointer hover:bg-emerald-50 transition-colors">
+                            <input type="checkbox" :value="item" x-model="form.dados_triagem.sensorial" class="w-6 h-6 mt-0.5 accent-emerald-500 rounded-lg">       
+                            <span class="text-sm font-bold text-slate-600" x-text="item"></span>
+                        </label>
+                    </template>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+                <button @click="abrirSecao('comportamento')" class="w-full bg-red-50 p-5 font-black text-red-800 flex justify-between items-center transition-colors">
+                    <span>3. Comportamento e Regulação</span><span x-text="secao === 'comportamento' ? '▲' : '▼'"></span>
+                </button>
+                <div x-show="secao === 'comportamento'" x-collapse class="p-4 space-y-3 bg-white">
+                    <template x-for="item in ['TOD: Desafia regras e adultos ativamente', 'TDAH: Age sem pensar no perigo', 'TEA: Crises severas (Meltdowns)', 'Tourette: Tiques motores ou vocais', 'Baixíssima tolerância à frustração']">
+                        <label class="flex items-start gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100 cursor-pointer hover:bg-red-50 transition-colors">
+                            <input type="checkbox" :value="item" x-model="form.dados_triagem.comportamento" class="w-6 h-6 mt-0.5 accent-red-500 rounded-lg">       
+                            <span class="text-sm font-bold text-slate-600" x-text="item"></span>
+                        </label>
+                    </template>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+                <button @click="abrirSecao('social_motor')" class="w-full bg-blue-50 p-5 font-black text-blue-800 flex justify-between items-center transition-colors">
+                    <span>4. Social, Brincar e Práxis Motora</span><span x-text="secao === 'social_motor' ? '▲' : '▼'"></span>
+                </button>
+                <div x-show="secao === 'social_motor'" x-collapse class="p-4 space-y-3 bg-white">
+                    <template x-for="item in ['Evita contacto visual prolongado', 'Brincar atípico (alinha peças)', 'Linguagem literal', 'Dispraxia: Cai muito / Desajeitado', 'Foge de atividades com lápis ou tesoura']">
+                        <label class="flex items-start gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100 cursor-pointer hover:bg-blue-50 transition-colors">
+                            <input type="checkbox" :value="item" x-model="form.dados_triagem.social_motor" class="w-6 h-6 mt-0.5 accent-blue-500 rounded-lg">       
+                            <span class="text-sm font-bold text-slate-600" x-text="item"></span>
+                        </label>
+                    </template>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+                <label class="block text-xs font-black text-slate-400 mb-2 uppercase tracking-widest">Queixa Principal (Resumo da Família)</label>
+                <textarea x-model="form.queixa_principal" rows="4" placeholder="Ex: A mãe relata que a criança..." class="w-full p-4 bg-slate-50 rounded-2xl border-none text-sm font-bold focus:ring-2 focus:ring-orange-500 outline-none resize-none shadow-inner"></textarea>
+            </div>
+        </main>
+
+        <div class="fixed bottom-0 max-w-4xl w-full p-4 bg-white/90 backdrop-blur-md border-t z-50">
+            <button @click="salvarAnamnese" class="w-full bg-orange-500 text-white font-black py-4 rounded-2xl shadow-xl active:scale-95 transition-all uppercase tracking-widest text-sm">
+                Gravar Mapa Clínico
+            </button>
+        </div>
+    </div>
+
+    <script>
+        function formTriagem(id) {
+            return {
+                pacienteId: id,
+                secao: 'avds',
+                form: { dados_triagem: { avds: [], sensorial: [], comportamento: [], social_motor: [] }, queixa_principal: '' },
+                abrirSecao(nome) { this.secao = this.secao === nome ? '' : nome; },
+                salvarAnamnese() {
+                    fetch('/api/anamnese/' + this.pacienteId, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(this.form)
+                    }).then(res => res.json()).then(data => {
+                        if(data.mensagem) { alert('Sucesso!'); window.location.href = '/paciente/' + this.pacienteId; }
+                    });
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+
+============================================================
+ARQUIVO: app\templates\evolucao.html
+============================================================
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Evolução Diária (GAS) | APP-TO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Nunito', 'sans-serif'] },
+                    colors: { 
+                        clinica: { 50: '#f0fdfa', 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 900: '#134e4a' } 
+                    } 
+                } 
+            }
+        }
+    </script>
+    <style>body { background-color: #f8fafc; overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; }</style>
+</head>
+<body class="text-slate-800 antialiased" x-data="formEvolucao({{ paciente_id }})">
+
+    <div class="max-w-4xl mx-auto min-h-screen bg-white md:shadow-2xl md:shadow-slate-200/50 md:border-x border-slate-100 relative pb-32">
+        
+        <header class="bg-emerald-600 text-white p-4 sticky top-0 z-50 shadow-md">
+            <div class="flex items-center gap-3">
+                <a :href="'/paciente/' + pacienteId" class="p-2 -ml-2 hover:bg-white/20 rounded-full transition-colors active:scale-95"> 
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg> 
+                </a>
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <h1 class="text-xl font-black uppercase tracking-widest">Evolução Diária</h1>
+                </div>
+            </div>
+        </header>
+
+        <main class="p-4 md:p-6 space-y-6">
+            
+            <section class="bg-slate-50 p-5 rounded-3xl border border-slate-100 shadow-sm">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Data e Hora da Sessão</label>
+                        <input type="datetime-local" x-model="form.data_hora" class="w-full p-3 bg-white rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none text-sm font-bold text-slate-700 shadow-sm transition-shadow">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Tipo</label>
+                            <select x-model="form.tipo_sessao" class="w-full p-3 bg-white rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none text-sm font-bold text-slate-700 shadow-sm">
+                                <option>Intervenção</option>
+                                <option>Avaliação</option>
+                                <option>Reunião Familiar</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Status</label>
+                            <select x-model="form.status" class="w-full p-3 bg-white rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none text-sm font-bold text-slate-700 shadow-sm">
+                                <option>Realizado</option>
+                                <option>Faltou</option>
+                                <option>Cancelado</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section x-show="form.status === 'Realizado'" class="bg-white p-5 rounded-3xl border border-emerald-100 shadow-sm relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full -mr-10 -mt-10 opacity-50 pointer-events-none"></div>
+                
+                <div class="relative z-10 mb-5 pb-3 border-b border-slate-50">
+                    <h2 class="text-sm font-black text-emerald-800 uppercase flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        Índice de Resposta Diária (GAS)
+                    </h2>
+                    <p class="text-xs font-bold text-slate-400 mt-1 leading-snug">Avalie o desempenho do paciente nas micro-metas de hoje comparado ao esperado.</p>
+                </div>
+
+                <div class="space-y-6 relative z-10">
+                    <template x-for="dominio in [{id: 'autocuidado', nome: 'Autocuidado'}, {id: 'mobilidade', nome: 'Mobilidade'}, {id: 'funcao_social', nome: 'Função Social'}]">
+                        <div>
+                            <div class="flex justify-between items-end mb-2">
+                                <label class="text-[11px] font-black text-slate-600 uppercase tracking-widest" x-text="dominio.nome"></label>
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-md" 
+                                      :class="getLegendaCor(form.micro_metas[dominio.id])" 
+                                      x-text="getLegendaTexto(form.micro_metas[dominio.id])"></span>
+                            </div>
+                            
+                            <div class="flex gap-1.5">
+                                <template x-for="valor in [-2, -1, 0, 1, 2]">
+                                    <button @click="setGas(dominio.id, valor)" 
+                                            type="button"
+                                            class="flex-1 py-3 rounded-xl border font-black text-sm transition-all duration-200 active:scale-95 flex flex-col items-center justify-center gap-0.5"
+                                            :class="getGasColor(form.micro_metas[dominio.id], valor)">
+                                        <span x-text="valor > 0 ? '+' + valor : valor"></span>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </section>
+
+            <section x-show="form.status === 'Realizado'" class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
+                <div class="flex justify-between items-center mb-4">
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Atividades Aplicadas (Tags)</label>
+                    <span class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg" x-text="atividadesSelecionadas.length + ' selecionadas'"></span>
+                </div>
+
+                <div class="flex flex-wrap gap-2 mb-4" x-show="atividadesSelecionadas.length > 0">
+                    <template x-for="ativ in atividadesSelecionadas" :key="ativ">
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-clinica-100 text-clinica-700 text-xs font-bold rounded-xl border border-clinica-200">
+                            <span x-text="ativ"></span>
+                            <button type="button" @click="toggleAtividade(ativ)" class="text-clinica-500 hover:text-clinica-800 focus:outline-none">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
+                        </span>
+                    </template>
+                </div>
+
+                <div class="space-y-2">
+                    <template x-for="(categoria, index) in bibliotecaAtividades" :key="index">
+                        <div class="border border-slate-100 rounded-2xl overflow-hidden">
+                            <button type="button" @click="categoriaAberta = (categoriaAberta === index ? null : index)" 
+                                    class="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left focus:outline-none">
+                                <span class="text-xs font-black text-slate-700 uppercase tracking-wide" x-text="categoria.nome"></span>
+                                <svg class="w-4 h-4 text-slate-400 transition-transform" :class="{'rotate-180': categoriaAberta === index}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </button>
+                            <div x-show="categoriaAberta === index" x-collapse class="bg-white p-3 border-t border-slate-100">
+                                <div class="flex flex-wrap gap-1.5">
+                                    <template x-for="item in categoria.itens" :key="item">
+                                        <button type="button" @click="toggleAtividade(item)" 
+                                                class="px-3 py-1.5 text-[11px] font-bold rounded-lg transition-colors border text-left"
+                                                :class="atividadesSelecionadas.includes(item) ? 'bg-clinica-600 text-white border-clinica-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'">
+                                            <span x-text="item"></span>
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </section>
+
+            <section class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Evolução Clínica (Descrição Adicional)</label>
+                <textarea x-model="form.evolucao_texto" rows="4" placeholder="Adicione detalhes extras da sessão, comportamento ou resposta terapêutica que não foram cobertos pelas tags acima..." class="w-full p-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 outline-none text-sm font-semibold text-slate-700 shadow-inner resize-none"></textarea>
+            </section>
+
+        </main>
+
+        <div class="fixed bottom-0 max-w-4xl w-full p-4 bg-gradient-to-t from-white via-white to-transparent z-40">
+            <button @click="salvar()" :disabled="salvando" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-2xl shadow-xl hover:shadow-2xl active:scale-[0.98] transition-all disabled:opacity-70 flex items-center justify-center gap-2 uppercase tracking-widest">
+                <svg x-show="salvando" class="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                <span x-text="salvando ? 'A Gravar Dados...' : 'Assinar Prontuário'"></span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        function formEvolucao(id) {
+            const agora = new Date();
+            agora.setMinutes(agora.getMinutes() - agora.getTimezoneOffset());
+            const dataIso = agora.toISOString().slice(0, 16);
+
+            return {
+                pacienteId: id,
+                salvando: false,
+                categoriaAberta: null, 
+                atividadesSelecionadas: [], // Guarda as tags que a Edna clicou
+                form: {
+                    paciente_id: id,
+                    data_hora: dataIso,
+                    tipo_sessao: 'Intervenção',
+                    status: 'Realizado',
+                    evolucao_texto: '',
+                    micro_metas: {
+                        autocuidado: null,
+                        mobilidade: null,
+                        funcao_social: null,
+                        atividades: [] // Vamos embutir as tags aqui no JSONB!
+                    }
+                },
+
+                // A Lista Oficial da Edna categorizada
+                bibliotecaAtividades: [
+                    {
+                        nome: 'Motricidade Fina e Destreza',
+                        itens: ['Coordenação motora fina', 'Destreza manual', 'Dissociação dedos e mãos', 'Força mãos e dedos', 'Graduação de Força', 'Atividade com prendedor', 'Atividade com massinha', 'Coordenação olho mãos', 'Coordenação / integração bilateral', 'Atividade com tesoura (reta)', 'Atividade com tesoura (curvas)']
+                    },
+                    {
+                        nome: 'Cognitivo e Percepção Visual',
+                        itens: ['Encaixe', 'Pareamento de figuras e cores', 'Quebra cabeça', 'Atenção sustentada', 'Percepção visual', 'Resolução de problemas', 'Atenção geral', 'Contextualização']
+                    },
+                    {
+                        nome: 'Integração Sensorial e Global',
+                        itens: ['Circuito Motor', 'Planejamento motor', 'Estímulo proprioceptivo, vestibular e tátil', 'Na plataforma (baixar nível de alerta)', 'Proprioceptivo / Consciência Corporal', 'Noção espacial', 'Equilíbrio Postural', 'Atividade de lateralidade', 'Andar nas almofadas e jogar bola', 'Prono na plataforma (jogando argola)']
+                    },
+                    {
+                        nome: 'Emocional e AVDs',
+                        itens: ['Tolerância a frustração', 'Habilidades emocionais', 'AVDs (Vestir e despir)', 'AVDs (Colocar e retirar meias)']
+                    }
+                ],
+
+                toggleAtividade(atividade) {
+                    const index = this.atividadesSelecionadas.indexOf(atividade);
+                    if (index > -1) {
+                        this.atividadesSelecionadas.splice(index, 1); // Remove se já existe
+                    } else {
+                        this.atividadesSelecionadas.push(atividade); // Adiciona
+                    }
+                },
+
+                setGas(dominio, valor) {
+                    if(this.form.micro_metas[dominio] === valor) {
+                        this.form.micro_metas[dominio] = null;
+                    } else {
+                        this.form.micro_metas[dominio] = valor;
+                    }
+                },
+
+                getGasColor(selecionado, botaoValor) {
+                    if (selecionado !== botaoValor) return 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50';
+                    if (botaoValor === -2) return 'bg-rose-500 text-white border-rose-600 shadow-inner scale-105';
+                    if (botaoValor === -1) return 'bg-orange-400 text-white border-orange-500 shadow-inner scale-105';
+                    if (botaoValor === 0) return 'bg-slate-500 text-white border-slate-600 shadow-inner scale-105';
+                    if (botaoValor === 1) return 'bg-clinica-400 text-white border-clinica-500 shadow-inner scale-105';
+                    if (botaoValor === 2) return 'bg-clinica-600 text-white border-clinica-700 shadow-inner scale-105';
+                },
+
+                getLegendaTexto(valor) {
+                    if (valor === -2) return 'Pior que o esperado (Recusa)';
+                    if (valor === -1) return 'Abaixo (Muita ajuda)';
+                    if (valor === 0) return 'O esperado hoje';
+                    if (valor === 1) return 'Acima (Pouca ajuda)';
+                    if (valor === 2) return 'Muito acima (Autónomo)';
+                    return 'Não avaliado hoje';
+                },
+
+                getLegendaCor(valor) {
+                    if (valor === -2) return 'bg-rose-100 text-rose-700';
+                    if (valor === -1) return 'bg-orange-100 text-orange-700';
+                    if (valor === 0) return 'bg-slate-200 text-slate-700';
+                    if (valor === 1) return 'bg-clinica-100 text-clinica-700';
+                    if (valor === 2) return 'bg-clinica-100 text-clinica-800';
+                    return 'bg-slate-100 text-slate-400';
+                },
+
+                salvar() {
+                    this.salvando = true;
+                    const payload = { ...this.form };
+                    payload.data_hora = payload.data_hora.replace('T', ' ');
+                    
+                    // Injeta as tags selecionadas secretamente no Buraco Negro JSONB antes de enviar
+                    payload.micro_metas.atividades = this.atividadesSelecionadas;
+
+                    fetch('/api/consultas/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    })
+                    .then(res => {
+                        if (!res.ok) throw new Error('Falha ao salvar a Evolução');
+                        return res.json();
+                    })
+                    .then(data => {
+                        this.salvando = false;
+                        window.location.href = '/paciente/' + this.pacienteId;
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        alert('Erro ao guardar evolução. Verifique a ligação à internet.');
+                        this.salvando = false;
+                    });
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+
+============================================================
+ARQUIVO: app\templates\index.html
+============================================================
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dashboard | APP-TO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: { extend: { fontFamily: { sans: ['Nunito', 'sans-serif'] }, colors: { clinica: { 50: '#f0fdfa', 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 900: '#134e4a' } } } }
+        }
+    </script>
+    <style>
+        body { background-color: #f8fafc; overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body class="text-slate-800 antialiased" x-data="gestaoPacientes()" x-init="buscarPacientes()">
+
+    <div class="max-w-4xl mx-auto min-h-screen bg-white md:shadow-2xl md:shadow-slate-200/50 md:border-x border-slate-100 relative pb-24">
+
+        <header class="bg-clinica-600 text-white p-6 md:rounded-b-3xl shadow-md relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-48 h-48 bg-white opacity-5 rounded-full -mr-16 -mt-16 pointer-events-none"></div>
+            <div class="flex justify-between items-center relative z-10">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                        <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17c0 1.1.9 2 2 2h4c1.1 0 2-.9 2-2v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7z"/></svg>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-black tracking-tight leading-none">APP-TO</h1>
+                        <p class="text-clinica-100 text-xs font-bold uppercase tracking-widest mt-1 leading-none">Terapia Pediátrica</p>
+                    </div>
+                </div>
+                <div class="w-10 h-10 rounded-full bg-clinica-900 border-2 border-clinica-500 flex items-center justify-center shadow-inner">
+                    <span class="font-black text-sm text-clinica-100">ED</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 mt-8 relative z-10">
+                <div class="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4">
+                    <p class="text-clinica-100 text-xs font-bold uppercase mb-1">Pacientes Ativos</p>
+                    <p class="text-3xl font-black" x-text="pacientes.length || '0'"></p>
+                </div>
+                <button @click="abrirModalCadastro()" class="bg-white text-clinica-600 rounded-2xl p-4 flex flex-col items-center justify-center gap-1 hover:bg-clinica-50 shadow-sm active:scale-95 transition-all">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg>
+                    <span class="text-xs font-black uppercase mt-1">Novo Paciente</span>
+                </button>
+            </div>
+        </header>
+
+        <main class="p-6">
+            <div class="relative mb-6">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </div>
+                <input type="text" x-model="pesquisa" placeholder="Buscar paciente por nome ou diagnóstico..." 
+                       class="w-full pl-11 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-clinica-500 transition-shadow outline-none text-sm font-semibold text-slate-700 shadow-sm">
+            </div>
+
+            <div class="space-y-3">
+                <template x-for="paciente in pacientesFiltrados()" :key="paciente.id">
+                    <div @click="window.location.href = '/paciente/' + paciente.id" 
+                         class="group bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 cursor-pointer hover:border-clinica-300 hover:shadow-md transition-all active:scale-[0.98]">
+                        <div class="w-14 h-14 rounded-full bg-clinica-50 text-clinica-600 font-black text-xl flex items-center justify-center uppercase shrink-0 group-hover:bg-clinica-600 group-hover:text-white transition-colors">
+                            <span x-text="paciente.nome.charAt(0)"></span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-black text-slate-800 text-base truncate mb-1" x-text="paciente.nome"></h3>
+                            <span class="inline-block bg-slate-100 text-slate-500 text-[10px] px-2.5 py-1 rounded-md font-bold truncate max-w-full uppercase tracking-wider" 
+                                  x-text="paciente.diagnostico || 'Triagem Inicial'"></span>
+                        </div>
+                        <div class="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-clinica-50 group-hover:text-clinica-600 transition-colors shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </main>
+
+        <div x-show="modalCadastroAberto" style="display: none;" class="fixed inset-0 z-50 overflow-y-auto">
+            <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                <div x-show="modalCadastroAberto" x-transition.opacity class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" @click="fecharModal()"></div>
+                <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+                <div x-show="modalCadastroAberto" x-transition.scale class="inline-block align-bottom bg-white rounded-t-3xl sm:rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle w-full sm:max-w-lg">
+                    
+                    <div class="bg-white px-6 pt-6 pb-6">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-xl font-black text-slate-800">Novo Paciente</h3>
+                            <button @click="fecharModal()" class="text-slate-400 hover:text-slate-600 p-2"><svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                        </div>
+                        
+                        <div class="space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar px-1">
+                            <div>
+                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Nome da Criança</label>
+                                <input type="text" x-model="novoPaciente.nome" class="w-full p-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-clinica-500 outline-none text-sm font-bold" placeholder="Nome completo">
+                            </div>
+
+                            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                                <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-1">Responsáveis</p>
+                                <input type="text" x-model="novoPaciente.nome_responsavel" placeholder="Nome da Mãe/Pai" class="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm font-bold outline-none">
+                                <div class="grid grid-cols-2 gap-3">
+                                    <input type="tel" x-model="novoPaciente.telefone_responsavel" placeholder="WhatsApp" class="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm font-bold outline-none">
+                                    <input type="email" x-model="novoPaciente.email_responsavel" placeholder="E-mail" class="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm font-bold outline-none">
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Nascimento</label>
+                                    <input type="date" x-model="novoPaciente.data_nascimento" class="w-full p-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-clinica-500 outline-none text-sm font-bold">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Escolaridade</label>
+                                    <select x-model="novoPaciente.escolaridade" class="w-full p-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-clinica-500 outline-none text-sm font-bold">
+                                        <option value="">Selecione...</option>
+                                        <option value="Creche">Creche</option>
+                                        <option value="Educação Infantil">Educação Infantil</option>
+                                        <option value="Fundamental I">Fundamental I</option>
+                                        <option value="Fundamental II">Fundamental II</option>
+                                        <option value="Não frequenta">Não frequenta</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="relative" x-data="{ open: false }">
+                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Diagnóstico (Laudo)</label>
+                                <button type="button" @click="open = !open" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-left flex justify-between items-center focus:ring-2 focus:ring-clinica-500 outline-none">
+                                    <span class="truncate text-slate-700 font-bold text-sm" x-text="diagnosticosSelecionados.length === 0 ? 'Selecione...' : diagnosticosSelecionados.join(', ')"></span>
+                                    <svg class="h-5 w-5 text-slate-500 transition-transform" :class="{'rotate-180': open}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                </button>
+                                <div x-show="open" @click.away="open = false" class="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar p-2">
+                                    <template x-for="opcao in listaDisfuncoes" :key="opcao">
+                                        <label class="flex items-center gap-3 p-3 hover:bg-clinica-50 rounded-lg cursor-pointer">
+                                            <input type="checkbox" :value="opcao" x-model="diagnosticosSelecionados" class="w-5 h-5 text-clinica-600 rounded">
+                                            <span class="text-sm font-bold text-slate-700" x-text="opcao"></span>
+                                        </label>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-slate-50 px-6 py-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 rounded-b-3xl">
+                        <button type="button" @click="fecharModal()" class="w-full sm:w-auto px-6 py-3 font-bold text-slate-600">Cancelar</button>
+                        <button type="button" @click="salvarPaciente()" :disabled="salvando" class="w-full sm:w-auto px-6 py-3 rounded-xl shadow-md text-white bg-clinica-600 font-black flex items-center justify-center">
+                            <span x-text="salvando ? 'Salvando...' : 'Cadastrar Paciente'"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function gestaoPacientes() {
+            return {
+                pacientes: [],
+                carregando: true,
+                pesquisa: '',
+                modalCadastroAberto: false,
+                salvando: false,
+                novoPaciente: { nome: '', data_nascimento: '', escolaridade: '', queixa_principal: '', nome_responsavel: '', telefone_responsavel: '', email_responsavel: '' },
+                diagnosticosSelecionados: [],
+                listaDisfuncoes: ["TEA", "TDAH", "TPS", "TDC", "Paralisia Cerebral", "Síndrome de Down", "TOD", "Em Investigação", "Outro"],
+                abrirModalCadastro() {
+                    this.novoPaciente = { nome: '', data_nascimento: '', escolaridade: '', queixa_principal: '', nome_responsavel: '', telefone_responsavel: '', email_responsavel: '' };
+                    this.diagnosticosSelecionados = [];
+                    this.modalCadastroAberto = true;
+                },
+                fecharModal() { this.modalCadastroAberto = false; },
+                buscarPacientes() {
+                    this.carregando = true;
+                    fetch('/api/pacientes/').then(res => res.json()).then(data => { this.pacientes = data; this.carregando = false; });
+                },
+                salvarPaciente() {
+                    if (!this.novoPaciente.nome || !this.novoPaciente.data_nascimento) { alert("Nome e Nascimento obrigatórios."); return; }
+                    this.salvando = true;
+                    const payload = { ...this.novoPaciente, diagnostico: this.diagnosticosSelecionados.join(', ') };
+                    fetch('/api/pacientes/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    }).then(res => res.json()).then(data => {
+                        if (data.id) { this.fecharModal(); this.buscarPacientes(); }
+                        this.salvando = false;
+                    }).catch(() => { this.salvando = false; });
+                },
+                pacientesFiltrados() {
+                    if (this.pesquisa === '') return this.pacientes;
+                    const t = this.pesquisa.toLowerCase();
+                    return this.pacientes.filter(p => p.nome.toLowerCase().includes(t) || (p.diagnostico && p.diagnostico.toLowerCase().includes(t)));
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+
+============================================================
+ARQUIVO: app\templates\obs_clinica.html
+============================================================
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Observação Clínica | APP-TO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans" x-data="formObs({{ paciente_id }})">
+
+    <header class="bg-purple-700 text-white p-4 sticky top-0 z-50 shadow-lg">
+        <div class="flex items-center gap-3">
+            <a :href="'/paciente/' + pacienteId" class="p-1"> <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> </a>
+            <h1 class="text-xl font-black">Observação Clínica</h1>
+        </div>
+    </header>
+
+    <main class="p-4 pb-32 space-y-4">
+        
+        <div class="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+            <div class="bg-purple-50 p-4 font-bold text-purple-800">1. Habilidades Psicomotoras</div>
+            <div class="p-4 space-y-4">
+                <template x-for="item in ['Coordenação Motora Fina', 'Coordenação Global', 'Coordenação Bilateral', 'Habilidades de Pinça', 'Preensão Tripode', 'Encaixe']">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-400 uppercase" x-text="item"></label>
+                        <div class="flex gap-1">
+                            <template x-for="status in ['Satisfatório', 'Melhoria', 'Inadequado']">
+                                <button @click="form.dados_json.psicomotora[item] = status" 
+                                        :class="form.dados_json.psicomotora[item] === status ? 'bg-purple-600 text-white shadow-md' : 'bg-slate-100 text-slate-500'"
+                                        class="flex-1 py-2.5 rounded-xl text-[9px] font-bold transition-all uppercase" x-text="status"></button>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+            <div class="bg-emerald-50 p-4 font-bold text-emerald-800">2. Integração Sensorial</div>
+            <div class="p-4 space-y-4">
+                <template x-for="item in ['Sistema Proprioceptivo', 'Sistema Tátil', 'Sistema Vestibular', 'Sistema Auditivo', 'Sistema Interoceptivo']">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-400 uppercase" x-text="item"></label>
+                        <select x-model="form.dados_json.sensorial[item]" class="w-full p-3 bg-slate-50 rounded-xl text-sm border-none focus:ring-2 focus:ring-emerald-500">
+                            <option value="">Selecione o perfil...</option>
+                            <option>Hipo-responsivo</option>
+                            <option>Hiper-responsivo</option>
+                            <option>Normal</option>
+                            <option>Busca Sensorial</option>
+                        </select>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <button @click="salvar" class="fixed bottom-6 left-4 right-4 bg-purple-700 text-white font-black py-4 rounded-2xl shadow-xl active:scale-95 transition-transform z-50">
+            Gravar Observação Clínica
+        </button>
+    </main>
+
+    <script>
+        function formObs(id) {
+            return {
+                pacienteId: id,
+                form: {
+                    dados_json: { psicomotora: {}, sensorial: {}, executiva: {}, praxis: {} },
+                    observacoes_texto: ''
+                },
+                salvar() {
+                    fetch('/api/obs-clinica/' + this.pacienteId, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(this.form)
+                    }).then(res => {
+                        if(res.ok) { alert('Sincronizado com Sucesso!'); window.location.href = '/paciente/' + this.pacienteId; }
+                    });
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+
+============================================================
+ARQUIVO: app\templates\paciente.html
+============================================================
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Prontuário | APP-TO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Nunito', 'sans-serif'] },
+                    colors: { 
+                        clinica: { 50: '#f0fdfa', 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 900: '#134e4a' } 
+                    } 
+                } 
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #f8fafc; overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; }
+        /* Barra de rolagem customizada e invisível na lateral esquerda */
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="text-slate-800 antialiased" x-data="perfilPaciente({{ paciente_id }})" x-init="carregarDados()">
+
+    <div class="max-w-5xl mx-auto min-h-screen bg-slate-50 md:shadow-2xl md:shadow-slate-200/50 md:border-x border-slate-100 relative pb-20 md:pb-10">
+
+        <header class="bg-clinica-600 text-white p-4 sticky top-0 z-50 shadow-md">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <a href="/" class="p-2 -ml-2 hover:bg-white/20 rounded-full transition-colors active:scale-95">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                    </a>
+                    <h1 class="text-xl font-black uppercase tracking-widest">Prontuário</h1>
+                </div>
+                <div class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
+                    <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17c0 1.1.9 2 2 2h4c1.1 0 2-.9 2-2v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7z"/>
+                    </svg>
+                </div>
+            </div>
+        </header>
+
+        <main class="p-4 md:p-6">
+            <template x-if="carregando">
+                <div class="flex flex-col items-center justify-center py-20">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-clinica-600 mb-4"></div>
+                    <p class="text-sm font-bold text-slate-400 uppercase tracking-widest animate-pulse">A aceder ao dossiê...</p>
+                </div>
+            </template>
+
+            <template x-if="!carregando && paciente">
+                
+                <div class="flex flex-col md:flex-row gap-6 items-start">
+                    
+                    <aside class="w-full md:w-1/3 flex flex-col gap-4 md:sticky md:top-24">
+                        
+                        <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden text-center">
+                            <div class="absolute top-0 right-0 w-32 h-32 bg-clinica-50 rounded-full -mr-10 -mt-10 opacity-50 pointer-events-none"></div>
+                            
+                            <div class="w-20 h-20 mx-auto rounded-full bg-clinica-100 flex items-center justify-center text-clinica-600 font-black text-3xl shadow-inner uppercase mb-4 relative z-10">
+                                <span x-text="paciente.nome.charAt(0)"></span>
+                            </div>
+                            
+                            <h2 class="font-black text-xl text-slate-800 leading-tight mb-1 relative z-10" x-text="paciente.nome"></h2>
+                            <p class="text-clinica-600 font-bold text-sm mb-5 relative z-10" x-text="calcularIdade(paciente.data_nascimento)"></p>
+                            
+                            <div class="text-left space-y-3 pt-4 border-t border-slate-50 relative z-10">
+                                <div>
+                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-0.5">Diagnóstico Base</span>
+                                    <span class="text-sm font-black text-slate-700" x-text="paciente.diagnostico || 'Não informado'"></span>
+                                </div>
+                                <div>
+                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-0.5">Motivo / Queixa</span>
+                                    <span class="text-sm font-semibold text-slate-600 leading-snug" x-text="paciente.queixa_principal || 'Nenhuma queixa registada.'"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <template x-if="ultimaAnamnese && ultimaAnamnese.dados">
+                            <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
+                                <div class="flex items-center justify-between mb-4 border-b border-slate-50 pb-3">
+                                    <h3 class="text-xs font-black text-slate-800 uppercase flex items-center gap-2 tracking-wide">
+                                        <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                        Mapa Clínico
+                                    </h3>
+                                    <span class="text-[9px] text-slate-400 font-bold uppercase" x-text="ultimaAnamnese.data"></span>
+                                </div>
+                                
+                                <div class="space-y-4">
+                                    <template x-if="ultimaAnamnese.dados.comportamento && ultimaAnamnese.dados.comportamento.length > 0">
+                                        <div>
+                                            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Regulação e Comportamento</span>
+                                            <div class="flex flex-wrap gap-1.5">
+                                                <template x-for="item in ultimaAnamnese.dados.comportamento">
+                                                    <span class="bg-red-50 text-red-700 border border-red-100 text-[10px] font-bold px-2 py-1 rounded-lg leading-tight shadow-sm" x-text="item.split(':')[0]"></span>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
+
+                                    <template x-if="ultimaAnamnese.dados.sensorial && ultimaAnamnese.dados.sensorial.length > 0">
+                                        <div>
+                                            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Perfil Sensorial</span>
+                                            <div class="flex flex-wrap gap-1.5">
+                                                <template x-for="item in ultimaAnamnese.dados.sensorial">
+                                                    <span class="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-bold px-2 py-1 rounded-lg leading-tight shadow-sm" x-text="item"></span>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
+                                    
+                                    <template x-if="ultimaAnamnese.dados.avds && ultimaAnamnese.dados.avds.length > 0">
+                                        <div>
+                                            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Vida Diária (AVDs)</span>
+                                            <div class="flex flex-wrap gap-1.5">
+                                                <template x-for="item in ultimaAnamnese.dados.avds">
+                                                    <span class="bg-blue-50 text-blue-700 border border-blue-100 text-[10px] font-bold px-2 py-1 rounded-lg leading-tight shadow-sm" x-text="item"></span>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </aside>
+
+                    <section class="w-full md:w-2/3 space-y-8">
+                        
+                        <div>
+                            <h3 class="text-sm font-black text-slate-500 mb-3 px-1 uppercase tracking-widest">Área de Intervenção</h3>
+                            <div class="grid grid-cols-2 gap-3 md:gap-4">
+                                
+                                <button @click="window.location.href = '/paciente/' + paciente.id + '/anamnese'" class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 text-left hover:-translate-y-1 hover:shadow-md transition-all duration-200 flex flex-col items-center justify-center gap-3 aspect-square md:aspect-auto md:h-36 group">
+                                    <div class="w-14 h-14 bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center group-hover:bg-orange-500 group-hover:text-white transition-colors rotate-3 group-hover:rotate-0">
+                                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                                    </div>
+                                    <span class="font-black text-slate-700 text-xs text-center leading-tight uppercase">1. Triagem</span>
+                                </button>
+
+                                <button @click="window.location.href = '/paciente/' + paciente.id + '/pedi'" class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 text-left hover:-translate-y-1 hover:shadow-md transition-all duration-200 flex flex-col items-center justify-center gap-3 aspect-square md:aspect-auto md:h-36 group">
+                                    <div class="w-14 h-14 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-colors -rotate-3 group-hover:rotate-0">
+                                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                                    </div>
+                                    <span class="font-black text-slate-700 text-xs text-center leading-tight uppercase">2. Avaliação PEDI</span>
+                                </button>
+
+                                <button @click="window.location.href = '/paciente/' + paciente.id + '/observacao'" class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 text-left hover:-translate-y-1 hover:shadow-md transition-all duration-200 flex flex-col items-center justify-center gap-3 aspect-square md:aspect-auto md:h-36 group">
+                                    <div class="w-14 h-14 bg-purple-50 text-purple-500 rounded-2xl flex items-center justify-center group-hover:bg-purple-500 group-hover:text-white transition-colors rotate-3 group-hover:rotate-0">
+                                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                                    </div>
+                                    <span class="font-black text-slate-700 text-xs text-center leading-tight uppercase">3. Obs. Clínica</span>
+                                </button>
+
+                                <button @click="window.location.href = '/paciente/' + paciente.id + '/evolucao'" class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 text-left hover:-translate-y-1 hover:shadow-md transition-all duration-200 flex flex-col items-center justify-center gap-3 aspect-square md:aspect-auto md:h-36 group border-emerald-100">
+                                    <div class="w-14 h-14 bg-emerald-50 text-emerald-500 rounded-2xl flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white transition-colors -rotate-3 group-hover:rotate-0 shadow-sm">
+                                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                    </div>
+                                    <span class="font-black text-emerald-700 text-xs text-center leading-tight uppercase">4. Evolução Diária</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="text-sm font-black text-slate-500 mb-3 px-1 uppercase tracking-widest">Evolução Quantitativa</h3>
+                            <div class="space-y-4">
+                                <template x-for="ava in avaliacoesPedi" :key="ava.id">
+                                    <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 hover:border-blue-100 transition-colors">
+                                        <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-50">
+                                            <span class="text-xs font-black text-slate-500 flex items-center gap-2">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                                <span x-text="ava.data_avaliacao"></span>
+                                            </span>
+                                            <span class="bg-slate-100 text-slate-600 text-[10px] font-black px-3 py-1 rounded-lg uppercase tracking-wider" x-text="ava.assistencia_cuidador"></span>
+                                        </div>
+                                        <div class="space-y-4">
+                                            <div>
+                                                <div class="flex justify-between items-end mb-1">
+                                                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Autocuidado</span>
+                                                    <span class="text-xs font-black text-blue-600" x-text="ava.score_autocuidado + '%'"></span>
+                                                </div>
+                                                <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden shadow-inner">
+                                                    <div class="bg-blue-500 h-full rounded-full transition-all duration-1000" :style="'width: ' + ava.score_autocuidado + '%'"></div>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div class="flex justify-between items-end mb-1">
+                                                    <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mobilidade</span>
+                                                    <span class="text-xs font-black text-emerald-600" x-text="ava.score_mobilidade + '%'"></span>
+                                                </div>
+                                                <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden shadow-inner">
+                                                    <div class="bg-emerald-500 h-full rounded-full transition-all duration-1000" :style="'width: ' + ava.score_mobilidade + '%'"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                                <template x-if="avaliacoesPedi.length === 0">
+                                    <div class="p-8 bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl text-center">
+                                        <svg class="mx-auto h-10 w-10 text-slate-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                                        <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Nenhuma avaliação PEDI registada.</p>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                    </section>
+                </div>
+            </template>
+        </main>
+    </div>
+
+    <script>
+        function perfilPaciente(id) {
+            return {
+                pacienteId: id,
+                paciente: null,
+                avaliacoesPedi: [],
+                ultimaAnamnese: null,
+                carregando: true,
+
+                carregarDados() {
+                    Promise.all([
+                        fetch('/api/pacientes/' + this.pacienteId).then(res => res.json()),
+                        fetch('/api/pedi/' + this.pacienteId).then(res => res.json()),
+                        fetch('/api/anamnese/' + this.pacienteId).then(res => res.json())
+                    ]).then(([dadosPaciente, dadosPedi, dadosAnamnese]) => {
+                        this.paciente = dadosPaciente;
+                        this.avaliacoesPedi = Array.isArray(dadosPedi) ? dadosPedi : [];
+                        
+                        if (Array.isArray(dadosAnamnese) && dadosAnamnese.length > 0) {
+                            this.ultimaAnamnese = dadosAnamnese[0];
+                        }
+                        
+                        this.carregando = false;
+                    }).catch(err => {
+                        console.error('Erro ao carregar prontuário:', err);
+                        this.carregando = false;
+                    });
+                },
+
+                calcularIdade(dataNasc) {
+                    if (!dataNasc) return 'Idade não informada';
+                    const hoje = new Date();
+                    const nascimento = new Date(dataNasc);
+                    let idade = hoje.getFullYear() - nascimento.getFullYear();
+                    const mes = hoje.getMonth() - nascimento.getMonth();
+                    if (mes < 0 || (mes === 0 && hoje.getDate() < nascimento.getDate())) {
+                        idade--;
+                    }
+                    return idade + (idade === 1 ? ' ano' : ' anos');
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+
+============================================================
+ARQUIVO: app\templates\pedi.html
+============================================================
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Avaliação PEDI | APP-TO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased font-sans" x-data="avaliacaoPedi({{ paciente_id }})">
+
+    <div class="max-w-4xl mx-auto min-h-screen bg-white md:shadow-2xl md:shadow-slate-200/50 md:border-x border-slate-100 relative pb-32">
+        
+        <header class="bg-blue-600 text-white shadow-md sticky top-0 z-30 md:rounded-b-2xl">
+            <div class="px-5 py-5 flex items-center gap-4">
+                <a :href="'/paciente/' + pacienteId" class="p-2 -ml-2 hover:bg-white/20 rounded-full transition-all">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path></svg>
+                </a>
+                <div>
+                    <h1 class="text-xl font-black uppercase tracking-widest">Anamnese PEDI</h1>
+                    <p class="text-blue-200 text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Habilidades Funcionais</p>
+                </div>
+            </div>
+        </header>
+
+        <main class="p-6 space-y-6">
+            <form @submit.prevent="salvarAvaliacao" class="space-y-6">
+                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 group hover:border-blue-200 transition-colors">
+                    <div class="flex items-center gap-4 mb-5">
+                        <div class="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-500 shadow-inner">
+                            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>
+                        </div>
+                        <h2 class="font-black text-lg text-slate-800 uppercase tracking-tight">Autocuidado</h2>
+                    </div>
+                    <label class="block text-xs font-black text-slate-400 mb-3 uppercase tracking-widest flex justify-between">
+                        Nível de Independência <span class="text-blue-600 font-black text-sm" x-text="form.score_autocuidado + '%'"></span>
+                    </label>
+                    <input type="range" min="0" max="100" step="5" x-model="form.score_autocuidado" class="w-full h-3 bg-slate-100 rounded-full appearance-none cursor-pointer accent-blue-600">
+                    <div class="flex justify-between text-[10px] text-slate-400 mt-3 font-black uppercase tracking-widest px-1">
+                        <span>Dependente</span>
+                        <span>Independente</span>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 group hover:border-emerald-200 transition-colors">
+                    <div class="flex items-center gap-4 mb-5">
+                        <div class="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-500 shadow-inner">
+                            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        </div>
+                        <h2 class="font-black text-lg text-slate-800 uppercase tracking-tight">Mobilidade</h2>
+                    </div>
+                    <label class="block text-xs font-black text-slate-400 mb-3 uppercase tracking-widest flex justify-between">
+                        Nível de Independência <span class="text-emerald-600 font-black text-sm" x-text="form.score_mobilidade + '%'"></span>
+                    </label>
+                    <input type="range" min="0" max="100" step="5" x-model="form.score_mobilidade" class="w-full h-3 bg-slate-100 rounded-full appearance-none cursor-pointer accent-emerald-600">
+                    <div class="flex justify-between text-[10px] text-slate-400 mt-3 font-black uppercase tracking-widest px-1">
+                        <span>Dependente</span>
+                        <span>Independente</span>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 group hover:border-purple-200 transition-colors">
+                    <div class="flex items-center gap-4 mb-5">
+                        <div class="w-12 h-12 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-500 shadow-inner">
+                            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                        </div>
+                        <h2 class="font-black text-lg text-slate-800 uppercase tracking-tight">Função Social</h2>
+                    </div>
+                    <label class="block text-xs font-black text-slate-400 mb-3 uppercase tracking-widest flex justify-between">
+                        Nível de Independência <span class="text-purple-600 font-black text-sm" x-text="form.score_funcao_social + '%'"></span>
+                    </label>
+                    <input type="range" min="0" max="100" step="5" x-model="form.score_funcao_social" class="w-full h-3 bg-slate-100 rounded-full appearance-none cursor-pointer accent-purple-600">
+                    <div class="flex justify-between text-[10px] text-slate-400 mt-3 font-black uppercase tracking-widest px-1">
+                        <span>Dependente</span>
+                        <span>Independente</span>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 space-y-4">
+                    <div>
+                        <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Assistência do Cuidador</label>
+                        <select x-model="form.assistencia_cuidador" class="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                            <option value="" disabled selected>Selecione...</option>
+                            <option value="Total">Total (Dependente)</option>
+                            <option value="Máxima">Máxima Assistência</option>
+                            <option value="Moderada">Moderada Assistência</option>
+                            <option value="Mínima">Mínima Assistência</option>
+                            <option value="Supervisão">Supervisão / Dica Verbal</option>
+                            <option value="Independente">Independente</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Notas Clínicas</label>
+                        <textarea x-model="form.observacoes" rows="3" placeholder="Anotações sobre autonomia..." class="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 shadow-inner resize-none"></textarea>
+                    </div>
+                </div>
+
+                <div class="fixed bottom-0 max-w-4xl w-full p-4 bg-white/90 backdrop-blur-md border-t z-50">
+                    <button type="submit" :disabled="salvando" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl active:scale-95 transition-all uppercase tracking-widest text-sm flex justify-center items-center">
+                        <span x-show="!salvando">Salvar Avaliação PEDI</span>
+                        <div x-show="salvando" class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    </button>
+                </div>
+            </form>
+        </main>
+    </div>
+
+    <script>
+        function avaliacaoPedi(id) {
+            return {
+                pacienteId: id,
+                salvando: false,
+                form: { score_autocuidado: 50, score_mobilidade: 50, score_funcao_social: 50, assistencia_cuidador: '', observacoes: '' },
+                salvarAvaliacao() {
+                    this.salvando = true;
+                    fetch('/api/pedi/' + this.pacienteId, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(this.form)
+                    }).then(res => res.json()).then(() => {
+                        alert('Avaliação Salva!'); window.location.href = '/paciente/' + this.pacienteId;
+                    }).catch(() => { this.salvando = false; });
+                }
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acesso Restrito | APP-TO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>body { font-family: 'Nunito', sans-serif; background-color: #f8fafc; }</style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+    
+    <div class="w-full max-w-md bg-white p-8 rounded-3xl shadow-2xl border border-slate-100">
+        <div class="text-center mb-8">
+            <div class="w-16 h-16 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+            </div>
+            <h1 class="text-2xl font-black text-slate-800 uppercase tracking-widest">APP-TO</h1>
+            <p class="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">Acesso Clínico Restrito</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="bg-red-50 text-red-600 p-3 rounded-xl text-sm font-bold mb-6 text-center border border-red-100">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('auth_bp.login') }}" class="space-y-5">
+            <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 pl-1">E-mail Profissional</label>
+                <input type="email" name="email" required autocomplete="email" class="w-full p-4 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-teal-500 outline-none text-sm font-bold shadow-inner text-slate-700">
+            </div>
+            <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 pl-1">Senha de Acesso</label>
+                <input type="password" name="senha" required class="w-full p-4 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-teal-500 outline-none text-sm font-bold shadow-inner text-slate-700">
+            </div>
+            <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-black py-4 rounded-xl shadow-lg active:scale-[0.98] transition-all uppercase tracking-widest text-sm mt-4">
+                Entrar no Sistema
+            </button>
+        </form>
+    </div>
+
+</body>
+</html>
