@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from app.extensions import db
 from app.models.paciente import Paciente
 from datetime import datetime
+from sqlalchemy import text
 
 paciente_bp = Blueprint('paciente_bp', __name__, url_prefix='/api/pacientes')
 
@@ -69,9 +70,14 @@ def atualizar_paciente(id):
 def deletar_paciente(id):
     paciente = Paciente.query.get_or_404(id)
     try:
+        # Limpa todo o rastro do paciente nas outras tabelas antes de apagar a ficha dele
+        db.session.execute(text("DELETE FROM consultas WHERE paciente_id = :pid"), {"pid": id})
+        db.session.execute(text("DELETE FROM anamneses WHERE paciente_id = :pid"), {"pid": id})
+        db.session.execute(text("DELETE FROM pedis WHERE paciente_id = :pid"), {"pid": id})
+        
         db.session.delete(paciente)
         db.session.commit()
-        return jsonify({"mensagem": "Paciente excluído com sucesso!"}), 200
+        return jsonify({"mensagem": "Paciente e histórico excluídos com sucesso!"}), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({"erro": str(e)}), 500

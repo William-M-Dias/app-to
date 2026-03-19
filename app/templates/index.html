@@ -350,7 +350,7 @@
                 salvando: false,
                 novoPaciente: { nome: '', data_nascimento: '', escolaridade: '', queixa_principal: '', nome_responsavel: '', telefone_responsavel: '', email_responsavel: '' },
                 diagnosticosSelecionados: [],
-                listaDisfuncoes: ["TEA", "TDAH", "TPS", "TDC", "Paralisia Cerebral", "Síndrome de Down", "TOD", "Em Investigação", "Outro"],
+                listaDisfuncoes: ["TEA - Nível de Suporte 1", "TEA - Nível de Suporte 2", "TEA - Nível de Suporte 3", "TDAH", "TPS", "TDC", "Paralisia Cerebral", "Síndrome de Down", "TOD", "Em Investigação", "Outro"],
                 
                 modalAgendamentoAberto: false,
                 salvandoAgendamento: false,
@@ -398,7 +398,6 @@
                         if (data.id) { 
                             this.fecharModal(); 
                             this.inicializar(); 
-                            // Bônus: Se ela cadastrou o paciente pelo atalho da agenda, o sistema já deixa o nome dele pré-selecionado ao reabrir a agenda!
                             if(this.modalAgendamentoAberto === false) {
                                 this.novoAgendamento.paciente_id = data.id;
                                 this.abrirModalAgendamento();
@@ -441,7 +440,7 @@
                         this.fecharModalAgendamento();
                         this.inicializar(); 
                         this.salvandoAgendamento = false;
-                        this.novoAgendamento = { paciente_id: '', data_hora: '', tipo_sessao: 'Intervenção' }; // Limpa pro próximo
+                        this.novoAgendamento = { paciente_id: '', data_hora: '', tipo_sessao: 'Intervenção' };
                     }).catch(() => { this.salvandoAgendamento = false; });
                 },
 

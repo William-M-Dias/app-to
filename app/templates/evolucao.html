@@ -202,7 +202,7 @@
                         itens: ['Circuito Motor', 'Planejamento motor', 'Estímulo proprioceptivo, vestibular e tátil', 'Na plataforma (baixar nível de alerta)', 'Proprioceptivo / Consciência Corporal', 'Noção espacial', 'Equilíbrio Postural', 'Atividade de lateralidade', 'Andar nas almofadas e jogar bola', 'Prono na plataforma (jogando argola)']
                     },
                     {
-                        nome: 'Emocional e AVDs',
+                        nome: 'AVDs & AIVDs',
                         itens: ['Tolerância a frustração', 'Habilidades emocionais', 'AVDs (Vestir e despir)', 'AVDs (Colocar e retirar meias)']
                     }
                 ],
@@ -259,7 +259,6 @@
                     if(payload.status === 'Realizado') {
                         payload.micro_metas.atividades = this.atividadesSelecionadas;
                     } else {
-                        // Se for agendamento, não envia metas nem tags
                         payload.micro_metas = {};
                     }
 
