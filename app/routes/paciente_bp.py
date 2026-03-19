@@ -10,8 +10,12 @@ paciente_bp = Blueprint('paciente_bp', __name__, url_prefix='/api/pacientes')
 
 @paciente_bp.route('/', methods=['GET'])
 def listar_pacientes():
-    pacientes = Paciente.query.all()
-    return jsonify([p.to_dict() for p in pacientes]), 200
+    try:
+        pacientes = Paciente.query.all()
+        return jsonify([p.to_dict() for p in pacientes]), 200
+    except Exception as e:
+        # Se a coluna foto_url der erro, o log dirá exatamente aqui
+        return jsonify({"erro": f"Erro ao listar: {str(e)}"}), 500
 
 @paciente_bp.route('/<int:id>', methods=['GET'])
 def obter_paciente(id):
@@ -67,7 +71,7 @@ def atualizar_paciente(id):
 def deletar_paciente(id):
     paciente = Paciente.query.get_or_404(id)
     try:
-        # SEGURO EXTRA: Limpeza manual de todas as tabelas ligadas antes de apagar o paciente
+        # Nomes das tabelas ajustados conforme seu log do Neon
         db.session.execute(text("DELETE FROM consultas WHERE paciente_id = :pid"), {"pid": id})
         db.session.execute(text("DELETE FROM anamnese WHERE paciente_id = :pid"), {"pid": id})
         db.session.execute(text("DELETE FROM avaliacoes_pedi WHERE paciente_id = :pid"), {"pid": id})
@@ -80,7 +84,6 @@ def deletar_paciente(id):
         db.session.rollback()
         return jsonify({"erro": str(e)}), 500
 
-# NOVA ROTA: Edição rápida do Mapa Clínico (Teste 2)
 @paciente_bp.route('/<int:id>/editar_mapa', methods=['POST'])
 def editar_mapa(id):
     paciente = Paciente.query.get_or_404(id)
@@ -89,28 +92,28 @@ def editar_mapa(id):
         paciente.queixa_principal = dados.get('observacoes', paciente.queixa_principal)
         db.session.commit()
         return jsonify({"mensagem": "Mapa atualizado!"}), 200
-    except Exception:
+    except Exception as e:
         db.session.rollback()
-        return jsonify({"erro": "Erro ao atualizar mapa"}), 500
+        return jsonify({"erro": str(e)}), 500
 
-# ROTA FASE 6: Upload de Avatar
 @paciente_bp.route('/<int:id>/upload_foto', methods=['POST'])
 def upload_foto(id):
     paciente = Paciente.query.get_or_404(id)
     if 'foto' not in request.files:
-        return jsonify({"erro": "Nenhum arquivo"}), 400
+        return jsonify({"erro": "Nenhum arquivo enviado"}), 400
     
     arquivo = request.files['foto']
     if arquivo.filename == '':
-        return jsonify({"erro": "Sem nome"}), 400
+        return jsonify({"erro": "Arquivo sem nome"}), 400
 
-    filename = secure_filename(f"avatar_{id}.jpg")
+    # Cria pasta se não existir
     upload_path = os.path.join(current_app.root_path, 'static/uploads/perfil')
-    
     if not os.path.exists(upload_path):
-        os.makedirs(upload_path)
-        
+        os.makedirs(upload_path, exist_ok=True)
+
+    filename = secure_filename(f"avatar_{id}_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg")
     arquivo.save(os.path.join(upload_path, filename))
+    
     paciente.foto_url = f"/static/uploads/perfil/{filename}"
     db.session.commit()
     
