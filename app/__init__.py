@@ -4,7 +4,10 @@ from sqlalchemy import text
 from app.extensions import db
 
 def create_app():
-    app = Flask(__name__)
+    # AJUSTE FASE 7: Informamos que a pasta static e templates estão fora/dentro corretamente
+    app = Flask(__name__, 
+                static_folder='../static', 
+                template_folder='templates')
     
     # CHAVE DE SEGURANÇA PARA A SESSÃO DE LOGIN
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'chave-super-secreta-app-to-2026-edna')
@@ -21,7 +24,7 @@ def create_app():
     from app.routes.pedi_bp import pedi_bp
     from app.routes.obs_clinica_bp import obs_clinica_bp
     from app.routes.anamnese_bp import anamnese_bp
-    from app.routes.auth_bp import auth_bp # NOVO
+    from app.routes.auth_bp import auth_bp 
 
     app.register_blueprint(paciente_bp)
     app.register_blueprint(consulta_bp)
@@ -29,30 +32,23 @@ def create_app():
     app.register_blueprint(pedi_bp)
     app.register_blueprint(obs_clinica_bp)
     app.register_blueprint(anamnese_bp)
-    app.register_blueprint(auth_bp) # NOVO
+    app.register_blueprint(auth_bp) 
 
-    # ==========================================
-    # CADEADO GLOBAL (A Fechadura do Sistema)
-    # ==========================================
     @app.before_request
     def bloquear_acesso():
         rotas_livres = ['auth_bp.login', 'static']
-        # Se a pessoa NÃO estiver tentando fazer login, e NÃO tiver a chave (usuario_id) na sessão...
         if request.endpoint and request.endpoint not in rotas_livres:
             if 'usuario_id' not in session:
-                # Se tentou acessar a API, bloqueia com Erro 401
                 if request.path.startswith('/api/'):
                     return {"erro": "Acesso negado. Faça login para acessar o banco de dados."}, 401
-                # Se tentou acessar uma tela, manda para a tela de Login
                 return redirect(url_for('auth_bp.login'))
 
     with app.app_context():
         from app.models.paciente import Paciente
         from app.models.consulta import Consulta
-        from app.models.usuario import Usuario # NOVO
+        from app.models.usuario import Usuario 
         db.create_all()
 
-        # A PICARETA...
         try:
             with db.engine.connect() as conexao:
                 conexao.execute(text('ALTER TABLE consultas ADD COLUMN IF NOT EXISTS micro_metas JSONB;'))
