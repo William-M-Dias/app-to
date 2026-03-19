@@ -1,8 +1,10 @@
-from flask import Blueprint, request, jsonify
+import os
+from flask import Blueprint, request, jsonify, current_app
 from app.extensions import db
 from app.models.paciente import Paciente
 from datetime import datetime
 from sqlalchemy import text
+from werkzeug.utils import secure_filename
 
 paciente_bp = Blueprint('paciente_bp', __name__, url_prefix='/api/pacientes')
 
@@ -40,15 +42,10 @@ def criar_paciente():
         db.session.rollback()
         return jsonify({"erro": str(e)}), 500
 
-# ==========================================
-# NOVAS ROTAS FASE 2: EDITAR E EXCLUIR
-# ==========================================
-
 @paciente_bp.route('/<int:id>', methods=['PUT'])
 def atualizar_paciente(id):
     paciente = Paciente.query.get_or_404(id)
     dados = request.get_json()
-    
     try:
         if 'nome' in dados: paciente.nome = dados['nome']
         if 'data_nascimento' in dados:
@@ -70,14 +67,51 @@ def atualizar_paciente(id):
 def deletar_paciente(id):
     paciente = Paciente.query.get_or_404(id)
     try:
-        # Limpa todo o rastro do paciente nas outras tabelas antes de apagar a ficha dele
+        # SEGURO EXTRA: Limpeza manual de todas as tabelas ligadas antes de apagar o paciente
         db.session.execute(text("DELETE FROM consultas WHERE paciente_id = :pid"), {"pid": id})
-        db.session.execute(text("DELETE FROM anamneses WHERE paciente_id = :pid"), {"pid": id})
-        db.session.execute(text("DELETE FROM pedis WHERE paciente_id = :pid"), {"pid": id})
+        db.session.execute(text("DELETE FROM anamnese WHERE paciente_id = :pid"), {"pid": id})
+        db.session.execute(text("DELETE FROM avaliacoes_pedi WHERE paciente_id = :pid"), {"pid": id})
+        db.session.execute(text("DELETE FROM obs_clinica WHERE paciente_id = :pid"), {"pid": id})
         
         db.session.delete(paciente)
         db.session.commit()
-        return jsonify({"mensagem": "Paciente e histórico excluídos com sucesso!"}), 200
+        return jsonify({"mensagem": "Excluído com sucesso!"}), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({"erro": str(e)}), 500
+
+# NOVA ROTA: Edição rápida do Mapa Clínico (Teste 2)
+@paciente_bp.route('/<int:id>/editar_mapa', methods=['POST'])
+def editar_mapa(id):
+    paciente = Paciente.query.get_or_404(id)
+    dados = request.get_json()
+    try:
+        paciente.queixa_principal = dados.get('observacoes', paciente.queixa_principal)
+        db.session.commit()
+        return jsonify({"mensagem": "Mapa atualizado!"}), 200
+    except Exception:
+        db.session.rollback()
+        return jsonify({"erro": "Erro ao atualizar mapa"}), 500
+
+# ROTA FASE 6: Upload de Avatar
+@paciente_bp.route('/<int:id>/upload_foto', methods=['POST'])
+def upload_foto(id):
+    paciente = Paciente.query.get_or_404(id)
+    if 'foto' not in request.files:
+        return jsonify({"erro": "Nenhum arquivo"}), 400
+    
+    arquivo = request.files['foto']
+    if arquivo.filename == '':
+        return jsonify({"erro": "Sem nome"}), 400
+
+    filename = secure_filename(f"avatar_{id}.jpg")
+    upload_path = os.path.join(current_app.root_path, 'static/uploads/perfil')
+    
+    if not os.path.exists(upload_path):
+        os.makedirs(upload_path)
+        
+    arquivo.save(os.path.join(upload_path, filename))
+    paciente.foto_url = f"/static/uploads/perfil/{filename}"
+    db.session.commit()
+    
+    return jsonify({"url": paciente.foto_url}), 200
