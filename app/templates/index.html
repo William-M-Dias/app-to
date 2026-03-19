@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Mesa de Controle | APP-TO</title>
+    
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/logo_brain.png') }}">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
@@ -67,9 +70,11 @@
             
             <div class="flex justify-between items-center relative z-10">
                 <div class="flex items-center gap-3">
-                    <div class="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm shadow-inner">
-                        <svg class="w-7 h-7 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17c0 1.1.9 2 2 2h4c1.1 0 2-.9 2-2v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7z"/></svg>
+                    
+                    <div class="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-inner overflow-hidden p-1.5 border border-white/20">
+                        <img src="{{ url_for('static', filename='img/logo_brain.png') }}" alt="APP-TO Logo" class="w-full h-full object-contain">
                     </div>
+                    
                     <div>
                         <h1 class="text-3xl font-black tracking-tight leading-none">Olá, Edna!</h1>
                         <p class="text-clinica-100 text-[10px] font-bold uppercase tracking-widest mt-1">Sua Mesa de Controle</p>
@@ -388,7 +393,6 @@
                     });
                 },
 
-                // Função auxiliar Fase 6 para buscar foto pelo ID
                 getPacienteFoto(id) {
                     const p = this.pacientes.find(p => p.id === id);
                     return p ? p.foto_url : null;

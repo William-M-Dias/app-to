@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Prontuário | APP-TO</title>
+
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/logo_brain.png') }}">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
@@ -72,8 +75,9 @@
                     </a>
                     <h1 class="text-xl font-black uppercase tracking-widest drop-shadow-sm">Prontuário</h1>
                 </div>
-                <div class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-inner">
-                    <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17c0 1.1.9 2 2 2h4c1.1 0 2-.9 2-2v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7z"/></svg>
+                
+                <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-inner overflow-hidden p-1 border border-white/20">
+                    <img src="{{ url_for('static', filename='img/logo_brain.png') }}" alt="Logo" class="w-full h-full object-contain">
                 </div>
             </div>
         </header>
@@ -410,7 +414,7 @@
                 ultimaAnamnese: null,
                 historicoEvolucoes: [],
                 carregando: true,
-                subindoFoto: false, // Novo estado Fase 6
+                subindoFoto: false, 
                 
                 modalEdicaoAberto: false,
                 formEdicao: {},
@@ -434,7 +438,6 @@
                     });
                 },
 
-                // Função de Upload Fase 6
                 uploadFoto(event) {
                     const arquivo = event.target.files[0];
                     if (!arquivo) return;
@@ -496,7 +499,7 @@
                         if(res.ok) {
                             this.fecharEdicao();
                             this.carregando = true;
-                            this.carcarregarDados();
+                            this.carregarDados();
                         } else { alert("Erro ao salvar."); }
                     });
                 },
