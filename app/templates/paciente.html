@@ -97,8 +97,25 @@
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                             </button>
                             
-                            <div class="w-20 h-20 mx-auto rounded-full bg-clinica-100 flex items-center justify-center text-clinica-600 font-black text-3xl shadow-inner uppercase mb-4 relative z-10">
-                                <span x-text="paciente.nome.charAt(0)"></span>
+                            <div class="relative mx-auto w-20 h-20 mb-4 group cursor-pointer" @click="$refs.fotoInput.click()">
+                                <div class="w-full h-full rounded-full bg-clinica-100 flex items-center justify-center text-clinica-600 font-black text-3xl shadow-inner uppercase overflow-hidden border-4 border-white group-hover:border-clinica-500 transition-all relative z-10">
+                                    <template x-if="paciente.foto_url">
+                                        <img :src="paciente.foto_url" class="w-full h-full object-cover">
+                                    </template>
+                                    <template x-if="!paciente.foto_url">
+                                        <span x-text="paciente.nome.charAt(0)"></span>
+                                    </template>
+                                    
+                                    <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path></svg>
+                                    </div>
+                                </div>
+                                
+                                <input type="file" x-ref="fotoInput" class="hidden" accept="image/*" @change="uploadFoto($event)">
+                                
+                                <div x-show="subindoFoto" class="absolute inset-0 bg-white/80 rounded-full flex items-center justify-center z-20">
+                                    <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-clinica-600"></div>
+                                </div>
                             </div>
                             
                             <h2 class="font-black text-xl text-slate-800 leading-tight mb-1 relative z-10" x-text="paciente.nome"></h2>
@@ -171,7 +188,6 @@
                                             <p class="text-xs font-semibold text-slate-600 leading-relaxed whitespace-pre-line" x-text="ultimaAnamnese.dados.observacoes"></p>
                                         </div>
                                     </template>
-
                                 </div>
                             </div>
                         </template>
@@ -188,25 +204,25 @@
                             <h3 class="text-sm font-black text-slate-500 mb-3 px-1 uppercase tracking-widest">Área de Intervenção</h3>
                             <div class="grid grid-cols-2 gap-3 md:gap-4">
                                 <button @click="window.location.href = '/paciente/' + paciente.id + '/anamnese'" class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 group transition-all hover:-translate-y-1 hover:shadow-md">
-                                    <div class="w-14 h-14 bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center group-hover:bg-orange-500 group-hover:text-white transition-colors rotate-3 group-hover:rotate-0 shadow-inner">
+                                    <div class="w-14 h-14 bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center group-hover:bg-orange-500 group-hover:text-white transition-colors rotate-3 group-hover:rotate-0 shadow-inner mx-auto">
                                         <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
                                     </div>
                                     <span class="font-black text-slate-700 text-xs text-center mt-3 block uppercase">1. Triagem</span>
                                 </button>
                                 <button @click="window.location.href = '/paciente/' + paciente.id + '/pedi'" class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 group transition-all hover:-translate-y-1 hover:shadow-md">
-                                    <div class="w-14 h-14 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-colors -rotate-3 group-hover:rotate-0 shadow-inner">
+                                    <div class="w-14 h-14 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-colors -rotate-3 group-hover:rotate-0 shadow-inner mx-auto">
                                         <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                                     </div>
                                     <span class="font-black text-slate-700 text-xs text-center mt-3 block uppercase">2. Avaliação PEDI</span>
                                 </button>
                                 <button @click="window.location.href = '/paciente/' + paciente.id + '/observacao'" class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 group transition-all hover:-translate-y-1 hover:shadow-md">
-                                    <div class="w-14 h-14 bg-purple-50 text-purple-500 rounded-2xl flex items-center justify-center group-hover:bg-purple-500 group-hover:text-white transition-colors rotate-3 group-hover:rotate-0 shadow-inner">
+                                    <div class="w-14 h-14 bg-purple-50 text-purple-500 rounded-2xl flex items-center justify-center group-hover:bg-purple-500 group-hover:text-white transition-colors rotate-3 group-hover:rotate-0 shadow-inner mx-auto">
                                         <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                                     </div>
                                     <span class="font-black text-slate-700 text-xs text-center mt-3 block uppercase">3. Obs. Clínica</span>
                                 </button>
                                 <button @click="window.location.href = '/paciente/' + paciente.id + '/evolucao'" class="bg-white p-5 rounded-3xl shadow-sm border border-clinica-100 group transition-all hover:-translate-y-1 hover:shadow-md">
-                                    <div class="w-14 h-14 bg-clinica-50 text-clinica-500 rounded-2xl flex items-center justify-center group-hover:bg-clinica-500 group-hover:text-white transition-colors -rotate-3 group-hover:rotate-0 shadow-inner">
+                                    <div class="w-14 h-14 bg-clinica-50 text-clinica-500 rounded-2xl flex items-center justify-center group-hover:bg-clinica-500 group-hover:text-white transition-colors -rotate-3 group-hover:rotate-0 shadow-inner mx-auto">
                                         <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                                     </div>
                                     <span class="font-black text-clinica-700 text-xs text-center mt-3 block uppercase">4. Evolução Diária</span>
@@ -394,6 +410,7 @@
                 ultimaAnamnese: null,
                 historicoEvolucoes: [],
                 carregando: true,
+                subindoFoto: false, // Novo estado Fase 6
                 
                 modalEdicaoAberto: false,
                 formEdicao: {},
@@ -416,6 +433,32 @@
                         this.carregando = false;
                     });
                 },
+
+                // Função de Upload Fase 6
+                uploadFoto(event) {
+                    const arquivo = event.target.files[0];
+                    if (!arquivo) return;
+
+                    this.subindoFoto = true;
+                    const formData = new FormData();
+                    formData.append('foto', arquivo);
+
+                    fetch(`/api/pacientes/${this.pacienteId}/upload_foto`, {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.url) {
+                            this.paciente.foto_url = data.url;
+                        } else {
+                            alert("Erro ao processar imagem.");
+                        }
+                    })
+                    .catch(err => alert("Erro na conexão com servidor."))
+                    .finally(() => { this.subindoFoto = false; });
+                },
+
                 calcularIdade(dataNasc) {
                     if (!dataNasc) return 'Idade não informada';
                     const hoje = new Date();
@@ -425,6 +468,7 @@
                     if (mes < 0 || (mes === 0 && hoje.getDate() < nascimento.getDate())) { idade--; }
                     return idade + (idade === 1 ? ' ano' : ' anos');
                 },
+                
                 getEstiloGAS(valor) {
                     if (valor === -2) return 'bg-rose-50 text-rose-700 border-rose-200';
                     if (valor === -1) return 'bg-orange-50 text-orange-700 border-orange-200';
@@ -452,25 +496,25 @@
                         if(res.ok) {
                             this.fecharEdicao();
                             this.carregando = true;
-                            this.carregarDados();
+                            this.carcarregarDados();
                         } else { alert("Erro ao salvar."); }
                     });
                 },
                 apagarPaciente() {
-                    if(confirm('ATENÇÃO: Tem certeza absoluta que deseja excluir este paciente e TODO o seu histórico? Esta ação NÃO tem volta.')) {
+                    if(confirm('ATENÇÃO: Tem certeza absoluta?')) {
                         fetch('/api/pacientes/' + this.pacienteId, { method: 'DELETE' })
                         .then(res => {
                             if(res.ok) window.location.href = '/';
-                            else alert('Falha ao excluir o paciente.');
+                            else alert('Falha ao excluir.');
                         });
                     }
                 },
                 apagarEvolucao(idConsulta) {
-                    if(confirm('Tem certeza que deseja apagar esta evolução da linha do tempo?')) {
+                    if(confirm('Apagar esta evolução?')) {
                         fetch('/api/consultas/' + idConsulta, { method: 'DELETE' })
                         .then(res => {
                             if(res.ok) this.carregarDados();
-                            else alert('Falha ao excluir a evolução.');
+                            else alert('Falha ao excluir.');
                         });
                     }
                 }

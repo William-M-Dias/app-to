@@ -131,22 +131,30 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <template x-for="item in agenda" :key="item.id">
                         <div @click="window.location.href = '/paciente/' + item.paciente_id" 
-                             class="bg-white p-6 rounded-3xl shadow-md border-l-4 hover:-translate-y-1 transition-all cursor-pointer group"
+                             class="bg-white p-6 rounded-3xl shadow-md border-l-4 hover:-translate-y-1 transition-all cursor-pointer group flex items-center gap-4"
                              :class="isHoje(item.data) ? 'border-clinica-500 shadow-clinica-100' : 'border-slate-300'">
                             
-                            <div class="flex justify-between items-start mb-2">
-                                <div>
-                                    <span class="text-2xl font-black text-slate-800" x-text="item.hora"></span>
-                                    <span class="ml-2 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md"
-                                          :class="isHoje(item.data) ? 'bg-clinica-100 text-clinica-700' : 'bg-slate-100 text-slate-500'"
-                                          x-text="isHoje(item.data) ? 'Hoje' : item.data"></span>
-                                </div>
-                                <div class="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-clinica-50 group-hover:text-clinica-600 transition-colors">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-                                </div>
+                            <div class="w-14 h-14 rounded-full bg-clinica-100 flex items-center justify-center text-clinica-600 font-black text-xl overflow-hidden shrink-0 border-2 border-white shadow-sm transition-colors group-hover:border-clinica-300">
+                                <template x-if="getPacienteFoto(item.paciente_id)">
+                                    <img :src="getPacienteFoto(item.paciente_id)" class="w-full h-full object-cover">
+                                </template>
+                                <template x-if="!getPacienteFoto(item.paciente_id)">
+                                    <span x-text="item.nome_paciente.charAt(0)"></span>
+                                </template>
                             </div>
-                            <h3 class="font-black text-slate-700 text-lg truncate group-hover:text-clinica-600 transition-colors" x-text="item.nome_paciente"></h3>
-                            <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1" x-text="item.tipo_sessao"></p>
+
+                            <div class="flex-1 min-w-0">
+                                <div class="flex justify-between items-start mb-1">
+                                    <div>
+                                        <span class="text-2xl font-black text-slate-800" x-text="item.hora"></span>
+                                        <span class="ml-2 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md"
+                                              :class="isHoje(item.data) ? 'bg-clinica-100 text-clinica-700' : 'bg-slate-100 text-slate-500'"
+                                              x-text="isHoje(item.data) ? 'Hoje' : item.data"></span>
+                                    </div>
+                                </div>
+                                <h3 class="font-black text-slate-700 text-lg truncate group-hover:text-clinica-600 transition-colors" x-text="item.nome_paciente"></h3>
+                                <p class="text-slate-400 text-xs font-bold uppercase tracking-widest" x-text="item.tipo_sessao"></p>
+                            </div>
                         </div>
                     </template>
                 </div>
@@ -176,9 +184,16 @@
                     <template x-for="paciente in pacientesFiltrados()" :key="paciente.id">
                         <div @click="window.location.href = '/paciente/' + paciente.id" 
                              class="group bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center gap-4 cursor-pointer hover:bg-white hover:border-clinica-300 hover:shadow-md transition-all active:scale-[0.98]">
-                            <div class="w-12 h-12 rounded-full bg-clinica-100 text-clinica-600 font-black text-lg flex items-center justify-center uppercase shrink-0 group-hover:bg-clinica-500 group-hover:text-white transition-colors">
-                                <span x-text="paciente.nome.charAt(0)"></span>
+                            
+                            <div class="w-12 h-12 rounded-full bg-clinica-100 text-clinica-600 font-black text-lg flex items-center justify-center uppercase shrink-0 overflow-hidden border-2 border-white shadow-sm group-hover:bg-clinica-500 group-hover:text-white transition-colors">
+                                <template x-if="paciente.foto_url">
+                                    <img :src="paciente.foto_url" class="w-full h-full object-cover">
+                                </template>
+                                <template x-if="!paciente.foto_url">
+                                    <span x-text="paciente.nome.charAt(0)"></span>
+                                </template>
                             </div>
+
                             <div class="flex-1 min-w-0">
                                 <h3 class="font-black text-slate-700 text-sm truncate mb-0.5 group-hover:text-slate-900" x-text="paciente.nome"></h3>
                                 <span class="inline-block text-slate-400 text-[9px] font-bold truncate uppercase tracking-wider" 
@@ -364,15 +379,19 @@
                     ]).then(([dadosPacientes, dadosAgenda]) => {
                         this.pacientes = dadosPacientes;
                         this.agenda = Array.isArray(dadosAgenda) ? dadosAgenda : [];
-                        
                         const hoje = new Date().toLocaleDateString('pt-BR');
                         this.agendaHoje = this.agenda.filter(item => item.data === hoje);
-                        
                         this.carregando = false;
                     }).catch(err => {
                         console.error('Erro ao carregar dashboard:', err);
                         this.carregando = false;
                     });
+                },
+
+                // Função auxiliar Fase 6 para buscar foto pelo ID
+                getPacienteFoto(id) {
+                    const p = this.pacientes.find(p => p.id === id);
+                    return p ? p.foto_url : null;
                 },
 
                 isHoje(dataStr) {
@@ -419,7 +438,7 @@
 
                 salvarAgendamento() {
                     if (!this.novoAgendamento.paciente_id || !this.novoAgendamento.data_hora) {
-                        alert("Por favor, selecione um paciente e o horário da sessão.");
+                        alert("Por favor, selecione um paciente e o horário.");
                         return;
                     }
                     this.salvandoAgendamento = true;
