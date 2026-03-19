@@ -20,27 +20,59 @@
         }
     </script>
     <style>
-        body { background-color: #f8fafc; overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; }
+        body { background-color: #f8fafc; overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+        /* ANIMAÇÕES DO FUNDO LÚDICO (EDIÇÃO PREMIUM) */
+        @keyframes flutuar {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-30px) rotate(15deg); }
+        }
+        @keyframes flutuarInverso {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(30px) rotate(-15deg); }
+        }
+        @keyframes pulsar {
+            0%, 100% { transform: scale(1) rotate(0deg); }
+            50% { transform: scale(1.1) rotate(5deg); }
+        }
+        .anim-flutuar-1 { animation: flutuar 8s ease-in-out infinite; }
+        .anim-flutuar-2 { animation: flutuarInverso 10s ease-in-out infinite 1s; }
+        .anim-flutuar-3 { animation: flutuar 12s ease-in-out infinite 2s; }
+        .anim-flutuar-4 { animation: flutuarInverso 9s ease-in-out infinite 3s; }
+        .anim-flutuar-5 { animation: pulsar 7s ease-in-out infinite 0.5s; }
+        .anim-flutuar-6 { animation: flutuar 11s ease-in-out infinite 1.5s; }
+        .anim-flutuar-7 { animation: flutuarInverso 13s ease-in-out infinite 0.2s; }
     </style>
 </head>
-<body class="text-slate-800 antialiased" x-data="perfilPaciente({{ paciente_id }})" x-init="carregarDados()">
+<body class="text-slate-800 antialiased relative min-h-screen" x-data="perfilPaciente({{ paciente_id }})" x-init="carregarDados()">
 
-    <div class="max-w-5xl mx-auto min-h-screen bg-white md:shadow-2xl md:shadow-slate-200/50 md:border-x border-slate-100 relative pb-20 md:pb-10">
+    <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden opacity-15">
+        <svg class="absolute top-10 right-10 w-48 h-48 text-rose-500 anim-flutuar-1" fill="currentColor" viewBox="0 0 24 24"><path d="M12,2A7,7,0,0,0,5,9c0,5.25,7,13,7,13s7-7.75,7-13A7,7,0,0,0,12,2Z"/></svg>
+        <svg class="absolute top-1/4 -left-10 w-56 h-56 text-blue-500 anim-flutuar-2" fill="currentColor" viewBox="0 0 24 24"><path d="M19,9H17V7A1,1,0,0,0,15,7V9H9V7A1,1,0,0,0,7,7V9H5a3,3,0,0,0-3,3v7a3,3,0,0,0,3,3H19a3,3,0,0,0,3-3V12A3,3,0,0,0,19,9Zm1,10a1,1,0,0,1-1,1H5a1,1,0,0,1-1-1V12a1,1,0,0,1,1-1H19a1,1,0,0,1,1,1Z"/></svg>
+        <svg class="absolute bottom-10 right-0 w-64 h-64 text-emerald-500 anim-flutuar-3" fill="currentColor" viewBox="0 0 24 24"><path d="M20.5,10.5H18V8a2,2,0,0,0-2-2H13.5a2,2,0,0,1-4,0H7A2,2,0,0,0,5,8v2.5a2,2,0,0,1,0,4V17a2,2,0,0,0,2,2h2.5a2,2,0,0,1,4,0H16a2,2,0,0,0,2-2V14.5a2,2,0,0,1,2.5-4h0A2,2,0,0,0,20.5,10.5Z"/></svg>
+        <svg class="absolute top-1/3 right-20 w-32 h-32 text-amber-400 anim-flutuar-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12,2l3.09,6.26L22,9.27l-5,4.87,1.18,6.88L12,17.77l-6.18,3.25L7,14.14,2,9.27l6.91-1.01L12,2Z"/></svg>
+        <svg class="absolute bottom-32 left-1/3 w-40 h-40 text-purple-400 anim-flutuar-4" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+        <svg class="absolute top-20 left-20 w-44 h-44 text-sky-400 anim-flutuar-6" fill="currentColor" viewBox="0 0 24 24"><path d="M17.5,19H6.5A5.5,5.5,0,0,1,6.5,8h.18a7,7,0,0,1,13.27,2.23A4.5,4.5,0,0,1,17.5,19Z"/></svg>
+        <svg class="absolute bottom-10 left-10 w-36 h-36 text-teal-500 anim-flutuar-7" fill="currentColor" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><path d="M9 16V8l3 8 3-8v8"/></svg>
+    </div>
 
-        <header class="bg-clinica-600 text-white p-4 sticky top-0 z-40 shadow-md">
-            <div class="flex items-center justify-between">
+    <div class="max-w-5xl mx-auto min-h-screen bg-white md:shadow-2xl md:shadow-slate-200/50 md:border-x border-slate-100 relative z-10 pb-20 md:pb-10">
+
+        <header class="bg-clinica-600 text-white p-4 sticky top-0 z-40 shadow-md relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-10 -mt-10 pointer-events-none"></div>
+            <div class="flex items-center justify-between relative z-10">
                 <div class="flex items-center gap-3">
                     <a href="/" class="p-2 -ml-2 hover:bg-white/20 rounded-full transition-colors active:scale-95">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
                     </a>
-                    <h1 class="text-xl font-black uppercase tracking-widest">Prontuário</h1>
+                    <h1 class="text-xl font-black uppercase tracking-widest drop-shadow-sm">Prontuário</h1>
                 </div>
-                <div class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
+                <div class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-inner">
                     <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17c0 1.1.9 2 2 2h4c1.1 0 2-.9 2-2v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7z"/></svg>
                 </div>
             </div>
@@ -143,29 +175,29 @@
 
                     </aside>
 
-                    <section class="w-full md:w-2/3 space-y-8">
+                    <section class="w-full md:w-2/3 space-y-8 relative z-10">
                         <div>
                             <h3 class="text-sm font-black text-slate-500 mb-3 px-1 uppercase tracking-widest">Área de Intervenção</h3>
                             <div class="grid grid-cols-2 gap-3 md:gap-4">
-                                <button @click="window.location.href = '/paciente/' + paciente.id + '/anamnese'" class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 group transition-all hover:-translate-y-1">
+                                <button @click="window.location.href = '/paciente/' + paciente.id + '/anamnese'" class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 group transition-all hover:-translate-y-1 hover:shadow-md">
                                     <div class="w-14 h-14 bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center group-hover:bg-orange-500 group-hover:text-white transition-colors rotate-3 group-hover:rotate-0 shadow-inner">
                                         <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
                                     </div>
                                     <span class="font-black text-slate-700 text-xs text-center mt-3 block uppercase">1. Triagem</span>
                                 </button>
-                                <button @click="window.location.href = '/paciente/' + paciente.id + '/pedi'" class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 group transition-all hover:-translate-y-1">
+                                <button @click="window.location.href = '/paciente/' + paciente.id + '/pedi'" class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 group transition-all hover:-translate-y-1 hover:shadow-md">
                                     <div class="w-14 h-14 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-colors -rotate-3 group-hover:rotate-0 shadow-inner">
                                         <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                                     </div>
                                     <span class="font-black text-slate-700 text-xs text-center mt-3 block uppercase">2. Avaliação PEDI</span>
                                 </button>
-                                <button @click="window.location.href = '/paciente/' + paciente.id + '/observacao'" class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 group transition-all hover:-translate-y-1">
+                                <button @click="window.location.href = '/paciente/' + paciente.id + '/observacao'" class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 group transition-all hover:-translate-y-1 hover:shadow-md">
                                     <div class="w-14 h-14 bg-purple-50 text-purple-500 rounded-2xl flex items-center justify-center group-hover:bg-purple-500 group-hover:text-white transition-colors rotate-3 group-hover:rotate-0 shadow-inner">
                                         <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                                     </div>
                                     <span class="font-black text-slate-700 text-xs text-center mt-3 block uppercase">3. Obs. Clínica</span>
                                 </button>
-                                <button @click="window.location.href = '/paciente/' + paciente.id + '/evolucao'" class="bg-white p-5 rounded-3xl shadow-sm border border-clinica-100 group transition-all hover:-translate-y-1">
+                                <button @click="window.location.href = '/paciente/' + paciente.id + '/evolucao'" class="bg-white p-5 rounded-3xl shadow-sm border border-clinica-100 group transition-all hover:-translate-y-1 hover:shadow-md">
                                     <div class="w-14 h-14 bg-clinica-50 text-clinica-500 rounded-2xl flex items-center justify-center group-hover:bg-clinica-500 group-hover:text-white transition-colors -rotate-3 group-hover:rotate-0 shadow-inner">
                                         <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                                     </div>
@@ -182,11 +214,11 @@
                         <div>
                             <h3 class="text-sm font-black text-slate-500 mb-4 px-1 uppercase tracking-widest flex justify-between items-center">
                                 Histórico de Evoluções
-                                <span class="bg-slate-100 text-slate-500 text-[10px] px-2 py-1 rounded-lg" x-text="historicoEvolucoes.length + ' Registros'"></span>
+                                <span class="bg-slate-100 text-slate-500 text-[10px] px-2 py-1 rounded-lg shadow-inner" x-text="historicoEvolucoes.length + ' Registros'"></span>
                             </h3>
                             
                             <template x-if="historicoEvolucoes.length === 0">
-                                <div class="p-8 bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl text-center">
+                                <div class="p-8 bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl text-center shadow-sm">
                                     <svg class="mx-auto h-10 w-10 text-slate-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                     <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Nenhuma evolução registada ainda.</p>
                                 </div>
@@ -196,7 +228,7 @@
                                 <template x-for="evo in historicoEvolucoes" :key="evo.id">
                                     <div class="relative group">
                                         <div class="absolute -left-[33px] top-2 w-4 h-4 rounded-full border-4 border-white shadow-sm"
-                                             :class="evo.status === 'Realizado' ? 'bg-emerald-500' : (evo.status === 'Faltou' ? 'bg-red-500' : 'bg-slate-400')"></div>
+                                             :class="evo.status === 'Realizado' ? 'bg-emerald-500' : (evo.status === 'Faltou' ? 'bg-red-500' : (evo.status === 'Agendado' ? 'bg-blue-400' : 'bg-slate-400'))"></div>
                                         
                                         <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 group-hover:border-slate-200 transition-colors relative">
                                             
@@ -210,7 +242,7 @@
                                                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest" x-text="evo.tipo_sessao"></p>
                                                 </div>
                                                 <span class="text-[9px] font-black px-2 py-1 rounded-md uppercase tracking-wider"
-                                                      :class="evo.status === 'Realizado' ? 'bg-emerald-50 text-emerald-700' : (evo.status === 'Faltou' ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-600')"
+                                                      :class="evo.status === 'Realizado' ? 'bg-emerald-50 text-emerald-700' : (evo.status === 'Faltou' ? 'bg-red-50 text-red-700' : (evo.status === 'Agendado' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-600'))"
                                                       x-text="evo.status"></span>
                                             </div>
 
@@ -254,6 +286,9 @@
                                             <template x-if="!evo.evolucao_texto && evo.status === 'Realizado'">
                                                 <p class="text-sm font-semibold text-slate-400 italic">Sem anotações adicionais.</p>
                                             </template>
+                                            <template x-if="!evo.evolucao_texto && evo.status === 'Agendado'">
+                                                <p class="text-sm font-semibold text-slate-400 italic">Sessão programada.</p>
+                                            </template>
                                         </div>
                                     </div>
                                 </template>
@@ -282,7 +317,7 @@
                             </div>
 
                             <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
-                                <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-1">Responsáveis</p>
+                                <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-1">Responsáveis e Contato</p>
                                 <input type="text" x-model="formEdicao.nome_responsavel" placeholder="Nome da Mãe/Pai" class="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm font-bold outline-none">
                                 <div class="grid grid-cols-2 gap-3">
                                     <input type="tel" x-model="formEdicao.telefone_responsavel" placeholder="WhatsApp" class="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm font-bold outline-none">
