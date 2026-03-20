@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Prontuário | APP-TO</title>
 
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/logo_appto_oficial.png') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/logo_appto_oficial.png') }}?v=2">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='img/logo_appto_oficial.png') }}?v=2">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -76,8 +77,8 @@
                     <h1 class="text-xl font-black uppercase tracking-widest drop-shadow-sm">Prontuário</h1>
                 </div>
                 
-                <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-inner overflow-hidden p-1 border border-white/20">
-                    <img src="{{ url_for('static', filename='img/logo_appto_oficial.png') }}" alt="Logo" class="w-full h-full object-contain">
+                <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-inner overflow-hidden border border-white/20">
+                    <img src="{{ url_for('static', filename='img/logo_appto_oficial.png') }}?v=2" alt="Logo" class="w-full h-full object-cover scale-150">
                 </div>
             </div>
         </header>
@@ -326,6 +327,30 @@
                 </div>
             </template>
         </main>
+
+        <footer class="mt-8 pt-8 border-t border-slate-100 pb-10 px-4 text-center">
+            <div class="flex flex-col items-center gap-4">
+                <div class="flex items-center justify-center gap-6 opacity-60 grayscale hover:grayscale-0 transition-all duration-500">
+                    <div class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Fiscalizado por</div>
+                    <div class="flex gap-4">
+                        <span class="text-[11px] font-black text-slate-500 border-2 border-slate-200 px-2 py-1 rounded-md">CREFITO-SP</span>
+                        <span class="text-[11px] font-black text-slate-500 border-2 border-slate-200 px-2 py-1 rounded-md">COFITO</span>
+                    </div>
+                </div>
+
+                <div class="mt-4 flex flex-col items-center gap-1">
+                    <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">Tecnologia e Inovação</span>
+                    <div class="flex items-center gap-2">
+                        <div class="w-6 h-6 bg-slate-800 rounded-md flex items-center justify-center text-white font-black text-[10px]">V</div>
+                        <span class="text-xs font-black text-slate-700 tracking-tight">VÓRTICE <span class="text-clinica-600">HUB</span></span>
+                    </div>
+                </div>
+
+                <p class="text-[9px] font-bold text-slate-400 mt-4 leading-relaxed max-w-[280px] mx-auto">
+                    Este prontuário digital atende às normas de Terapia Ocupacional e segurança de dados do paciente.
+                </p>
+            </div>
+        </footer>
 
         <div x-show="modalEdicaoAberto" style="display: none;" class="fixed inset-0 z-[60] overflow-y-auto">
             <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">

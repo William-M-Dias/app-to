@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Mesa de Controle | APP-TO</title>
     
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/logo_appto_oficial.png') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/logo_appto_oficial.png') }}?v=2">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -71,8 +71,8 @@
             <div class="flex justify-between items-center relative z-10">
                 <div class="flex items-center gap-3">
                     
-                    <div class="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-inner overflow-hidden p-1.5 border border-white/20">
-                        <img src="{{ url_for('static', filename='img/logo_appto_oficial.png') }}" alt="APP-TO Logo" class="w-full h-full object-contain">
+                    <div class="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-inner overflow-hidden border border-white/20">
+                        <img src="{{ url_for('static', filename='img/logo_appto_oficial.png') }}?v=2" alt="APP-TO Logo" class="w-full h-full object-cover scale-125">
                     </div>
                     
                     <div>
