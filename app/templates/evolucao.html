@@ -258,9 +258,23 @@
                     
                     if(payload.status === 'Realizado') {
                         payload.micro_metas.atividades = this.atividadesSelecionadas;
+                        
+                        // A MÁGICA DA VALIDAÇÃO: Remove tudo que for null, undefined ou array vazio
+                        const metasLimpas = Object.fromEntries(
+                            Object.entries(payload.micro_metas).filter(([chave, valor]) => {
+                                if (valor === null || valor === undefined) return false;
+                                if (Array.isArray(valor) && valor.length === 0) return false;
+                                return true;
+                            })
+                        );
+                        payload.micro_metas = metasLimpas;
+                        
                     } else {
-                        payload.micro_metas = {};
+                        payload.micro_metas = {}; // Se não realizou, buraco negro vazio.
                     }
+
+                    // Console.log para auditoria do JSON limpo antes do envio ao servidor
+                    console.log("🚀 DADOS JSONB VALIDADOS:", JSON.stringify(payload.micro_metas));
 
                     fetch('/api/consultas/', {
                         method: 'POST',

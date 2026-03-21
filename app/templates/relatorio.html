@@ -6,6 +6,7 @@
     <title>Relatório Clínico | APP-TO</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Nunito', sans-serif; background-color: #f8fafc; }
@@ -111,6 +112,13 @@
                 </div>
             </template>
 
+            <div x-show="temDadosGrafico" style="display: none;" class="mb-8 page-break">
+                <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 border-b pb-2">Curva de Evolução (Índice GAS Médio)</h2>
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100 print-shadow-none h-64 w-full">
+                    <canvas id="gasChart"></canvas>
+                </div>
+            </div>
+
             <div class="mb-8">
                 <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 border-b pb-2">Resumo das Últimas Intervenções</h2>
                 <div class="space-y-4">
@@ -138,7 +146,14 @@
     <script>
         function relatorio(id) {
             return {
-                pacienteId: id, paciente: null, avaliacoesPedi: [], ultimaAnamnese: null, historicoEvolucoes: [], carregando: true,
+                pacienteId: id, 
+                paciente: null, 
+                avaliacoesPedi: [], 
+                ultimaAnamnese: null, 
+                historicoEvolucoes: [], 
+                carregando: true,
+                temDadosGrafico: false, // Controle de exibição do gráfico
+                
                 carregarDados() {
                     Promise.all([
                         fetch('/api/pacientes/' + this.pacienteId).then(res => res.json()),
@@ -151,11 +166,17 @@
                         if (Array.isArray(dadosAnamnese) && dadosAnamnese.length > 0) this.ultimaAnamnese = dadosAnamnese[0];
                         this.historicoEvolucoes = Array.isArray(dadosConsultas) ? dadosConsultas.filter(c => c.status === 'Realizado') : [];
                         this.carregando = false;
+                        
+                        // Espera o Alpine atualizar o DOM e então renderiza o gráfico
+                        this.$nextTick(() => {
+                            this.renderizarGrafico();
+                        });
                     }).catch(err => {
                         console.error('Erro ao carregar relatório:', err);
                         this.carregando = false;
                     });
                 },
+                
                 calcularIdade(dataNasc) {
                     if (!dataNasc) return '';
                     const hoje = new Date(); const nascimento = new Date(dataNasc);
@@ -163,6 +184,73 @@
                     const mes = hoje.getMonth() - nascimento.getMonth();
                     if (mes < 0 || (mes === 0 && hoje.getDate() < nascimento.getDate())) { idade--; }
                     return idade + (idade === 1 ? ' ano' : ' anos');
+                },
+
+                renderizarGrafico() {
+                    // Filtra apenas as evoluções que têm dados GAS válidos
+                    const evolucoesGAS = this.historicoEvolucoes.filter(e => 
+                        e.micro_metas && 
+                        (e.micro_metas.autocuidado !== null || e.micro_metas.mobilidade !== null || e.micro_metas.funcao_social !== null)
+                    ).reverse(); // Inverte para ordem cronológica (da mais antiga para a mais nova)
+
+                    if (evolucoesGAS.length === 0) return;
+                    
+                    this.temDadosGrafico = true;
+
+                    // Extrai as datas (DD/MM) para o eixo X
+                    const labels = evolucoesGAS.map(e => {
+                        return e.data_hora.split(' ')[0].split('-').reverse().slice(0, 2).join('/');
+                    });
+
+                    // Calcula a média do GAS por sessão
+                    const dataEvolucao = evolucoesGAS.map(e => {
+                        let sum = 0;
+                        let count = 0;
+                        if (e.micro_metas.autocuidado !== null && e.micro_metas.autocuidado !== undefined) { sum += e.micro_metas.autocuidado; count++; }
+                        if (e.micro_metas.mobilidade !== null && e.micro_metas.mobilidade !== undefined) { sum += e.micro_metas.mobilidade; count++; }
+                        if (e.micro_metas.funcao_social !== null && e.micro_metas.funcao_social !== undefined) { sum += e.micro_metas.funcao_social; count++; }
+                        return count > 0 ? parseFloat((sum / count).toFixed(1)) : 0;
+                    });
+
+                    // Garante que o canvas existe antes de plotar
+                    this.$nextTick(() => {
+                        const ctx = document.getElementById('gasChart');
+                        if (!ctx) return;
+
+                        new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: labels,
+                                datasets: [{
+                                    label: 'Média GAS',
+                                    data: dataEvolucao,
+                                    borderColor: '#0d9488', // clinica-600
+                                    backgroundColor: 'rgba(13, 148, 136, 0.1)',
+                                    borderWidth: 3,
+                                    pointBackgroundColor: '#fff',
+                                    pointBorderColor: '#0d9488',
+                                    pointBorderWidth: 2,
+                                    pointRadius: 4,
+                                    fill: true,
+                                    tension: 0.3
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                scales: {
+                                    y: {
+                                        min: -2,
+                                        max: 2,
+                                        ticks: { stepSize: 1 }
+                                    }
+                                },
+                                plugins: {
+                                    legend: { display: false }
+                                }
+                            }
+                        });
+                    });
                 }
             }
         }
