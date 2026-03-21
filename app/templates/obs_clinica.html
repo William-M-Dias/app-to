@@ -45,18 +45,59 @@
             <div class="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
                 <div class="bg-emerald-50 p-5 font-black text-emerald-800 uppercase text-xs tracking-widest border-b">2. Integração Sensorial</div>
                 <div class="p-4 space-y-4">
-                    <template x-for="item in ['Sistema Proprioceptivo', 'Sistema Tátil', 'Sistema Vestibular', 'Sistema Auditivo', 'Sistema Interoceptivo']">
-                        <div class="space-y-2">
-                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1" x-text="item"></label>
-                            <select x-model="form.dados_json.sensorial[item]" class="w-full p-4 bg-slate-50 rounded-2xl text-sm font-bold text-slate-700 border-none focus:ring-2 focus:ring-emerald-500 transition-all outline-none shadow-inner">
-                                <option value="">Selecione o perfil...</option>
-                                <option>Hipo-responsivo</option>
-                                <option>Hiper-responsivo</option>
-                                <option>Normal</option>
-                                <option>Busca Sensorial</option>
-                            </select>
-                        </div>
-                    </template>
+                    
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Sistema Proprioceptivo</label>
+                        <select x-model="form.dados_json.sensorial['Sistema Proprioceptivo']" class="w-full p-4 bg-slate-50 rounded-2xl text-sm font-bold text-slate-700 border-none focus:ring-2 focus:ring-emerald-500 transition-all outline-none shadow-inner">
+                            <option value="">Selecione o perfil...</option>
+                            <option value="Busca Sensorial (Hiporesponsividade)">1 - Busca Sensorial (Hiporesponsividade)</option>
+                            <option value="Dificuldade Discriminação (Graduação Força)">2 - Dificuldade Discriminação (Graduação Força)</option>
+                            <option value="Normal">3 - Normal</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Sistema Tátil</label>
+                        <select x-model="form.dados_json.sensorial['Sistema Tátil']" class="w-full p-4 bg-slate-50 rounded-2xl text-sm font-bold text-slate-700 border-none focus:ring-2 focus:ring-emerald-500 transition-all outline-none shadow-inner">
+                            <option value="">Selecione o perfil...</option>
+                            <option value="Defensividade Tátil (Hiperresponsividade)">1 - Defensividade Tátil (Hiperresponsividade)</option>
+                            <option value="Pobre Discriminação Tátil (Hiporesponsividade)">2 - Pobre Discriminação Tátil (Hiporesponsividade)</option>
+                            <option value="Normal">3 - Normal</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Sistema Vestibular</label>
+                        <select x-model="form.dados_json.sensorial['Sistema Vestibular']" class="w-full p-4 bg-slate-50 rounded-2xl text-sm font-bold text-slate-700 border-none focus:ring-2 focus:ring-emerald-500 transition-all outline-none shadow-inner">
+                            <option value="">Selecione o perfil...</option>
+                            <option value="Hiper-responsividade (Insegurança Gravitacional)">1 - Hiper-responsividade (Insegurança Gravitacional)</option>
+                            <option value="Hiporesponsividade (Buscador de Movimento)">2 - Hiporesponsividade (Buscador de Movimento)</option>
+                            <option value="Pobre Processamento Vestibular (Proprioceptivo)">3 - Pobre Processamento Vestibular (Proprioceptivo)</option>
+                            <option value="Normal">4 - Normal</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Sistema Auditivo</label>
+                        <select x-model="form.dados_json.sensorial['Sistema Auditivo']" class="w-full p-4 bg-slate-50 rounded-2xl text-sm font-bold text-slate-700 border-none focus:ring-2 focus:ring-emerald-500 transition-all outline-none shadow-inner">
+                            <option value="">Selecione o perfil...</option>
+                            <option value="Hiperresponsividade Auditiva (Defensiva Auditiva)">1 - Hiperresponsividade Auditiva (Defensiva Auditiva)</option>
+                            <option value="Hiporesponsividade Auditiva (Baixo registro)">2 - Hiporesponsividade Auditiva (Baixo registro)</option>
+                            <option value="Dificuldade Discriminação Auditiva">3 - Dificuldade Discriminação Auditiva</option>
+                            <option value="Normal">4 - Normal</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Sistema Interoceptivo</label>
+                        <select x-model="form.dados_json.sensorial['Sistema Interoceptivo']" class="w-full p-4 bg-slate-50 rounded-2xl text-sm font-bold text-slate-700 border-none focus:ring-2 focus:ring-emerald-500 transition-all outline-none shadow-inner">
+                            <option value="">Selecione o perfil...</option>
+                            <option value="Hiperesponsividade Interoceptiva (Sensibilidade Aguçada)">1 - Hiperesponsividade Interoceptiva (Sensibilidade Aguçada)</option>
+                            <option value="Hiporesposividade Interoceptiva (Baixo Registro)">2 - Hiporesposividade Interoceptiva (Baixo Registro)</option>
+                            <option value="Normal">3 - Normal</option>
+                        </select>
+                    </div>
+
                 </div>
             </div>
 
