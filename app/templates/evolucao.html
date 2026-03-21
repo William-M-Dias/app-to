@@ -132,12 +132,25 @@
                             </button>
                             <div x-show="categoriaAberta === index" x-collapse class="bg-white p-3 border-t border-slate-100">
                                 <div class="flex flex-wrap gap-1.5">
-                                    <template x-for="item in categoria.itens" :key="item">
-                                        <button type="button" @click="toggleAtividade(item)" 
-                                                class="px-3 py-1.5 text-[11px] font-bold rounded-lg transition-colors border text-left"
-                                                :class="atividadesSelecionadas.includes(item) ? 'bg-clinica-600 text-white border-clinica-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'">
-                                            <span x-text="item"></span>
-                                        </button>
+                                    <template x-for="item in categoria.itens" :key="item.nome">
+                                        <div class="flex items-stretch shadow-sm rounded-lg overflow-hidden border transition-colors"
+                                             :class="atividadesSelecionadas.includes(item.nome) ? 'border-clinica-500 bg-clinica-600' : 'border-slate-200 bg-white'">
+                                            
+                                            <button type="button" @click="toggleAtividade(item.nome)" 
+                                                    class="px-3 py-1.5 text-[11px] font-bold text-left flex-grow transition-colors focus:outline-none"
+                                                    :class="atividadesSelecionadas.includes(item.nome) ? 'text-white' : 'text-slate-600 hover:bg-slate-50'">
+                                                <span x-text="item.nome"></span>
+                                            </button>
+
+                                            <template x-if="item.descricao">
+                                                <button type="button" @click.stop="mostrarDescricao(item.nome, item.descricao)"
+                                                        class="px-2.5 flex items-center justify-center border-l transition-colors focus:outline-none"
+                                                        :class="atividadesSelecionadas.includes(item.nome) ? 'border-clinica-500 text-clinica-100 hover:text-white hover:bg-clinica-700' : 'border-slate-100 text-slate-400 hover:text-clinica-600 hover:bg-slate-100'"
+                                                        title="Ver Significado">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                                </button>
+                                            </template>
+                                        </div>
                                     </template>
                                 </div>
                             </div>
@@ -161,6 +174,25 @@
                 <span x-text="salvando ? 'A Gravar Dados...' : (form.status === 'Agendado' ? 'Confirmar Agendamento' : 'Assinar Prontuário')"></span>
             </button>
         </div>
+
+        <div x-show="modalAjuda.aberto" style="display: none;" class="fixed inset-0 z-[100] overflow-y-auto">
+            <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+                <div x-show="modalAjuda.aberto" x-transition.opacity class="fixed inset-0 transition-opacity bg-slate-900/60 backdrop-blur-sm" @click="fecharDescricao()"></div>
+                <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+                <div x-show="modalAjuda.aberto" x-transition.scale class="inline-block w-full max-w-sm p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-2xl rounded-3xl">
+                    <div class="flex items-start justify-between mb-4">
+                        <h3 class="text-sm font-black text-emerald-600 uppercase tracking-wide pr-4" x-text="modalAjuda.titulo"></h3>
+                        <button @click="fecharDescricao()" class="text-slate-400 hover:text-slate-600 focus:outline-none shrink-0"><svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                    </div>
+                    <div class="mt-2 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <p class="text-[13px] font-semibold text-slate-600 leading-relaxed text-justify" x-text="modalAjuda.texto"></p>
+                    </div>
+                    <div class="mt-6 flex justify-end">
+                        <button type="button" @click="fecharDescricao()" class="w-full px-6 py-3 text-xs tracking-widest uppercase font-black text-white transition-colors shadow-md bg-emerald-600 rounded-xl hover:bg-emerald-700 focus:outline-none">Entendi</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -174,6 +206,13 @@
                 salvando: false,
                 categoriaAberta: null, 
                 atividadesSelecionadas: [],
+                
+                modalAjuda: {
+                    aberto: false,
+                    titulo: '',
+                    texto: ''
+                },
+
                 form: {
                     paciente_id: id,
                     data_hora: dataIso,
@@ -191,21 +230,164 @@
                 bibliotecaAtividades: [
                     {
                         nome: 'Motricidade Fina e Destreza',
-                        itens: ['Coordenação motora fina', 'Destreza manual', 'Dissociação dedos e mãos', 'Força mãos e dedos', 'Graduação de Força', 'Atividade com prendedor', 'Atividade com massinha', 'Coordenação olho mãos', 'Coordenação / integração bilateral', 'Atividade com tesoura (reta)', 'Atividade com tesoura (curvas)']
+                        itens: [
+                            { nome: 'Coordenação motora fina', descricao: null },
+                            { nome: 'Destreza manual', descricao: null },
+                            { nome: 'Dissociação dedos e mãos', descricao: null },
+                            { nome: 'Força mãos e dedos', descricao: null },
+                            { nome: 'Graduação de Força', descricao: null },
+                            { nome: 'Atividade com prendedor', descricao: null },
+                            { nome: 'Atividade com massinha', descricao: null },
+                            { nome: 'Coordenação olho mãos', descricao: null },
+                            { nome: 'Atividade com tesoura linha reta', descricao: null },
+                            { nome: 'Atividade com tesoura em linhas curvas / ondulada', descricao: null },
+                            { nome: 'Coordenação/ integração bilateral', descricao: null },
+                            { nome: 'Pintura dentro do contexto', descricao: null },
+                            { nome: 'Habilidades gráficas', descricao: null },
+                            { nome: 'Atividades data comemorativas', descricao: null },
+                            { nome: 'Traçado letra Cursiva', descricao: null },
+                            { nome: 'Pinça', descricao: null },
+                            { nome: 'Orientação preensão Trípode', descricao: null }
+                        ]
                     },
                     {
                         nome: 'Cognitivo e Percepção Visual',
-                        itens: ['Encaixe', 'Pareamento de figuras e cores', 'Quebra cabeça', 'Atenção sustentada', 'Percepção visual', 'Resolução de problemas', 'Atenção geral', 'Contextualização']
+                        itens: [
+                            { nome: 'Encaixe', descricao: null },
+                            { nome: 'Relação Visoespacial', descricao: null },
+                            { nome: 'Figura-Fundo', descricao: null },
+                            { nome: 'Pareamento de figuras e cores', descricao: null },
+                            { nome: 'Quebra cabeça', descricao: null },
+                            { nome: 'Memória', descricao: null },
+                            { nome: 'Atividades Neuroativamente', descricao: null },
+                            { nome: 'Caça palavras', descricao: null },
+                            { nome: 'Conceito Matemático', descricao: null },
+                            { nome: 'Atenção sustentada', descricao: null },
+                            { nome: 'Flexibilidade Cognitiva', descricao: null },
+                            { nome: 'Imaginação (Conto de História)', descricao: null },
+                            { nome: 'Controle Inibitório', descricao: null },
+                            { nome: 'Percepção visual', descricao: null },
+                            { nome: 'Resolução de problemas', descricao: null },
+                            { nome: 'Orientação Temporal', descricao: null },
+                            { nome: 'Artesanato', descricao: null },
+                            { nome: 'Atenção', descricao: null },
+                            { nome: 'Contextualização', descricao: null }
+                        ]
+                    },
+                    {
+                        nome: 'Habilidades Sociais',
+                        itens: [
+                            { nome: 'Contato Visual e Orientação', descricao: null },
+                            { nome: 'Atividade com Pares', descricao: null },
+                            { nome: 'Turno de Fala (Vez e Voz)', descricao: 'Vez e Voz' },
+                            { nome: 'Iniciação e Encerramento', descricao: null },
+                            { nome: 'Interpretar expressões faciais', descricao: null },
+                            { nome: 'Auto-Regulação e Controle Inibitório', descricao: null },
+                            { nome: 'Tolerância à Frustração', descricao: null },
+                            { nome: 'Controle de Impulso', descricao: null },
+                            { nome: 'Empatia', descricao: null },
+                            { nome: 'Adequação ao Contexto', descricao: null },
+                            { nome: 'Resolução de Problemas Sociais', descricao: null },
+                            { nome: 'Habilidades de Cooperação e Jogo', descricao: 'brincar compartilhado, seguir regras, negociação' },
+                            { nome: 'Autoestima', descricao: null },
+                            { nome: 'Criatividade', descricao: null }
+                        ]
+                    },
+                    {
+                        nome: 'Jogos',
+                        itens: [
+                            { nome: 'Jogo Stop', descricao: null },
+                            { nome: 'Jogo Uno', descricao: null },
+                            { nome: 'Jogo a Hora do Rush', descricao: null },
+                            { nome: 'Jogo Cilada', descricao: null },
+                            { nome: 'Jogo 4 em linhas', descricao: null },
+                            { nome: 'Jogo Seleção de Cores', descricao: null },
+                            { nome: 'Jogo Lince', descricao: null },
+                            { nome: 'Jogo o que é o que é', descricao: null },
+                            { nome: 'Jogo DIGIN', descricao: null },
+                            { nome: 'Jogo cadê', descricao: null },
+                            { nome: 'Jogo Pula Aranha', descricao: null },
+                            { nome: 'Jogo Mico', descricao: null }
+                        ]
                     },
                     {
                         nome: 'Integração Sensorial e Global',
-                        itens: ['Circuito Motor', 'Planejamento motor', 'Estímulo proprioceptivo, vestibular e tátil', 'Na plataforma (baixar nível de alerta)', 'Proprioceptivo / Consciência Corporal', 'Noção espacial', 'Equilíbrio Postural', 'Atividade de lateralidade', 'Andar nas almofadas e jogar bola', 'Prono na plataforma (jogando argola)']
+                        itens: [
+                            { nome: 'Práxis', descricao: 'dificuldade da criança em conceber, planejar e executar uma sequência de movimentos novos ou complexos' },
+                            { nome: 'VBIS', descricao: 'Integração Vestibular bilateral e sequenciamento inadequado' },
+                            { nome: 'SOMATODISPRAXIA', descricao: 'Uma dificuldade em planejar e executar ações motoras novas ou não habituais, decorrente de um processamento deficiente dos sistemas tátil e proprioceptivo (Dois sistemas envolvidos)' },
+                            { nome: 'VISUODISPRAXIA', descricao: 'dificuldade em cópia do quadro, escrita, recorte, sem alteração da acuidade visual' },
+                            { nome: 'Dispraxia Ideacional', descricao: 'Dificuldades em conceber e planejar ações (novas e antigas)' },
+                            { nome: 'Esquema corporal', descricao: null },
+                            { nome: 'Controle postural estático e dinâmico', descricao: null },
+                            { nome: 'Discriminação tátil', descricao: null },
+                            { nome: 'Sequenciamento motor', descricao: null },
+                            { nome: 'Força e Resistencia', descricao: null },
+                            { nome: 'Atividades c/ Bola', descricao: null },
+                            { nome: 'Extensão de tronco', descricao: null },
+                            { nome: 'Descarga de peso', descricao: null },
+                            { nome: 'Ajustes posturais', descricao: null },
+                            { nome: 'Atividade lateralidade', descricao: null },
+                            { nome: 'Planejamento motor', descricao: null },
+                            { nome: 'Circuito Motor', descricao: null },
+                            { nome: 'Ações de feedback e feedfoward', descricao: null },
+                            { nome: 'Atividade andar no almofadas e jogar a bola no tubão', descricao: null },
+                            { nome: 'Estímulo proprioceptivo, vestibular e tátil', descricao: null },
+                            { nome: 'Atividade na plataforma baixar nivel de alerta', descricao: null },
+                            { nome: 'Estímulo inibitório vestibular', descricao: 'movimentos rítmicos, lentos e lineares' },
+                            { nome: 'Tato inibitório', descricao: 'pressão profundo, toque firme e sustentado (inibitório)' },
+                            { nome: 'Estimulo Excitatório vestibular', descricao: 'movimentos rotatórios, disrítmicos e rápidos' },
+                            { nome: 'Tato Excitatório', descricao: 'toque leve, toque rápido ou transitório com as mãos (Excitatório)' },
+                            { nome: 'Propriocepção', descricao: 'movimento ativo autoiniciado, posições contra a gravidade, movimentos contra resistência, escala, estabilização das articulações, suportes de peso, mastigar e assoprar. (estimulo Organizadores)' },
+                            { nome: 'Discriminação sensorial', descricao: 'capacidade de diferenciar dois estímulos' },
+                            { nome: 'MODULAÇÃO Hiperresponsividade tátil', descricao: null },
+                            { nome: 'MODULAÇÃO Insegurança Gravitacional', descricao: null },
+                            { nome: 'MODULAÇÃO Aversão ao movimento', descricao: null },
+                            { nome: 'Pobre discriminação tátil', descricao: null },
+                            { nome: 'Hiporresposta do sistema vestibular', descricao: 'Nível de atividade alto' },
+                            { nome: 'Hiperresposta do sistema vestibular', descricao: 'Nível de atividade baixo' },
+                            { nome: 'Pobre discriminação proprioceptiva', descricao: null },
+                            { nome: 'Pobre discriminação Vestibular', descricao: null },
+                            { nome: 'Pobre controle postural-ocular', descricao: null },
+                            { nome: 'Estímulo proprioceptivo / Consciência Corporal', descricao: null },
+                            { nome: 'Noção espacial', descricao: null },
+                            { nome: 'Atividade de prono na plataforma jogando argola no cone', descricao: null },
+                            { nome: 'Equilíbrio Postural', descricao: null },
+                            { nome: 'Integração bilateral', descricao: null },
+                            { nome: 'Seletividade Alimentar', descricao: null }
+                        ]
                     },
                     {
-                        nome: 'AVDs & AIVDs',
-                        itens: ['Tolerância a frustração', 'Habilidades emocionais', 'AVDs (Vestir e despir)', 'AVDs (Colocar e retirar meias)']
+                        nome: 'AVDs e AIVDs',
+                        itens: [
+                            { nome: '(Avds) Treino de vestir e despir', descricao: null },
+                            { nome: '(Avds) Treino colocar e retirar as meias', descricao: null },
+                            { nome: '(Avds) Treino escovação de dente', descricao: null },
+                            { nome: '(Avds) Treino lavar as mãos', descricao: null },
+                            { nome: '(Avds) Treino uso de talher', descricao: null },
+                            { nome: '(Avds) Treino de organização', descricao: null },
+                            { nome: '(Avds) Treino botões, zíper e velcro', descricao: null },
+                            { nome: '(Avds) Treino tênis laço', descricao: null },
+                            { nome: '(AIVDS) Culinária (preparo de receitas)', descricao: null },
+                            { nome: '(AIVDS) Gestão do dinheiro', descricao: null },
+                            { nome: '(AIVDS) Lavar louça', descricao: null },
+                            { nome: '(AIVDS) Orientação de saúde/segurança', descricao: null },
+                            { nome: '(AIVDS) fazer compras e Deslocamento', descricao: null },
+                            { nome: '(AIVDS) Noção de Perigos', descricao: null },
+                            { nome: '(AIVDS) Noção de Localização (endereço)', descricao: null }
+                        ]
                     }
                 ],
+
+                mostrarDescricao(titulo, texto) {
+                    this.modalAjuda.titulo = titulo;
+                    this.modalAjuda.texto = texto;
+                    this.modalAjuda.aberto = true;
+                },
+
+                fecharDescricao() {
+                    this.modalAjuda.aberto = false;
+                },
 
                 toggleAtividade(atividade) {
                     const index = this.atividadesSelecionadas.indexOf(atividade);
