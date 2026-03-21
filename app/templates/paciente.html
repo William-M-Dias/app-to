@@ -10,6 +10,7 @@
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <script>
         tailwind.config = {
@@ -267,6 +268,16 @@
                             </button>
                         </div>
 
+                        <div x-show="temDadosParaGrafico()" style="display: none;" class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 relative">
+                            <h3 class="text-sm font-black text-slate-500 mb-4 uppercase tracking-widest flex items-center gap-2">
+                                <svg class="w-5 h-5 text-clinica-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
+                                Curva de Evolução (GAS)
+                            </h3>
+                            <div class="w-full h-64 relative">
+                                <canvas id="gasChart"></canvas>
+                            </div>
+                        </div>
+
                         <div>
                             <h3 class="text-sm font-black text-slate-500 mb-4 px-1 uppercase tracking-widest flex justify-between items-center">
                                 Histórico de Evoluções
@@ -471,6 +482,7 @@
                 modalEdicaoAberto: false,
                 formEdicao: {},
                 diagnosticosSelecionados: [],
+                chartInstance: null,
 
                 carregarDados() {
                     Promise.all([
@@ -484,9 +496,85 @@
                         if (Array.isArray(dadosAnamnese) && dadosAnamnese.length > 0) this.ultimaAnamnese = dadosAnamnese[0];
                         this.historicoEvolucoes = Array.isArray(dadosConsultas) ? dadosConsultas : [];
                         this.carregando = false;
+                        
+                        // Após carregar os dados, renderiza o gráfico no próximo ciclo do DOM
+                        this.$nextTick(() => {
+                            this.renderizarGrafico();
+                        });
+                        
                     }).catch(err => {
                         console.error('Erro ao carregar prontuário:', err);
                         this.carregando = false;
+                    });
+                },
+
+                // ADICIONADO: Verifica se existem sessões Realizadas com notas preenchidas
+                temDadosParaGrafico() {
+                    if (!this.historicoEvolucoes || this.historicoEvolucoes.length === 0) return false;
+                    const validas = this.historicoEvolucoes.filter(e => e.status === 'Realizado' && e.micro_metas && 
+                        (e.micro_metas.autocuidado !== null || e.micro_metas.mobilidade !== null || e.micro_metas.funcao_social !== null)
+                    );
+                    return validas.length > 0;
+                },
+
+                // ADICIONADO: Função que constrói e desenha o Gráfico Chart.js
+                renderizarGrafico() {
+                    if (!this.temDadosParaGrafico()) return;
+
+                    const ctx = document.getElementById('gasChart');
+                    if (!ctx) return;
+
+                    // Filtra as realizadas e inverte para ficar cronológico (da mais antiga para a mais nova)
+                    const sessoesValidas = this.historicoEvolucoes
+                        .filter(e => e.status === 'Realizado' && e.micro_metas)
+                        .slice()
+                        .reverse();
+
+                    // Formata as datas (Ex: "2023-10-25 14:00" -> "25/10")
+                    const labels = sessoesValidas.map(e => {
+                        let partes = e.data_hora.split(' ')[0].split('-');
+                        if(partes.length === 3) return `${partes[2]}/${partes[1]}`;
+                        return e.data_hora;
+                    });
+
+                    // Extrai as notas (se for null, não plota ponto naquele dia)
+                    const dataAutocuidado = sessoesValidas.map(e => e.micro_metas.autocuidado !== undefined ? e.micro_metas.autocuidado : null);
+                    const dataMobilidade = sessoesValidas.map(e => e.micro_metas.mobilidade !== undefined ? e.micro_metas.mobilidade : null);
+                    const dataSocial = sessoesValidas.map(e => e.micro_metas.funcao_social !== undefined ? e.micro_metas.funcao_social : null);
+
+                    if (this.chartInstance) {
+                        this.chartInstance.destroy();
+                    }
+
+                    this.chartInstance = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [
+                                { label: 'Autocuidado', data: dataAutocuidado, borderColor: '#0d9488', backgroundColor: '#0d9488', tension: 0.3, spanGaps: true, pointRadius: 4, pointHoverRadius: 6 },
+                                { label: 'Mobilidade', data: dataMobilidade, borderColor: '#3b82f6', backgroundColor: '#3b82f6', tension: 0.3, spanGaps: true, pointRadius: 4, pointHoverRadius: 6 },
+                                { label: 'Social', data: dataSocial, borderColor: '#f43f5e', backgroundColor: '#f43f5e', tension: 0.3, spanGaps: true, pointRadius: 4, pointHoverRadius: 6 }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    min: -2,
+                                    max: 2,
+                                    ticks: { stepSize: 1, font: { weight: 'bold' } },
+                                    grid: {
+                                        color: (context) => context.tick.value === 0 ? '#94a3b8' : '#f1f5f9',
+                                        lineWidth: (context) => context.tick.value === 0 ? 2 : 1
+                                    }
+                                }
+                            },
+                            plugins: {
+                                legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8, font: { family: 'Nunito', weight: 'bold' } } },
+                                tooltip: { titleFont: { family: 'Nunito' }, bodyFont: { family: 'Nunito' } }
+                            }
+                        }
                     });
                 },
 
