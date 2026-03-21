@@ -166,52 +166,61 @@
                             </div>
                         </div>
 
-                        <template x-if="ultimaAnamnese && ultimaAnamnese.dados">
-                            <div @click="window.location.href = '/paciente/' + paciente.id + '/anamnese'" 
-                                 class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 mb-6 cursor-pointer group transition-all hover:border-orange-300 hover:shadow-md relative overflow-hidden">
-                                
-                                <div class="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-full -mr-8 -mt-8 opacity-50 pointer-events-none group-hover:scale-110 transition-transform"></div>
+                        <div @click="window.location.href = '/paciente/' + paciente.id + '/anamnese'" 
+                             class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 mb-6 cursor-pointer group transition-all hover:border-orange-300 hover:shadow-md relative overflow-hidden">
+                            
+                            <div class="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-full -mr-8 -mt-8 opacity-50 pointer-events-none group-hover:scale-110 transition-transform"></div>
 
-                                <div class="flex items-center justify-between mb-4 border-b border-slate-50 pb-3 relative z-10">
-                                    <h3 class="text-xs font-black text-slate-800 uppercase flex items-center gap-2 tracking-wide group-hover:text-orange-600 transition-colors">
-                                        <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                                        Síntese do Perfil Inicial (Mapa Clínico)
-                                    </h3>
-                                    <svg class="w-4 h-4 text-slate-300 group-hover:text-orange-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                                </div>
-
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 relative z-10">
-                                    <template x-if="ultimaAnamnese.dados.sensorial && ultimaAnamnese.dados.sensorial.length > 0">
-                                        <div class="p-3 border border-slate-100 rounded-2xl bg-slate-50/50 group-hover:bg-white transition-colors">
-                                            <h4 class="text-[9px] font-black text-emerald-600 uppercase mb-2 tracking-widest">Alerta Sensorial</h4>
-                                            <div class="flex flex-wrap gap-1">
-                                                <template x-for="item in ultimaAnamnese.dados.sensorial">
-                                                    <span class="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9px] font-bold px-2 py-1 rounded-md shadow-sm" x-text="item.split(':')[0]"></span>
-                                                </template>
-                                            </div>
-                                        </div>
-                                    </template>
-
-                                    <template x-if="ultimaAnamnese.dados.comportamento && ultimaAnamnese.dados.comportamento.length > 0">
-                                        <div class="p-3 border border-slate-100 rounded-2xl bg-slate-50/50 group-hover:bg-white transition-colors">
-                                            <h4 class="text-[9px] font-black text-rose-600 uppercase mb-2 tracking-widest">Comportamento/Regulação</h4>
-                                            <div class="flex flex-wrap gap-1">
-                                                <template x-for="item in ultimaAnamnese.dados.comportamento">
-                                                    <span class="bg-rose-50 text-rose-700 border border-rose-100 text-[9px] font-bold px-2 py-1 rounded-md shadow-sm" x-text="item.split(':')[0]"></span>
-                                                </template>
-                                            </div>
-                                        </div>
-                                    </template>
-                                </div>
-                                
-                                <template x-if="ultimaAnamnese.dados.observacoes">
-                                    <div class="mt-3 pt-3 border-t border-slate-50 relative z-10">
-                                         <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Observações Clínicas</span>
-                                         <p class="text-[11px] font-semibold text-slate-500 line-clamp-2" x-text="ultimaAnamnese.dados.observacoes"></p>
-                                    </div>
-                                </template>
+                            <div class="flex items-center justify-between mb-4 border-b border-slate-50 pb-3 relative z-10">
+                                <h3 class="text-xs font-black text-slate-800 uppercase flex items-center gap-2 tracking-wide group-hover:text-orange-600 transition-colors">
+                                    <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                    Síntese do Perfil Inicial (Mapa Clínico)
+                                </h3>
+                                <svg class="w-4 h-4 text-slate-300 group-hover:text-orange-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                             </div>
-                        </template>
+
+                            <template x-if="ultimaAnamnese && ultimaAnamnese.dados">
+                                <div>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 relative z-10">
+                                        <template x-if="ultimaAnamnese.dados.sensorial && ultimaAnamnese.dados.sensorial.length > 0">
+                                            <div class="p-3 border border-slate-100 rounded-2xl bg-slate-50/50 group-hover:bg-white transition-colors">
+                                                <h4 class="text-[9px] font-black text-emerald-600 uppercase mb-2 tracking-widest">Alerta Sensorial</h4>
+                                                <div class="flex flex-wrap gap-1">
+                                                    <template x-for="item in ultimaAnamnese.dados.sensorial">
+                                                        <span class="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9px] font-bold px-2 py-1 rounded-md shadow-sm" x-text="item.split(':')[0]"></span>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
+
+                                        <template x-if="ultimaAnamnese.dados.comportamento && ultimaAnamnese.dados.comportamento.length > 0">
+                                            <div class="p-3 border border-slate-100 rounded-2xl bg-slate-50/50 group-hover:bg-white transition-colors">
+                                                <h4 class="text-[9px] font-black text-rose-600 uppercase mb-2 tracking-widest">Comportamento/Regulação</h4>
+                                                <div class="flex flex-wrap gap-1">
+                                                    <template x-for="item in ultimaAnamnese.dados.comportamento">
+                                                        <span class="bg-rose-50 text-rose-700 border border-rose-100 text-[9px] font-bold px-2 py-1 rounded-md shadow-sm" x-text="item.split(':')[0]"></span>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                    
+                                    <template x-if="ultimaAnamnese.dados.observacoes">
+                                        <div class="mt-3 pt-3 border-t border-slate-50 relative z-10">
+                                             <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Observações Clínicas</span>
+                                             <p class="text-[11px] font-semibold text-slate-500 line-clamp-2" x-text="ultimaAnamnese.dados.observacoes"></p>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+
+                            <template x-if="!ultimaAnamnese">
+                                <div class="py-4 text-center relative z-10">
+                                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nenhuma triagem realizada.</p>
+                                    <p class="text-xs text-orange-500 font-black mt-2">CLIQUE AQUI PARA INICIAR O MAPA</p>
+                                </div>
+                            </template>
+                        </div>
                         <button @click="apagarPaciente()" class="w-full p-4 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white border border-red-100 hover:border-red-500 rounded-3xl text-xs font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2 group shadow-sm">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                             Excluir Prontuário

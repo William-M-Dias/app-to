@@ -2,39 +2,6 @@
 
 
 ============================================================
-ARQUIVO: audit_projeto.py
-============================================================
-
-import os
-
-def gerar_auditoria():
-    pastas_ignoradas = ['venv', '.git', '__pycache__', '.pytest_cache']
-    extensoes_permitidas = ['.py', '.html']
-    
-    with open('raio_x_projeto.txt', 'w', encoding='utf-8') as log:
-        log.write("=== AUDITORIA COMPLETA DO PROJETO ===\n\n")
-        
-        for raiz, diretorios, arquivos in os.walk('.'):
-            diretorios[:] = [d for d in diretorios if d not in pastas_ignoradas]
-            
-            for arquivo in arquivos:
-                if any(arquivo.endswith(ext) for ext in extensoes_permitidas):
-                    caminho_completo = os.path.join(raiz, arquivo)
-                    log.write(f"\n{'='*60}\n")
-                    log.write(f"FICHEIRO: {caminho_completo}\n")
-                    log.write(f"{'='*60}\n")
-                    try:
-                        with open(caminho_completo, 'r', encoding='utf-8') as f:
-                            log.write(f.read() + "\n")
-                    except Exception as e:
-                        log.write(f"[Erro ao ler arquivo: {e}]\n")
-
-    print("Auditoria completa gerada com sucesso em: raio_x_projeto.txt")
-
-if __name__ == '__main__':
-    gerar_auditoria()
-
-============================================================
 ARQUIVO: criar_usuario.py
 ============================================================
 
@@ -78,12 +45,90 @@ ARQUIVO: raio_x_projeto.txt
 ARQUIVO: requirements.txt
 ============================================================
 
-Flask==3.0.0
-SQLAlchemy==2.0.23
+asttokens==3.0.1
+blinker==1.9.0
+certifi==2026.1.4
+cffi==2.0.0
+charset-normalizer==3.4.4
+click==8.3.1
+colorama==0.4.6
+comm==0.2.3
+cryptography==46.0.4
+debugpy==1.8.19
+decorator==5.2.1
+et_xmlfile==2.0.0
+executing==2.2.1
+Flask==3.1.2
+Flask-Login==0.6.3
 Flask-SQLAlchemy==3.1.1
-psycopg2-binary==2.9.9
-python-dotenv==1.0.0
-gunicorn==21.2.0
+gitdb==4.0.12
+GitPython==3.1.46
+google-auth==2.48.0
+google-auth-oauthlib==1.2.4
+greenlet==3.3.1
+gspread==6.2.1
+httplib2==0.31.2
+idna==3.11
+ipykernel==7.1.0
+ipython==9.9.0
+ipython_pygments_lexers==1.1.1
+itsdangerous==2.2.0
+jedi==0.19.2
+Jinja2==3.1.6
+jupyter_client==8.8.0
+jupyter_core==5.9.1
+MarkupSafe==3.0.3
+matplotlib-inline==0.2.1
+MouseInfo==0.1.3
+nest-asyncio==1.6.0
+numpy==2.4.1
+oauth2client==4.1.3
+oauthlib==3.3.1
+openpyxl==3.1.5
+packaging==26.0
+pandas==2.3.3
+parso==0.8.5
+pillow==12.1.0
+platformdirs==4.5.1
+prompt_toolkit==3.0.52
+psutil==7.2.1
+psycopg2-binary==2.9.11
+pure_eval==0.2.3
+pyasn1==0.6.2
+pyasn1_modules==0.4.2
+PyAutoGUI==0.9.54
+pycparser==3.0
+PyGetWindow==0.0.9
+Pygments==2.19.2
+PyMsgBox==2.0.1
+pyparsing==3.3.2
+pyperclip==1.11.0
+PyRect==0.2.0
+PyScreeze==1.0.1
+python-dateutil==2.9.0.post0
+python-dotenv==1.2.1
+pytweening==1.2.0
+pytz==2025.2
+pyzmq==27.1.0
+qrcode==8.2
+requests==2.32.5
+requests-oauthlib==2.0.0
+rsa==4.9.1
+six==1.17.0
+smmap==5.0.2
+SQLAlchemy==2.0.46
+stack-data==0.6.3
+tornado==6.5.4
+traitlets==5.14.3
+typing_extensions==4.15.0
+tzdata==2025.3
+urllib3==2.6.3
+wcwidth==0.3.1
+Werkzeug==3.1.5
+xlsxwriter==3.2.9
+gunicorn
+Pillow
+
 
 ============================================================
 ARQUIVO: run.py
@@ -130,7 +175,10 @@ from sqlalchemy import text
 from app.extensions import db
 
 def create_app():
-    app = Flask(__name__)
+    # AJUSTE FASE 7: Informamos que a pasta static e templates estão fora/dentro corretamente
+    app = Flask(__name__, 
+                static_folder='../static', 
+                template_folder='templates')
     
     # CHAVE DE SEGURANÇA PARA A SESSÃO DE LOGIN
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'chave-super-secreta-app-to-2026-edna')
@@ -147,7 +195,7 @@ def create_app():
     from app.routes.pedi_bp import pedi_bp
     from app.routes.obs_clinica_bp import obs_clinica_bp
     from app.routes.anamnese_bp import anamnese_bp
-    from app.routes.auth_bp import auth_bp # NOVO
+    from app.routes.auth_bp import auth_bp 
 
     app.register_blueprint(paciente_bp)
     app.register_blueprint(consulta_bp)
@@ -155,30 +203,23 @@ def create_app():
     app.register_blueprint(pedi_bp)
     app.register_blueprint(obs_clinica_bp)
     app.register_blueprint(anamnese_bp)
-    app.register_blueprint(auth_bp) # NOVO
+    app.register_blueprint(auth_bp) 
 
-    # ==========================================
-    # CADEADO GLOBAL (A Fechadura do Sistema)
-    # ==========================================
     @app.before_request
     def bloquear_acesso():
         rotas_livres = ['auth_bp.login', 'static']
-        # Se a pessoa NÃO estiver tentando fazer login, e NÃO tiver a chave (usuario_id) na sessão...
         if request.endpoint and request.endpoint not in rotas_livres:
             if 'usuario_id' not in session:
-                # Se tentou acessar a API, bloqueia com Erro 401
                 if request.path.startswith('/api/'):
                     return {"erro": "Acesso negado. Faça login para acessar o banco de dados."}, 401
-                # Se tentou acessar uma tela, manda para a tela de Login
                 return redirect(url_for('auth_bp.login'))
 
     with app.app_context():
         from app.models.paciente import Paciente
         from app.models.consulta import Consulta
-        from app.models.usuario import Usuario # NOVO
+        from app.models.usuario import Usuario 
         db.create_all()
 
-        # A PICARETA...
         try:
             with db.engine.connect() as conexao:
                 conexao.execute(text('ALTER TABLE consultas ADD COLUMN IF NOT EXISTS micro_metas JSONB;'))
@@ -283,19 +324,25 @@ class Paciente(db.Model):
     data_nascimento = db.Column(db.Date, nullable=False)
     escolaridade = db.Column(db.String(100))
 
-    # NOVOS CAMPOS: Responsáveis
+    # Responsáveis e Contato
     nome_responsavel = db.Column(db.String(150))
     telefone_responsavel = db.Column(db.String(20))
     email_responsavel = db.Column(db.String(120))
 
-    diagnostico = db.Column(db.String(255)) # Aumentado para 255
+    diagnostico = db.Column(db.String(255))
     queixa_principal = db.Column(db.Text)
     historico_desenvolvimento = db.Column(db.Text)
     intervencoes_atuais = db.Column(db.Text)
     
+    # NOVO: Campo para URL da foto (Fase 6)
+    foto_url = db.Column(db.String(255), nullable=True)
+    
     data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # RELAÇÕES COM CASCADE TOTAL (Resolve o Teste 4)
+    # Ao apagar o paciente, o SQLAlchemy limpa tudo o que estiver ligado a ele automaticamente
     consultas = db.relationship('Consulta', backref='paciente', lazy=True, cascade="all, delete-orphan")
+    # Nota: As outras relações (Anamnese, PEDI) usam backref nos seus próprios arquivos de modelo
 
     def to_dict(self):
         return {
@@ -307,7 +354,8 @@ class Paciente(db.Model):
             "queixa_principal": self.queixa_principal,
             "nome_responsavel": self.nome_responsavel,
             "telefone_responsavel": self.telefone_responsavel,
-            "email_responsavel": self.email_responsavel
+            "email_responsavel": self.email_responsavel,
+            "foto_url": self.foto_url
         }
 
 ============================================================
@@ -614,18 +662,24 @@ def listar_obs(paciente_id):
 ARQUIVO: app\routes\paciente_bp.py
 ============================================================
 
-from flask import Blueprint, request, jsonify
+import os
+from flask import Blueprint, request, jsonify, current_app
 from app.extensions import db
 from app.models.paciente import Paciente
 from datetime import datetime
 from sqlalchemy import text
+from werkzeug.utils import secure_filename
 
 paciente_bp = Blueprint('paciente_bp', __name__, url_prefix='/api/pacientes')
 
 @paciente_bp.route('/', methods=['GET'])
 def listar_pacientes():
-    pacientes = Paciente.query.all()
-    return jsonify([p.to_dict() for p in pacientes]), 200
+    try:
+        pacientes = Paciente.query.all()
+        return jsonify([p.to_dict() for p in pacientes]), 200
+    except Exception as e:
+        # Se a coluna foto_url der erro, o log dirá exatamente aqui
+        return jsonify({"erro": f"Erro ao listar: {str(e)}"}), 500
 
 @paciente_bp.route('/<int:id>', methods=['GET'])
 def obter_paciente(id):
@@ -656,15 +710,10 @@ def criar_paciente():
         db.session.rollback()
         return jsonify({"erro": str(e)}), 500
 
-# ==========================================
-# NOVAS ROTAS FASE 2: EDITAR E EXCLUIR
-# ==========================================
-
 @paciente_bp.route('/<int:id>', methods=['PUT'])
 def atualizar_paciente(id):
     paciente = Paciente.query.get_or_404(id)
     dados = request.get_json()
-    
     try:
         if 'nome' in dados: paciente.nome = dados['nome']
         if 'data_nascimento' in dados:
@@ -686,17 +735,53 @@ def atualizar_paciente(id):
 def deletar_paciente(id):
     paciente = Paciente.query.get_or_404(id)
     try:
-        # Limpa todo o rastro do paciente nas outras tabelas antes de apagar a ficha dele
+        # Nomes das tabelas ajustados conforme seu log do Neon
         db.session.execute(text("DELETE FROM consultas WHERE paciente_id = :pid"), {"pid": id})
-        db.session.execute(text("DELETE FROM anamneses WHERE paciente_id = :pid"), {"pid": id})
-        db.session.execute(text("DELETE FROM pedis WHERE paciente_id = :pid"), {"pid": id})
+        db.session.execute(text("DELETE FROM anamnese WHERE paciente_id = :pid"), {"pid": id})
+        db.session.execute(text("DELETE FROM avaliacoes_pedi WHERE paciente_id = :pid"), {"pid": id})
+        db.session.execute(text("DELETE FROM obs_clinica WHERE paciente_id = :pid"), {"pid": id})
         
         db.session.delete(paciente)
         db.session.commit()
-        return jsonify({"mensagem": "Paciente e histórico excluídos com sucesso!"}), 200
+        return jsonify({"mensagem": "Excluído com sucesso!"}), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({"erro": str(e)}), 500
+
+@paciente_bp.route('/<int:id>/editar_mapa', methods=['POST'])
+def editar_mapa(id):
+    paciente = Paciente.query.get_or_404(id)
+    dados = request.get_json()
+    try:
+        paciente.queixa_principal = dados.get('observacoes', paciente.queixa_principal)
+        db.session.commit()
+        return jsonify({"mensagem": "Mapa atualizado!"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"erro": str(e)}), 500
+
+@paciente_bp.route('/<int:id>/upload_foto', methods=['POST'])
+def upload_foto(id):
+    paciente = Paciente.query.get_or_404(id)
+    if 'foto' not in request.files:
+        return jsonify({"erro": "Nenhum arquivo enviado"}), 400
+    
+    arquivo = request.files['foto']
+    if arquivo.filename == '':
+        return jsonify({"erro": "Arquivo sem nome"}), 400
+
+    # Cria pasta se não existir
+    upload_path = os.path.join(current_app.root_path, 'static/uploads/perfil')
+    if not os.path.exists(upload_path):
+        os.makedirs(upload_path, exist_ok=True)
+
+    filename = secure_filename(f"avatar_{id}_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg")
+    arquivo.save(os.path.join(upload_path, filename))
+    
+    paciente.foto_url = f"/static/uploads/perfil/{filename}"
+    db.session.commit()
+    
+    return jsonify({"url": paciente.foto_url}), 200
 
 ============================================================
 ARQUIVO: app\routes\pedi_bp.py
@@ -1138,9 +1223,23 @@ ARQUIVO: app\templates\evolucao.html
                     
                     if(payload.status === 'Realizado') {
                         payload.micro_metas.atividades = this.atividadesSelecionadas;
+                        
+                        // A MÁGICA DA VALIDAÇÃO: Remove tudo que for null, undefined ou array vazio
+                        const metasLimpas = Object.fromEntries(
+                            Object.entries(payload.micro_metas).filter(([chave, valor]) => {
+                                if (valor === null || valor === undefined) return false;
+                                if (Array.isArray(valor) && valor.length === 0) return false;
+                                return true;
+                            })
+                        );
+                        payload.micro_metas = metasLimpas;
+                        
                     } else {
-                        payload.micro_metas = {};
+                        payload.micro_metas = {}; // Se não realizou, buraco negro vazio.
                     }
+
+                    // Console.log para auditoria do JSON limpo antes do envio ao servidor
+                    console.log("🚀 DADOS JSONB VALIDADOS:", JSON.stringify(payload.micro_metas));
 
                     fetch('/api/consultas/', {
                         method: 'POST',
@@ -1177,6 +1276,9 @@ ARQUIVO: app\templates\index.html
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Mesa de Controle | APP-TO</title>
+    
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/logo_appto_oficial.png') }}?v=2">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
@@ -1240,9 +1342,11 @@ ARQUIVO: app\templates\index.html
             
             <div class="flex justify-between items-center relative z-10">
                 <div class="flex items-center gap-3">
-                    <div class="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm shadow-inner">
-                        <svg class="w-7 h-7 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17c0 1.1.9 2 2 2h4c1.1 0 2-.9 2-2v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7z"/></svg>
+                    
+                    <div class="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-inner overflow-hidden border border-white/20">
+                        <img src="{{ url_for('static', filename='img/logo_appto_oficial.png') }}?v=2" alt="APP-TO Logo" class="w-full h-full object-cover scale-125">
                     </div>
+                    
                     <div>
                         <h1 class="text-3xl font-black tracking-tight leading-none">Olá, Edna!</h1>
                         <p class="text-clinica-100 text-[10px] font-bold uppercase tracking-widest mt-1">Sua Mesa de Controle</p>
@@ -1304,22 +1408,30 @@ ARQUIVO: app\templates\index.html
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <template x-for="item in agenda" :key="item.id">
                         <div @click="window.location.href = '/paciente/' + item.paciente_id" 
-                             class="bg-white p-6 rounded-3xl shadow-md border-l-4 hover:-translate-y-1 transition-all cursor-pointer group"
+                             class="bg-white p-6 rounded-3xl shadow-md border-l-4 hover:-translate-y-1 transition-all cursor-pointer group flex items-center gap-4"
                              :class="isHoje(item.data) ? 'border-clinica-500 shadow-clinica-100' : 'border-slate-300'">
                             
-                            <div class="flex justify-between items-start mb-2">
-                                <div>
-                                    <span class="text-2xl font-black text-slate-800" x-text="item.hora"></span>
-                                    <span class="ml-2 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md"
-                                          :class="isHoje(item.data) ? 'bg-clinica-100 text-clinica-700' : 'bg-slate-100 text-slate-500'"
-                                          x-text="isHoje(item.data) ? 'Hoje' : item.data"></span>
-                                </div>
-                                <div class="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-clinica-50 group-hover:text-clinica-600 transition-colors">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-                                </div>
+                            <div class="w-14 h-14 rounded-full bg-clinica-100 flex items-center justify-center text-clinica-600 font-black text-xl overflow-hidden shrink-0 border-2 border-white shadow-sm transition-colors group-hover:border-clinica-300">
+                                <template x-if="getPacienteFoto(item.paciente_id)">
+                                    <img :src="getPacienteFoto(item.paciente_id)" class="w-full h-full object-cover">
+                                </template>
+                                <template x-if="!getPacienteFoto(item.paciente_id)">
+                                    <span x-text="item.nome_paciente.charAt(0)"></span>
+                                </template>
                             </div>
-                            <h3 class="font-black text-slate-700 text-lg truncate group-hover:text-clinica-600 transition-colors" x-text="item.nome_paciente"></h3>
-                            <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1" x-text="item.tipo_sessao"></p>
+
+                            <div class="flex-1 min-w-0">
+                                <div class="flex justify-between items-start mb-1">
+                                    <div>
+                                        <span class="text-2xl font-black text-slate-800" x-text="item.hora"></span>
+                                        <span class="ml-2 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md"
+                                              :class="isHoje(item.data) ? 'bg-clinica-100 text-clinica-700' : 'bg-slate-100 text-slate-500'"
+                                              x-text="isHoje(item.data) ? 'Hoje' : item.data"></span>
+                                    </div>
+                                </div>
+                                <h3 class="font-black text-slate-700 text-lg truncate group-hover:text-clinica-600 transition-colors" x-text="item.nome_paciente"></h3>
+                                <p class="text-slate-400 text-xs font-bold uppercase tracking-widest" x-text="item.tipo_sessao"></p>
+                            </div>
                         </div>
                     </template>
                 </div>
@@ -1349,9 +1461,16 @@ ARQUIVO: app\templates\index.html
                     <template x-for="paciente in pacientesFiltrados()" :key="paciente.id">
                         <div @click="window.location.href = '/paciente/' + paciente.id" 
                              class="group bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center gap-4 cursor-pointer hover:bg-white hover:border-clinica-300 hover:shadow-md transition-all active:scale-[0.98]">
-                            <div class="w-12 h-12 rounded-full bg-clinica-100 text-clinica-600 font-black text-lg flex items-center justify-center uppercase shrink-0 group-hover:bg-clinica-500 group-hover:text-white transition-colors">
-                                <span x-text="paciente.nome.charAt(0)"></span>
+                            
+                            <div class="w-12 h-12 rounded-full bg-clinica-100 text-clinica-600 font-black text-lg flex items-center justify-center uppercase shrink-0 overflow-hidden border-2 border-white shadow-sm group-hover:bg-clinica-500 group-hover:text-white transition-colors">
+                                <template x-if="paciente.foto_url">
+                                    <img :src="paciente.foto_url" class="w-full h-full object-cover">
+                                </template>
+                                <template x-if="!paciente.foto_url">
+                                    <span x-text="paciente.nome.charAt(0)"></span>
+                                </template>
                             </div>
+
                             <div class="flex-1 min-w-0">
                                 <h3 class="font-black text-slate-700 text-sm truncate mb-0.5 group-hover:text-slate-900" x-text="paciente.nome"></h3>
                                 <span class="inline-block text-slate-400 text-[9px] font-bold truncate uppercase tracking-wider" 
@@ -1537,15 +1656,18 @@ ARQUIVO: app\templates\index.html
                     ]).then(([dadosPacientes, dadosAgenda]) => {
                         this.pacientes = dadosPacientes;
                         this.agenda = Array.isArray(dadosAgenda) ? dadosAgenda : [];
-                        
                         const hoje = new Date().toLocaleDateString('pt-BR');
                         this.agendaHoje = this.agenda.filter(item => item.data === hoje);
-                        
                         this.carregando = false;
                     }).catch(err => {
                         console.error('Erro ao carregar dashboard:', err);
                         this.carregando = false;
                     });
+                },
+
+                getPacienteFoto(id) {
+                    const p = this.pacientes.find(p => p.id === id);
+                    return p ? p.foto_url : null;
                 },
 
                 isHoje(dataStr) {
@@ -1592,7 +1714,7 @@ ARQUIVO: app\templates\index.html
 
                 salvarAgendamento() {
                     if (!this.novoAgendamento.paciente_id || !this.novoAgendamento.data_hora) {
-                        alert("Por favor, selecione um paciente e o horário da sessão.");
+                        alert("Por favor, selecione um paciente e o horário.");
                         return;
                     }
                     this.salvandoAgendamento = true;
@@ -1793,6 +1915,10 @@ ARQUIVO: app\templates\paciente.html
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Prontuário | APP-TO</title>
+
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/logo_appto_oficial.png') }}?v=2">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='img/logo_appto_oficial.png') }}?v=2">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
@@ -1861,8 +1987,9 @@ ARQUIVO: app\templates\paciente.html
                     </a>
                     <h1 class="text-xl font-black uppercase tracking-widest drop-shadow-sm">Prontuário</h1>
                 </div>
-                <div class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm shadow-inner">
-                    <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17c0 1.1.9 2 2 2h4c1.1 0 2-.9 2-2v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7z"/></svg>
+                
+                <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-inner overflow-hidden border border-white/20">
+                    <img src="{{ url_for('static', filename='img/logo_appto_oficial.png') }}?v=2" alt="Logo" class="w-full h-full object-cover scale-150">
                 </div>
             </div>
         </header>
@@ -1886,8 +2013,25 @@ ARQUIVO: app\templates\paciente.html
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                             </button>
                             
-                            <div class="w-20 h-20 mx-auto rounded-full bg-clinica-100 flex items-center justify-center text-clinica-600 font-black text-3xl shadow-inner uppercase mb-4 relative z-10">
-                                <span x-text="paciente.nome.charAt(0)"></span>
+                            <div class="relative mx-auto w-20 h-20 mb-4 group cursor-pointer" @click="$refs.fotoInput.click()">
+                                <div class="w-full h-full rounded-full bg-clinica-100 flex items-center justify-center text-clinica-600 font-black text-3xl shadow-inner uppercase overflow-hidden border-4 border-white group-hover:border-clinica-500 transition-all relative z-10">
+                                    <template x-if="paciente.foto_url">
+                                        <img :src="paciente.foto_url" class="w-full h-full object-cover">
+                                    </template>
+                                    <template x-if="!paciente.foto_url">
+                                        <span x-text="paciente.nome.charAt(0)"></span>
+                                    </template>
+                                    
+                                    <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path></svg>
+                                    </div>
+                                </div>
+                                
+                                <input type="file" x-ref="fotoInput" class="hidden" accept="image/*" @change="uploadFoto($event)">
+                                
+                                <div x-show="subindoFoto" class="absolute inset-0 bg-white/80 rounded-full flex items-center justify-center z-20">
+                                    <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-clinica-600"></div>
+                                </div>
                             </div>
                             
                             <h2 class="font-black text-xl text-slate-800 leading-tight mb-1 relative z-10" x-text="paciente.nome"></h2>
@@ -1934,37 +2078,51 @@ ARQUIVO: app\templates\paciente.html
                         </div>
 
                         <template x-if="ultimaAnamnese && ultimaAnamnese.dados">
-                            <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
-                                <div class="flex items-center justify-between mb-4 border-b border-slate-50 pb-3">
-                                    <h3 class="text-xs font-black text-slate-800 uppercase flex items-center gap-2 tracking-wide">
+                            <div @click="window.location.href = '/paciente/' + paciente.id + '/anamnese'" 
+                                 class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 mb-6 cursor-pointer group transition-all hover:border-orange-300 hover:shadow-md relative overflow-hidden">
+                                
+                                <div class="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-full -mr-8 -mt-8 opacity-50 pointer-events-none group-hover:scale-110 transition-transform"></div>
+
+                                <div class="flex items-center justify-between mb-4 border-b border-slate-50 pb-3 relative z-10">
+                                    <h3 class="text-xs font-black text-slate-800 uppercase flex items-center gap-2 tracking-wide group-hover:text-orange-600 transition-colors">
                                         <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                                        Mapa Clínico
+                                        Síntese do Perfil Inicial (Mapa Clínico)
                                     </h3>
-                                    <span class="text-[9px] text-slate-400 font-bold uppercase" x-text="ultimaAnamnese.data"></span>
+                                    <svg class="w-4 h-4 text-slate-300 group-hover:text-orange-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                                 </div>
-                                <div class="space-y-4">
-                                    <template x-if="ultimaAnamnese.dados.comportamento && ultimaAnamnese.dados.comportamento.length > 0">
-                                        <div>
-                                            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Comportamento</span>
-                                            <div class="flex flex-wrap gap-1.5">
-                                                <template x-for="item in ultimaAnamnese.dados.comportamento">
-                                                    <span class="bg-red-50 text-red-700 border border-red-100 text-[10px] font-bold px-2 py-1 rounded-lg leading-tight shadow-sm" x-text="item.split(':')[0]"></span>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 relative z-10">
+                                    <template x-if="ultimaAnamnese.dados.sensorial && ultimaAnamnese.dados.sensorial.length > 0">
+                                        <div class="p-3 border border-slate-100 rounded-2xl bg-slate-50/50 group-hover:bg-white transition-colors">
+                                            <h4 class="text-[9px] font-black text-emerald-600 uppercase mb-2 tracking-widest">Alerta Sensorial</h4>
+                                            <div class="flex flex-wrap gap-1">
+                                                <template x-for="item in ultimaAnamnese.dados.sensorial">
+                                                    <span class="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9px] font-bold px-2 py-1 rounded-md shadow-sm" x-text="item.split(':')[0]"></span>
                                                 </template>
                                             </div>
                                         </div>
                                     </template>
-                                    
-                                    <template x-if="ultimaAnamnese.dados.observacoes">
-                                        <div class="mt-4 pt-4 border-t border-slate-50">
-                                            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Observações Clínicas</span>
-                                            <p class="text-xs font-semibold text-slate-600 leading-relaxed whitespace-pre-line" x-text="ultimaAnamnese.dados.observacoes"></p>
+
+                                    <template x-if="ultimaAnamnese.dados.comportamento && ultimaAnamnese.dados.comportamento.length > 0">
+                                        <div class="p-3 border border-slate-100 rounded-2xl bg-slate-50/50 group-hover:bg-white transition-colors">
+                                            <h4 class="text-[9px] font-black text-rose-600 uppercase mb-2 tracking-widest">Comportamento/Regulação</h4>
+                                            <div class="flex flex-wrap gap-1">
+                                                <template x-for="item in ultimaAnamnese.dados.comportamento">
+                                                    <span class="bg-rose-50 text-rose-700 border border-rose-100 text-[9px] font-bold px-2 py-1 rounded-md shadow-sm" x-text="item.split(':')[0]"></span>
+                                                </template>
+                                            </div>
                                         </div>
                                     </template>
-
                                 </div>
+                                
+                                <template x-if="ultimaAnamnese.dados.observacoes">
+                                    <div class="mt-3 pt-3 border-t border-slate-50 relative z-10">
+                                         <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Observações Clínicas</span>
+                                         <p class="text-[11px] font-semibold text-slate-500 line-clamp-2" x-text="ultimaAnamnese.dados.observacoes"></p>
+                                    </div>
+                                </template>
                             </div>
                         </template>
-
                         <button @click="apagarPaciente()" class="w-full p-4 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white border border-red-100 hover:border-red-500 rounded-3xl text-xs font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2 group shadow-sm">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                             Excluir Prontuário
@@ -1977,25 +2135,25 @@ ARQUIVO: app\templates\paciente.html
                             <h3 class="text-sm font-black text-slate-500 mb-3 px-1 uppercase tracking-widest">Área de Intervenção</h3>
                             <div class="grid grid-cols-2 gap-3 md:gap-4">
                                 <button @click="window.location.href = '/paciente/' + paciente.id + '/anamnese'" class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 group transition-all hover:-translate-y-1 hover:shadow-md">
-                                    <div class="w-14 h-14 bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center group-hover:bg-orange-500 group-hover:text-white transition-colors rotate-3 group-hover:rotate-0 shadow-inner">
+                                    <div class="w-14 h-14 bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center group-hover:bg-orange-500 group-hover:text-white transition-colors rotate-3 group-hover:rotate-0 shadow-inner mx-auto">
                                         <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
                                     </div>
                                     <span class="font-black text-slate-700 text-xs text-center mt-3 block uppercase">1. Triagem</span>
                                 </button>
                                 <button @click="window.location.href = '/paciente/' + paciente.id + '/pedi'" class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 group transition-all hover:-translate-y-1 hover:shadow-md">
-                                    <div class="w-14 h-14 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-colors -rotate-3 group-hover:rotate-0 shadow-inner">
+                                    <div class="w-14 h-14 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-colors -rotate-3 group-hover:rotate-0 shadow-inner mx-auto">
                                         <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                                     </div>
                                     <span class="font-black text-slate-700 text-xs text-center mt-3 block uppercase">2. Avaliação PEDI</span>
                                 </button>
                                 <button @click="window.location.href = '/paciente/' + paciente.id + '/observacao'" class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 group transition-all hover:-translate-y-1 hover:shadow-md">
-                                    <div class="w-14 h-14 bg-purple-50 text-purple-500 rounded-2xl flex items-center justify-center group-hover:bg-purple-500 group-hover:text-white transition-colors rotate-3 group-hover:rotate-0 shadow-inner">
+                                    <div class="w-14 h-14 bg-purple-50 text-purple-500 rounded-2xl flex items-center justify-center group-hover:bg-purple-500 group-hover:text-white transition-colors rotate-3 group-hover:rotate-0 shadow-inner mx-auto">
                                         <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                                     </div>
                                     <span class="font-black text-slate-700 text-xs text-center mt-3 block uppercase">3. Obs. Clínica</span>
                                 </button>
                                 <button @click="window.location.href = '/paciente/' + paciente.id + '/evolucao'" class="bg-white p-5 rounded-3xl shadow-sm border border-clinica-100 group transition-all hover:-translate-y-1 hover:shadow-md">
-                                    <div class="w-14 h-14 bg-clinica-50 text-clinica-500 rounded-2xl flex items-center justify-center group-hover:bg-clinica-500 group-hover:text-white transition-colors -rotate-3 group-hover:rotate-0 shadow-inner">
+                                    <div class="w-14 h-14 bg-clinica-50 text-clinica-500 rounded-2xl flex items-center justify-center group-hover:bg-clinica-500 group-hover:text-white transition-colors -rotate-3 group-hover:rotate-0 shadow-inner mx-auto">
                                         <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                                     </div>
                                     <span class="font-black text-clinica-700 text-xs text-center mt-3 block uppercase">4. Evolução Diária</span>
@@ -2096,6 +2254,30 @@ ARQUIVO: app\templates\paciente.html
             </template>
         </main>
 
+        <footer class="mt-8 pt-8 border-t border-slate-100 pb-10 px-4 text-center">
+            <div class="flex flex-col items-center gap-4">
+                <div class="flex items-center justify-center gap-6 opacity-60 grayscale hover:grayscale-0 transition-all duration-500">
+                    <div class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Fiscalizado por</div>
+                    <div class="flex gap-4">
+                        <span class="text-[11px] font-black text-slate-500 border-2 border-slate-200 px-2 py-1 rounded-md">CREFITO-SP</span>
+                        <span class="text-[11px] font-black text-slate-500 border-2 border-slate-200 px-2 py-1 rounded-md">COFITO</span>
+                    </div>
+                </div>
+
+                <div class="mt-4 flex flex-col items-center gap-1">
+                    <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">Tecnologia e Inovação</span>
+                    <div class="flex items-center gap-2">
+                        <div class="w-6 h-6 bg-slate-800 rounded-md flex items-center justify-center text-white font-black text-[10px]">V</div>
+                        <span class="text-xs font-black text-slate-700 tracking-tight">VÓRTICE <span class="text-clinica-600">HUB</span></span>
+                    </div>
+                </div>
+
+                <p class="text-[9px] font-bold text-slate-400 mt-4 leading-relaxed max-w-[280px] mx-auto">
+                    Este prontuário digital atende às normas de Terapia Ocupacional e segurança de dados do paciente.
+                </p>
+            </div>
+        </footer>
+
         <div x-show="modalEdicaoAberto" style="display: none;" class="fixed inset-0 z-[60] overflow-y-auto">
             <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
                 <div x-show="modalEdicaoAberto" x-transition.opacity class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" @click="fecharEdicao()"></div>
@@ -2183,6 +2365,7 @@ ARQUIVO: app\templates\paciente.html
                 ultimaAnamnese: null,
                 historicoEvolucoes: [],
                 carregando: true,
+                subindoFoto: false, 
                 
                 modalEdicaoAberto: false,
                 formEdicao: {},
@@ -2205,6 +2388,31 @@ ARQUIVO: app\templates\paciente.html
                         this.carregando = false;
                     });
                 },
+
+                uploadFoto(event) {
+                    const arquivo = event.target.files[0];
+                    if (!arquivo) return;
+
+                    this.subindoFoto = true;
+                    const formData = new FormData();
+                    formData.append('foto', arquivo);
+
+                    fetch(`/api/pacientes/${this.pacienteId}/upload_foto`, {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.url) {
+                            this.paciente.foto_url = data.url;
+                        } else {
+                            alert("Erro ao processar imagem.");
+                        }
+                    })
+                    .catch(err => alert("Erro na conexão com servidor."))
+                    .finally(() => { this.subindoFoto = false; });
+                },
+
                 calcularIdade(dataNasc) {
                     if (!dataNasc) return 'Idade não informada';
                     const hoje = new Date();
@@ -2214,6 +2422,7 @@ ARQUIVO: app\templates\paciente.html
                     if (mes < 0 || (mes === 0 && hoje.getDate() < nascimento.getDate())) { idade--; }
                     return idade + (idade === 1 ? ' ano' : ' anos');
                 },
+                
                 getEstiloGAS(valor) {
                     if (valor === -2) return 'bg-rose-50 text-rose-700 border-rose-200';
                     if (valor === -1) return 'bg-orange-50 text-orange-700 border-orange-200';
@@ -2246,20 +2455,20 @@ ARQUIVO: app\templates\paciente.html
                     });
                 },
                 apagarPaciente() {
-                    if(confirm('ATENÇÃO: Tem certeza absoluta que deseja excluir este paciente e TODO o seu histórico? Esta ação NÃO tem volta.')) {
+                    if(confirm('ATENÇÃO: Tem certeza absoluta?')) {
                         fetch('/api/pacientes/' + this.pacienteId, { method: 'DELETE' })
                         .then(res => {
                             if(res.ok) window.location.href = '/';
-                            else alert('Falha ao excluir o paciente.');
+                            else alert('Falha ao excluir.');
                         });
                     }
                 },
                 apagarEvolucao(idConsulta) {
-                    if(confirm('Tem certeza que deseja apagar esta evolução da linha do tempo?')) {
+                    if(confirm('Apagar esta evolução?')) {
                         fetch('/api/consultas/' + idConsulta, { method: 'DELETE' })
                         .then(res => {
                             if(res.ok) this.carregarDados();
-                            else alert('Falha ao excluir a evolução.');
+                            else alert('Falha ao excluir.');
                         });
                     }
                 }
@@ -2416,6 +2625,7 @@ ARQUIVO: app\templates\relatorio.html
     <title>Relatório Clínico | APP-TO</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Nunito', sans-serif; background-color: #f8fafc; }
@@ -2521,6 +2731,13 @@ ARQUIVO: app\templates\relatorio.html
                 </div>
             </template>
 
+            <div x-show="temDadosGrafico" style="display: none;" class="mb-8 page-break">
+                <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 border-b pb-2">Curva de Evolução (Índice GAS Médio)</h2>
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100 print-shadow-none h-64 w-full">
+                    <canvas id="gasChart"></canvas>
+                </div>
+            </div>
+
             <div class="mb-8">
                 <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 border-b pb-2">Resumo das Últimas Intervenções</h2>
                 <div class="space-y-4">
@@ -2548,7 +2765,14 @@ ARQUIVO: app\templates\relatorio.html
     <script>
         function relatorio(id) {
             return {
-                pacienteId: id, paciente: null, avaliacoesPedi: [], ultimaAnamnese: null, historicoEvolucoes: [], carregando: true,
+                pacienteId: id, 
+                paciente: null, 
+                avaliacoesPedi: [], 
+                ultimaAnamnese: null, 
+                historicoEvolucoes: [], 
+                carregando: true,
+                temDadosGrafico: false, // Controle de exibição do gráfico
+                
                 carregarDados() {
                     Promise.all([
                         fetch('/api/pacientes/' + this.pacienteId).then(res => res.json()),
@@ -2561,11 +2785,17 @@ ARQUIVO: app\templates\relatorio.html
                         if (Array.isArray(dadosAnamnese) && dadosAnamnese.length > 0) this.ultimaAnamnese = dadosAnamnese[0];
                         this.historicoEvolucoes = Array.isArray(dadosConsultas) ? dadosConsultas.filter(c => c.status === 'Realizado') : [];
                         this.carregando = false;
+                        
+                        // Espera o Alpine atualizar o DOM e então renderiza o gráfico
+                        this.$nextTick(() => {
+                            this.renderizarGrafico();
+                        });
                     }).catch(err => {
                         console.error('Erro ao carregar relatório:', err);
                         this.carregando = false;
                     });
                 },
+                
                 calcularIdade(dataNasc) {
                     if (!dataNasc) return '';
                     const hoje = new Date(); const nascimento = new Date(dataNasc);
@@ -2573,6 +2803,73 @@ ARQUIVO: app\templates\relatorio.html
                     const mes = hoje.getMonth() - nascimento.getMonth();
                     if (mes < 0 || (mes === 0 && hoje.getDate() < nascimento.getDate())) { idade--; }
                     return idade + (idade === 1 ? ' ano' : ' anos');
+                },
+
+                renderizarGrafico() {
+                    // Filtra apenas as evoluções que têm dados GAS válidos
+                    const evolucoesGAS = this.historicoEvolucoes.filter(e => 
+                        e.micro_metas && 
+                        (e.micro_metas.autocuidado !== null || e.micro_metas.mobilidade !== null || e.micro_metas.funcao_social !== null)
+                    ).reverse(); // Inverte para ordem cronológica (da mais antiga para a mais nova)
+
+                    if (evolucoesGAS.length === 0) return;
+                    
+                    this.temDadosGrafico = true;
+
+                    // Extrai as datas (DD/MM) para o eixo X
+                    const labels = evolucoesGAS.map(e => {
+                        return e.data_hora.split(' ')[0].split('-').reverse().slice(0, 2).join('/');
+                    });
+
+                    // Calcula a média do GAS por sessão
+                    const dataEvolucao = evolucoesGAS.map(e => {
+                        let sum = 0;
+                        let count = 0;
+                        if (e.micro_metas.autocuidado !== null && e.micro_metas.autocuidado !== undefined) { sum += e.micro_metas.autocuidado; count++; }
+                        if (e.micro_metas.mobilidade !== null && e.micro_metas.mobilidade !== undefined) { sum += e.micro_metas.mobilidade; count++; }
+                        if (e.micro_metas.funcao_social !== null && e.micro_metas.funcao_social !== undefined) { sum += e.micro_metas.funcao_social; count++; }
+                        return count > 0 ? parseFloat((sum / count).toFixed(1)) : 0;
+                    });
+
+                    // Garante que o canvas existe antes de plotar
+                    this.$nextTick(() => {
+                        const ctx = document.getElementById('gasChart');
+                        if (!ctx) return;
+
+                        new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: labels,
+                                datasets: [{
+                                    label: 'Média GAS',
+                                    data: dataEvolucao,
+                                    borderColor: '#0d9488', // clinica-600
+                                    backgroundColor: 'rgba(13, 148, 136, 0.1)',
+                                    borderWidth: 3,
+                                    pointBackgroundColor: '#fff',
+                                    pointBorderColor: '#0d9488',
+                                    pointBorderWidth: 2,
+                                    pointRadius: 4,
+                                    fill: true,
+                                    tension: 0.3
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                scales: {
+                                    y: {
+                                        min: -2,
+                                        max: 2,
+                                        ticks: { stepSize: 1 }
+                                    }
+                                },
+                                plugins: {
+                                    legend: { display: false }
+                                }
+                            }
+                        });
+                    });
                 }
             }
         }
