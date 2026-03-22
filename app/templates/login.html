@@ -2,27 +2,77 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Acesso Restrito | APP-TO</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
-    <style>body { font-family: 'Nunito', sans-serif; background-color: #f8fafc; }</style>
-</head>
-<body class="flex items-center justify-center min-h-screen p-4">
     
-    <div class="w-full max-w-md bg-white p-8 rounded-3xl shadow-2xl border border-slate-100">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/logo_appto_oficial.png') }}?v=2">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Nunito', 'sans-serif'] },
+                    colors: { 
+                        clinica: { 50: '#f0fdfa', 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 900: '#134e4a' } 
+                    } 
+                } 
+            }
+        }
+    </script>
+
+    <style>
+        body { font-family: 'Nunito', sans-serif; background-color: #f8fafc; overflow: hidden; }
+        
+        /* ANIMAÇÕES DO FUNDO LÚDICO */
+        @keyframes flutuar {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-30px) rotate(15deg); }
+        }
+        @keyframes flutuarInverso {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(30px) rotate(-15deg); }
+        }
+        @keyframes pulsar {
+            0%, 100% { transform: scale(1) rotate(0deg); }
+            50% { transform: scale(1.1) rotate(5deg); }
+        }
+        .anim-flutuar-1 { animation: flutuar 8s ease-in-out infinite; }
+        .anim-flutuar-2 { animation: flutuarInverso 10s ease-in-out infinite 1s; }
+        .anim-flutuar-3 { animation: flutuar 12s ease-in-out infinite 2s; }
+        .anim-flutuar-4 { animation: flutuarInverso 9s ease-in-out infinite 3s; }
+        .anim-flutuar-5 { animation: pulsar 7s ease-in-out infinite 0.5s; }
+        .anim-flutuar-6 { animation: flutuar 11s ease-in-out infinite 1.5s; }
+        .anim-flutuar-7 { animation: flutuarInverso 13s ease-in-out infinite 0.2s; }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4 relative">
+
+    <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden opacity-10">
+        <svg class="absolute top-10 right-10 w-48 h-48 text-rose-500 anim-flutuar-1" fill="currentColor" viewBox="0 0 24 24"><path d="M12,2A7,7,0,0,0,5,9c0,5.25,7,13,7,13s7-7.75,7-13A7,7,0,0,0,12,2Z"/></svg>
+        <svg class="absolute top-1/4 -left-10 w-56 h-56 text-blue-500 anim-flutuar-2" fill="currentColor" viewBox="0 0 24 24"><path d="M19,9H17V7A1,1,0,0,0,15,7V9H9V7A1,1,0,0,0,7,7V9H5a3,3,0,0,0-3,3v7a3,3,0,0,0,3,3H19a3,3,0,0,0,3-3V12A3,3,0,0,0,19,9Zm1,10a1,1,0,0,1-1,1H5a1,1,0,0,1-1-1V12a1,1,0,0,1,1-1H19a1,1,0,0,1,1,1Z"/></svg>
+        <svg class="absolute bottom-10 right-0 w-64 h-64 text-emerald-500 anim-flutuar-3" fill="currentColor" viewBox="0 0 24 24"><path d="M20.5,10.5H18V8a2,2,0,0,0-2-2H13.5a2,2,0,0,1-4,0H7A2,2,0,0,0,5,8v2.5a2,2,0,0,1,0,4V17a2,2,0,0,0,2,2h2.5a2,2,0,0,1,4,0H16a2,2,0,0,0,2-2V14.5a2,2,0,0,1,2.5-4h0A2,2,0,0,0,20.5,10.5Z"/></svg>
+        <svg class="absolute top-1/3 right-20 w-32 h-32 text-amber-400 anim-flutuar-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12,2l3.09,6.26L22,9.27l-5,4.87,1.18,6.88L12,17.77l-6.18,3.25L7,14.14,2,9.27l6.91-1.01L12,2Z"/></svg>
+        <svg class="absolute bottom-32 left-1/3 w-40 h-40 text-purple-400 anim-flutuar-4" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+        <svg class="absolute top-20 left-20 w-44 h-44 text-sky-400 anim-flutuar-6" fill="currentColor" viewBox="0 0 24 24"><path d="M17.5,19H6.5A5.5,5.5,0,0,1,6.5,8h.18a7,7,0,0,1,13.27,2.23A4.5,4.5,0,0,1,17.5,19Z"/></svg>
+        <svg class="absolute bottom-10 left-10 w-36 h-36 text-teal-500 anim-flutuar-7" fill="currentColor" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><path d="M9 16V8l3 8 3-8v8"/></svg>
+    </div>
+    
+    <div class="w-full max-w-md bg-white/90 backdrop-blur-md p-8 rounded-3xl shadow-2xl border border-white relative z-10">
         <div class="text-center mb-8">
-            <div class="w-16 h-16 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+            <div class="w-20 h-20 bg-clinica-50 text-clinica-600 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-inner border border-clinica-100 overflow-hidden">
+                <img src="{{ url_for('static', filename='img/logo_appto_oficial.png') }}?v=2" alt="Logo APP-TO" class="w-full h-full object-cover scale-125">
             </div>
             <h1 class="text-2xl font-black text-slate-800 uppercase tracking-widest">APP-TO</h1>
-            <p class="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">Acesso Clínico Restrito</p>
+            <p class="text-[10px] font-black text-slate-400 mt-1 uppercase tracking-[0.2em] opacity-80">Acesso Clínico Restrito</p>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="bg-red-50 text-red-600 p-3 rounded-xl text-sm font-bold mb-6 text-center border border-red-100">
+                    <div class="bg-red-50 text-red-600 p-3 rounded-xl text-sm font-bold mb-6 text-center border border-red-100 animate-pulse">
                         {{ message }}
                     </div>
                 {% endfor %}
@@ -32,16 +82,25 @@
         <form method="POST" action="{{ url_for('auth_bp.login') }}" class="space-y-5">
             <div>
                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 pl-1">E-mail Profissional</label>
-                <input type="email" name="email" required autocomplete="email" class="w-full p-4 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-teal-500 outline-none text-sm font-bold shadow-inner text-slate-700">
+                <input type="email" name="email" required autocomplete="email" placeholder="edna@appto.com.br"
+                       class="w-full p-4 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-clinica-500 transition-all outline-none text-sm font-bold shadow-inner text-slate-700">
             </div>
             <div>
                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 pl-1">Senha de Acesso</label>
-                <input type="password" name="senha" required class="w-full p-4 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-teal-500 outline-none text-sm font-bold shadow-inner text-slate-700">
+                <input type="password" name="senha" required placeholder="••••••••"
+                       class="w-full p-4 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-clinica-500 transition-all outline-none text-sm font-bold shadow-inner text-slate-700">
             </div>
-            <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-black py-4 rounded-xl shadow-lg active:scale-[0.98] transition-all uppercase tracking-widest text-sm mt-4">
+            <button type="submit" class="w-full bg-clinica-600 hover:bg-clinica-700 text-white font-black py-4 rounded-2xl shadow-lg active:scale-[0.98] transition-all uppercase tracking-widest text-sm mt-4">
                 Entrar no Sistema
             </button>
         </form>
+
+        <div class="mt-8 pt-6 border-t border-slate-50 text-center">
+            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+                Desenvolvido para profissionais de Terapia Ocupacional.<br>
+                Segurança e Inovação Vórtice Hub.
+            </p>
+        </div>
     </div>
 
 </body>

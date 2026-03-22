@@ -24,11 +24,13 @@
     </script>
     <style>
         body { background-color: #f8fafc; overscroll-behavior-y: contain; -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         
+        /* ANIMAÇÕES DO FUNDO LÚDICO */
         @keyframes flutuar {
             0%, 100% { transform: translateY(0) rotate(0deg); }
             50% { transform: translateY(-30px) rotate(15deg); }
@@ -48,19 +50,16 @@
         .anim-flutuar-5 { animation: pulsar 7s ease-in-out infinite 0.5s; }
         .anim-flutuar-6 { animation: flutuar 11s ease-in-out infinite 1.5s; }
         .anim-flutuar-7 { animation: flutuarInverso 13s ease-in-out infinite 0.2s; }
-        .anim-flutuar-8 { animation: pulsar 9s ease-in-out infinite 2.5s; }
     </style>
 </head>
 <body class="text-slate-800 antialiased relative min-h-screen" x-data="gestaoDashboard()" x-init="inicializar()">
 
-    <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden opacity-15">
+    <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden opacity-10">
         <svg class="absolute top-10 right-10 w-48 h-48 text-rose-500 anim-flutuar-1" fill="currentColor" viewBox="0 0 24 24"><path d="M12,2A7,7,0,0,0,5,9c0,5.25,7,13,7,13s7-7.75,7-13A7,7,0,0,0,12,2Z"/></svg>
         <svg class="absolute top-1/4 -left-10 w-56 h-56 text-blue-500 anim-flutuar-2" fill="currentColor" viewBox="0 0 24 24"><path d="M19,9H17V7A1,1,0,0,0,15,7V9H9V7A1,1,0,0,0,7,7V9H5a3,3,0,0,0-3,3v7a3,3,0,0,0,3,3H19a3,3,0,0,0,3-3V12A3,3,0,0,0,19,9Zm1,10a1,1,0,0,1-1,1H5a1,1,0,0,1-1-1V12a1,1,0,0,1,1-1H19a1,1,0,0,1,1,1Z"/></svg>
         <svg class="absolute bottom-10 right-0 w-64 h-64 text-emerald-500 anim-flutuar-3" fill="currentColor" viewBox="0 0 24 24"><path d="M20.5,10.5H18V8a2,2,0,0,0-2-2H13.5a2,2,0,0,1-4,0H7A2,2,0,0,0,5,8v2.5a2,2,0,0,1,0,4V17a2,2,0,0,0,2,2h2.5a2,2,0,0,1,4,0H16a2,2,0,0,0,2-2V14.5a2,2,0,0,1,2.5-4h0A2,2,0,0,0,20.5,10.5Z"/></svg>
         <svg class="absolute top-1/3 right-20 w-32 h-32 text-amber-400 anim-flutuar-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12,2l3.09,6.26L22,9.27l-5,4.87,1.18,6.88L12,17.77l-6.18,3.25L7,14.14,2,9.27l6.91-1.01L12,2Z"/></svg>
         <svg class="absolute bottom-32 left-1/3 w-40 h-40 text-purple-400 anim-flutuar-4" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
-        <svg class="absolute top-20 left-20 w-44 h-44 text-sky-400 anim-flutuar-6" fill="currentColor" viewBox="0 0 24 24"><path d="M17.5,19H6.5A5.5,5.5,0,0,1,6.5,8h.18a7,7,0,0,1,13.27,2.23A4.5,4.5,0,0,1,17.5,19Z"/></svg>
-        <svg class="absolute bottom-10 left-10 w-36 h-36 text-teal-500 anim-flutuar-7" fill="currentColor" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><path d="M9 16V8l3 8 3-8v8"/></svg>
     </div>
 
     <div class="max-w-4xl mx-auto min-h-screen relative z-10 pb-24">
@@ -69,22 +68,25 @@
             <div class="absolute top-0 right-0 w-48 h-48 bg-white opacity-5 rounded-full -mr-16 -mt-16 pointer-events-none"></div>
             
             <div class="flex justify-between items-center relative z-10">
-                <div class="flex items-center gap-3">
-                    
-                    <div class="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-inner overflow-hidden border border-white/20">
-                        <img src="{{ url_for('static', filename='img/logo_appto_oficial.png') }}?v=2" alt="APP-TO Logo" class="w-full h-full object-cover scale-125">
+                <div class="flex items-center gap-4">
+                    <div class="w-16 h-16 rounded-2xl border-2 border-white/30 shadow-lg overflow-hidden bg-white/10 backdrop-blur-sm flex items-center justify-center">
+                        <img src="{{ url_for('static', filename='img/edna_perfil.png') }}" alt="Dra. Edna" class="w-full h-full object-cover">
                     </div>
                     
                     <div>
-                        <h1 class="text-3xl font-black tracking-tight leading-none">Olá, Edna!</h1>
+                        <h1 class="text-2xl font-black tracking-tight leading-none">Olá, Edna!</h1>
                         <p class="text-clinica-100 text-[10px] font-bold uppercase tracking-widest mt-1">Sua Mesa de Controle</p>
                     </div>
                 </div>
                 
-                <a href="/logout" class="bg-red-500/20 text-white border border-red-500/50 hover:bg-red-500 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-2 shadow-sm active:scale-95">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-                    Sair
-                </a>
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-inner overflow-hidden border border-white/20 hidden md:flex">
+                        <img src="{{ url_for('static', filename='img/logo_appto_oficial.png') }}?v=2" alt="Logo" class="w-full h-full object-cover scale-125">
+                    </div>
+                    <a href="/logout" class="bg-red-500/20 text-white border border-red-500/50 hover:bg-red-500 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-2 shadow-sm active:scale-95">
+                        Sair
+                    </a>
+                </div>
             </div>
 
             <div class="grid grid-cols-2 gap-4 mt-8 relative z-10">
@@ -120,7 +122,7 @@
                 </div>
 
                 <template x-if="agenda.length === 0 && !carregando">
-                    <div class="bg-white p-10 rounded-3xl border-2 border-dashed border-clinica-200 text-center shadow-sm relative overflow-hidden group">
+                    <div class="bg-white/80 backdrop-blur-sm p-10 rounded-3xl border-2 border-dashed border-clinica-200 text-center shadow-sm relative overflow-hidden group">
                         <div class="absolute inset-0 bg-gradient-to-br from-clinica-50 to-transparent opacity-50"></div>
                         <svg class="mx-auto h-16 w-16 text-clinica-300 mb-4 relative z-10 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                         <p class="text-lg font-black text-slate-600 relative z-10">Sua agenda está livre!</p>
@@ -136,7 +138,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <template x-for="item in agenda" :key="item.id">
                         <div @click="window.location.href = '/paciente/' + item.paciente_id" 
-                             class="bg-white p-6 rounded-3xl shadow-md border-l-4 hover:-translate-y-1 transition-all cursor-pointer group flex items-center gap-4"
+                             class="bg-white/90 backdrop-blur-sm p-6 rounded-3xl shadow-md border-l-4 hover:-translate-y-1 transition-all cursor-pointer group flex items-center gap-4"
                              :class="isHoje(item.data) ? 'border-clinica-500 shadow-clinica-100' : 'border-slate-300'">
                             
                             <div class="w-14 h-14 rounded-full bg-clinica-100 flex items-center justify-center text-clinica-600 font-black text-xl overflow-hidden shrink-0 border-2 border-white shadow-sm transition-colors group-hover:border-clinica-300">
@@ -165,7 +167,7 @@
                 </div>
             </div>
 
-            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+            <div class="bg-white/90 backdrop-blur-sm p-6 rounded-3xl shadow-sm border border-slate-100">
                 <h2 class="text-sm font-black text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
                     <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                     Acesso Rápido a Pacientes
@@ -421,10 +423,6 @@
                         if (data.id) { 
                             this.fecharModal(); 
                             this.inicializar(); 
-                            if(this.modalAgendamentoAberto === false) {
-                                this.novoAgendamento.paciente_id = data.id;
-                                this.abrirModalAgendamento();
-                            }
                         }
                         this.salvando = false;
                     }).catch(() => { this.salvando = false; });
