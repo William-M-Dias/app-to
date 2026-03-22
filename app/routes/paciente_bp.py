@@ -1,5 +1,5 @@
 import os
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, url_for
 from app.extensions import db
 from app.models.paciente import Paciente
 from datetime import datetime
@@ -106,15 +106,16 @@ def upload_foto(id):
     if arquivo.filename == '':
         return jsonify({"erro": "Arquivo sem nome"}), 400
 
-    # Cria pasta se não existir
-    upload_path = os.path.join(current_app.root_path, 'static/uploads/perfil')
+    # MUDANÇA: Usa os.path.join passo a passo para evitar erros de barra no SO
+    upload_path = os.path.join(current_app.root_path, 'static', 'uploads', 'perfil')
     if not os.path.exists(upload_path):
         os.makedirs(upload_path, exist_ok=True)
 
     filename = secure_filename(f"avatar_{id}_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg")
     arquivo.save(os.path.join(upload_path, filename))
     
-    paciente.foto_url = f"/static/uploads/perfil/{filename}"
+    # MUDANÇA: Usa url_for para gerar a rota pública que o HTML consegue ler sempre
+    paciente.foto_url = url_for('static', filename=f'uploads/perfil/{filename}')
     db.session.commit()
     
     return jsonify({"url": paciente.foto_url}), 200

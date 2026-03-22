@@ -1097,12 +1097,25 @@ ARQUIVO: app\templates\evolucao.html
                             </button>
                             <div x-show="categoriaAberta === index" x-collapse class="bg-white p-3 border-t border-slate-100">
                                 <div class="flex flex-wrap gap-1.5">
-                                    <template x-for="item in categoria.itens" :key="item">
-                                        <button type="button" @click="toggleAtividade(item)" 
-                                                class="px-3 py-1.5 text-[11px] font-bold rounded-lg transition-colors border text-left"
-                                                :class="atividadesSelecionadas.includes(item) ? 'bg-clinica-600 text-white border-clinica-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'">
-                                            <span x-text="item"></span>
-                                        </button>
+                                    <template x-for="item in categoria.itens" :key="item.nome">
+                                        <div class="flex items-stretch shadow-sm rounded-lg overflow-hidden border transition-colors"
+                                             :class="atividadesSelecionadas.includes(item.nome) ? 'border-clinica-500 bg-clinica-600' : 'border-slate-200 bg-white'">
+                                            
+                                            <button type="button" @click="toggleAtividade(item.nome)" 
+                                                    class="px-3 py-1.5 text-[11px] font-bold text-left flex-grow transition-colors focus:outline-none"
+                                                    :class="atividadesSelecionadas.includes(item.nome) ? 'text-white' : 'text-slate-600 hover:bg-slate-50'">
+                                                <span x-text="item.nome"></span>
+                                            </button>
+
+                                            <template x-if="item.descricao">
+                                                <button type="button" @click.stop="mostrarDescricao(item.nome, item.descricao)"
+                                                        class="px-2.5 flex items-center justify-center border-l transition-colors focus:outline-none"
+                                                        :class="atividadesSelecionadas.includes(item.nome) ? 'border-clinica-500 text-clinica-100 hover:text-white hover:bg-clinica-700' : 'border-slate-100 text-slate-400 hover:text-clinica-600 hover:bg-slate-100'"
+                                                        title="Ver Significado">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                                </button>
+                                            </template>
+                                        </div>
                                     </template>
                                 </div>
                             </div>
@@ -1126,6 +1139,25 @@ ARQUIVO: app\templates\evolucao.html
                 <span x-text="salvando ? 'A Gravar Dados...' : (form.status === 'Agendado' ? 'Confirmar Agendamento' : 'Assinar Prontuário')"></span>
             </button>
         </div>
+
+        <div x-show="modalAjuda.aberto" style="display: none;" class="fixed inset-0 z-[100] overflow-y-auto">
+            <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+                <div x-show="modalAjuda.aberto" x-transition.opacity class="fixed inset-0 transition-opacity bg-slate-900/60 backdrop-blur-sm" @click="fecharDescricao()"></div>
+                <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+                <div x-show="modalAjuda.aberto" x-transition.scale class="inline-block w-full max-w-sm p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-2xl rounded-3xl">
+                    <div class="flex items-start justify-between mb-4">
+                        <h3 class="text-sm font-black text-emerald-600 uppercase tracking-wide pr-4" x-text="modalAjuda.titulo"></h3>
+                        <button @click="fecharDescricao()" class="text-slate-400 hover:text-slate-600 focus:outline-none shrink-0"><svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                    </div>
+                    <div class="mt-2 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <p class="text-[13px] font-semibold text-slate-600 leading-relaxed text-justify" x-text="modalAjuda.texto"></p>
+                    </div>
+                    <div class="mt-6 flex justify-end">
+                        <button type="button" @click="fecharDescricao()" class="w-full px-6 py-3 text-xs tracking-widest uppercase font-black text-white transition-colors shadow-md bg-emerald-600 rounded-xl hover:bg-emerald-700 focus:outline-none">Entendi</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -1139,6 +1171,13 @@ ARQUIVO: app\templates\evolucao.html
                 salvando: false,
                 categoriaAberta: null, 
                 atividadesSelecionadas: [],
+                
+                modalAjuda: {
+                    aberto: false,
+                    titulo: '',
+                    texto: ''
+                },
+
                 form: {
                     paciente_id: id,
                     data_hora: dataIso,
@@ -1156,21 +1195,164 @@ ARQUIVO: app\templates\evolucao.html
                 bibliotecaAtividades: [
                     {
                         nome: 'Motricidade Fina e Destreza',
-                        itens: ['Coordenação motora fina', 'Destreza manual', 'Dissociação dedos e mãos', 'Força mãos e dedos', 'Graduação de Força', 'Atividade com prendedor', 'Atividade com massinha', 'Coordenação olho mãos', 'Coordenação / integração bilateral', 'Atividade com tesoura (reta)', 'Atividade com tesoura (curvas)']
+                        itens: [
+                            { nome: 'Coordenação motora fina', descricao: null },
+                            { nome: 'Destreza manual', descricao: null },
+                            { nome: 'Dissociação dedos e mãos', descricao: null },
+                            { nome: 'Força mãos e dedos', descricao: null },
+                            { nome: 'Graduação de Força', descricao: null },
+                            { nome: 'Atividade com prendedor', descricao: null },
+                            { nome: 'Atividade com massinha', descricao: null },
+                            { nome: 'Coordenação olho mãos', descricao: null },
+                            { nome: 'Atividade com tesoura linha reta', descricao: null },
+                            { nome: 'Atividade com tesoura em linhas curvas / ondulada', descricao: null },
+                            { nome: 'Coordenação/ integração bilateral', descricao: null },
+                            { nome: 'Pintura dentro do contexto', descricao: null },
+                            { nome: 'Habilidades gráficas', descricao: null },
+                            { nome: 'Atividades data comemorativas', descricao: null },
+                            { nome: 'Traçado letra Cursiva', descricao: null },
+                            { nome: 'Pinça', descricao: null },
+                            { nome: 'Orientação preensão Trípode', descricao: null }
+                        ]
                     },
                     {
                         nome: 'Cognitivo e Percepção Visual',
-                        itens: ['Encaixe', 'Pareamento de figuras e cores', 'Quebra cabeça', 'Atenção sustentada', 'Percepção visual', 'Resolução de problemas', 'Atenção geral', 'Contextualização']
+                        itens: [
+                            { nome: 'Encaixe', descricao: null },
+                            { nome: 'Relação Visoespacial', descricao: null },
+                            { nome: 'Figura-Fundo', descricao: null },
+                            { nome: 'Pareamento de figuras e cores', descricao: null },
+                            { nome: 'Quebra cabeça', descricao: null },
+                            { nome: 'Memória', descricao: null },
+                            { nome: 'Atividades Neuroativamente', descricao: null },
+                            { nome: 'Caça palavras', descricao: null },
+                            { nome: 'Conceito Matemático', descricao: null },
+                            { nome: 'Atenção sustentada', descricao: null },
+                            { nome: 'Flexibilidade Cognitiva', descricao: null },
+                            { nome: 'Imaginação (Conto de História)', descricao: null },
+                            { nome: 'Controle Inibitório', descricao: null },
+                            { nome: 'Percepção visual', descricao: null },
+                            { nome: 'Resolução de problemas', descricao: null },
+                            { nome: 'Orientação Temporal', descricao: null },
+                            { nome: 'Artesanato', descricao: null },
+                            { nome: 'Atenção', descricao: null },
+                            { nome: 'Contextualização', descricao: null }
+                        ]
+                    },
+                    {
+                        nome: 'Habilidades Sociais',
+                        itens: [
+                            { nome: 'Contato Visual e Orientação', descricao: null },
+                            { nome: 'Atividade com Pares', descricao: null },
+                            { nome: 'Turno de Fala (Vez e Voz)', descricao: 'Vez e Voz' },
+                            { nome: 'Iniciação e Encerramento', descricao: null },
+                            { nome: 'Interpretar expressões faciais', descricao: null },
+                            { nome: 'Auto-Regulação e Controle Inibitório', descricao: null },
+                            { nome: 'Tolerância à Frustração', descricao: null },
+                            { nome: 'Controle de Impulso', descricao: null },
+                            { nome: 'Empatia', descricao: null },
+                            { nome: 'Adequação ao Contexto', descricao: null },
+                            { nome: 'Resolução de Problemas Sociais', descricao: null },
+                            { nome: 'Habilidades de Cooperação e Jogo', descricao: 'brincar compartilhado, seguir regras, negociação' },
+                            { nome: 'Autoestima', descricao: null },
+                            { nome: 'Criatividade', descricao: null }
+                        ]
+                    },
+                    {
+                        nome: 'Jogos',
+                        itens: [
+                            { nome: 'Jogo Stop', descricao: null },
+                            { nome: 'Jogo Uno', descricao: null },
+                            { nome: 'Jogo a Hora do Rush', descricao: null },
+                            { nome: 'Jogo Cilada', descricao: null },
+                            { nome: 'Jogo 4 em linhas', descricao: null },
+                            { nome: 'Jogo Seleção de Cores', descricao: null },
+                            { nome: 'Jogo Lince', descricao: null },
+                            { nome: 'Jogo o que é o que é', descricao: null },
+                            { nome: 'Jogo DIGIN', descricao: null },
+                            { nome: 'Jogo cadê', descricao: null },
+                            { nome: 'Jogo Pula Aranha', descricao: null },
+                            { nome: 'Jogo Mico', descricao: null }
+                        ]
                     },
                     {
                         nome: 'Integração Sensorial e Global',
-                        itens: ['Circuito Motor', 'Planejamento motor', 'Estímulo proprioceptivo, vestibular e tátil', 'Na plataforma (baixar nível de alerta)', 'Proprioceptivo / Consciência Corporal', 'Noção espacial', 'Equilíbrio Postural', 'Atividade de lateralidade', 'Andar nas almofadas e jogar bola', 'Prono na plataforma (jogando argola)']
+                        itens: [
+                            { nome: 'Práxis', descricao: 'dificuldade da criança em conceber, planejar e executar uma sequência de movimentos novos ou complexos' },
+                            { nome: 'VBIS', descricao: 'Integração Vestibular bilateral e sequenciamento inadequado' },
+                            { nome: 'SOMATODISPRAXIA', descricao: 'Uma dificuldade em planejar e executar ações motoras novas ou não habituais, decorrente de um processamento deficiente dos sistemas tátil e proprioceptivo (Dois sistemas envolvidos)' },
+                            { nome: 'VISUODISPRAXIA', descricao: 'dificuldade em cópia do quadro, escrita, recorte, sem alteração da acuidade visual' },
+                            { nome: 'Dispraxia Ideacional', descricao: 'Dificuldades em conceber e planejar ações (novas e antigas)' },
+                            { nome: 'Esquema corporal', descricao: null },
+                            { nome: 'Controle postural estático e dinâmico', descricao: null },
+                            { nome: 'Discriminação tátil', descricao: null },
+                            { nome: 'Sequenciamento motor', descricao: null },
+                            { nome: 'Força e Resistencia', descricao: null },
+                            { nome: 'Atividades c/ Bola', descricao: null },
+                            { nome: 'Extensão de tronco', descricao: null },
+                            { nome: 'Descarga de peso', descricao: null },
+                            { nome: 'Ajustes posturais', descricao: null },
+                            { nome: 'Atividade lateralidade', descricao: null },
+                            { nome: 'Planejamento motor', descricao: null },
+                            { nome: 'Circuito Motor', descricao: null },
+                            { nome: 'Ações de feedback e feedfoward', descricao: null },
+                            { nome: 'Atividade andar no almofadas e jogar a bola no tubão', descricao: null },
+                            { nome: 'Estímulo proprioceptivo, vestibular e tátil', descricao: null },
+                            { nome: 'Atividade na plataforma baixar nivel de alerta', descricao: null },
+                            { nome: 'Estímulo inibitório vestibular', descricao: 'movimentos rítmicos, lentos e lineares' },
+                            { nome: 'Tato inibitório', descricao: 'pressão profundo, toque firme e sustentado (inibitório)' },
+                            { nome: 'Estimulo Excitatório vestibular', descricao: 'movimentos rotatórios, disrítmicos e rápidos' },
+                            { nome: 'Tato Excitatório', descricao: 'toque leve, toque rápido ou transitório com as mãos (Excitatório)' },
+                            { nome: 'Propriocepção', descricao: 'movimento ativo autoiniciado, posições contra a gravidade, movimentos contra resistência, escala, estabilização das articulações, suportes de peso, mastigar e assoprar. (estimulo Organizadores)' },
+                            { nome: 'Discriminação sensorial', descricao: 'capacidade de diferenciar dois estímulos' },
+                            { nome: 'MODULAÇÃO Hiperresponsividade tátil', descricao: null },
+                            { nome: 'MODULAÇÃO Insegurança Gravitacional', descricao: null },
+                            { nome: 'MODULAÇÃO Aversão ao movimento', descricao: null },
+                            { nome: 'Pobre discriminação tátil', descricao: null },
+                            { nome: 'Hiporresposta do sistema vestibular', descricao: 'Nível de atividade alto' },
+                            { nome: 'Hiperresposta do sistema vestibular', descricao: 'Nível de atividade baixo' },
+                            { nome: 'Pobre discriminação proprioceptiva', descricao: null },
+                            { nome: 'Pobre discriminação Vestibular', descricao: null },
+                            { nome: 'Pobre controle postural-ocular', descricao: null },
+                            { nome: 'Estímulo proprioceptivo / Consciência Corporal', descricao: null },
+                            { nome: 'Noção espacial', descricao: null },
+                            { nome: 'Atividade de prono na plataforma jogando argola no cone', descricao: null },
+                            { nome: 'Equilíbrio Postural', descricao: null },
+                            { nome: 'Integração bilateral', descricao: null },
+                            { nome: 'Seletividade Alimentar', descricao: null }
+                        ]
                     },
                     {
-                        nome: 'AVDs & AIVDs',
-                        itens: ['Tolerância a frustração', 'Habilidades emocionais', 'AVDs (Vestir e despir)', 'AVDs (Colocar e retirar meias)']
+                        nome: 'AVDs e AIVDs',
+                        itens: [
+                            { nome: '(Avds) Treino de vestir e despir', descricao: null },
+                            { nome: '(Avds) Treino colocar e retirar as meias', descricao: null },
+                            { nome: '(Avds) Treino escovação de dente', descricao: null },
+                            { nome: '(Avds) Treino lavar as mãos', descricao: null },
+                            { nome: '(Avds) Treino uso de talher', descricao: null },
+                            { nome: '(Avds) Treino de organização', descricao: null },
+                            { nome: '(Avds) Treino botões, zíper e velcro', descricao: null },
+                            { nome: '(Avds) Treino tênis laço', descricao: null },
+                            { nome: '(AIVDS) Culinária (preparo de receitas)', descricao: null },
+                            { nome: '(AIVDS) Gestão do dinheiro', descricao: null },
+                            { nome: '(AIVDS) Lavar louça', descricao: null },
+                            { nome: '(AIVDS) Orientação de saúde/segurança', descricao: null },
+                            { nome: '(AIVDS) fazer compras e Deslocamento', descricao: null },
+                            { nome: '(AIVDS) Noção de Perigos', descricao: null },
+                            { nome: '(AIVDS) Noção de Localização (endereço)', descricao: null }
+                        ]
                     }
                 ],
+
+                mostrarDescricao(titulo, texto) {
+                    this.modalAjuda.titulo = titulo;
+                    this.modalAjuda.texto = texto;
+                    this.modalAjuda.aberto = true;
+                },
+
+                fecharDescricao() {
+                    this.modalAjuda.aberto = false;
+                },
 
                 toggleAtividade(atividade) {
                     const index = this.atividadesSelecionadas.indexOf(atividade);
@@ -1854,18 +2036,59 @@ ARQUIVO: app\templates\obs_clinica.html
             <div class="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
                 <div class="bg-emerald-50 p-5 font-black text-emerald-800 uppercase text-xs tracking-widest border-b">2. Integração Sensorial</div>
                 <div class="p-4 space-y-4">
-                    <template x-for="item in ['Sistema Proprioceptivo', 'Sistema Tátil', 'Sistema Vestibular', 'Sistema Auditivo', 'Sistema Interoceptivo']">
-                        <div class="space-y-2">
-                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1" x-text="item"></label>
-                            <select x-model="form.dados_json.sensorial[item]" class="w-full p-4 bg-slate-50 rounded-2xl text-sm font-bold text-slate-700 border-none focus:ring-2 focus:ring-emerald-500 transition-all outline-none shadow-inner">
-                                <option value="">Selecione o perfil...</option>
-                                <option>Hipo-responsivo</option>
-                                <option>Hiper-responsivo</option>
-                                <option>Normal</option>
-                                <option>Busca Sensorial</option>
-                            </select>
-                        </div>
-                    </template>
+                    
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Sistema Proprioceptivo</label>
+                        <select x-model="form.dados_json.sensorial['Sistema Proprioceptivo']" class="w-full p-4 bg-slate-50 rounded-2xl text-sm font-bold text-slate-700 border-none focus:ring-2 focus:ring-emerald-500 transition-all outline-none shadow-inner">
+                            <option value="">Selecione o perfil...</option>
+                            <option value="Busca Sensorial (Hiporesponsividade)">1 - Busca Sensorial (Hiporesponsividade)</option>
+                            <option value="Dificuldade Discriminação (Graduação Força)">2 - Dificuldade Discriminação (Graduação Força)</option>
+                            <option value="Normal">3 - Normal</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Sistema Tátil</label>
+                        <select x-model="form.dados_json.sensorial['Sistema Tátil']" class="w-full p-4 bg-slate-50 rounded-2xl text-sm font-bold text-slate-700 border-none focus:ring-2 focus:ring-emerald-500 transition-all outline-none shadow-inner">
+                            <option value="">Selecione o perfil...</option>
+                            <option value="Defensividade Tátil (Hiperresponsividade)">1 - Defensividade Tátil (Hiperresponsividade)</option>
+                            <option value="Pobre Discriminação Tátil (Hiporesponsividade)">2 - Pobre Discriminação Tátil (Hiporesponsividade)</option>
+                            <option value="Normal">3 - Normal</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Sistema Vestibular</label>
+                        <select x-model="form.dados_json.sensorial['Sistema Vestibular']" class="w-full p-4 bg-slate-50 rounded-2xl text-sm font-bold text-slate-700 border-none focus:ring-2 focus:ring-emerald-500 transition-all outline-none shadow-inner">
+                            <option value="">Selecione o perfil...</option>
+                            <option value="Hiper-responsividade (Insegurança Gravitacional)">1 - Hiper-responsividade (Insegurança Gravitacional)</option>
+                            <option value="Hiporesponsividade (Buscador de Movimento)">2 - Hiporesponsividade (Buscador de Movimento)</option>
+                            <option value="Pobre Processamento Vestibular (Proprioceptivo)">3 - Pobre Processamento Vestibular (Proprioceptivo)</option>
+                            <option value="Normal">4 - Normal</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Sistema Auditivo</label>
+                        <select x-model="form.dados_json.sensorial['Sistema Auditivo']" class="w-full p-4 bg-slate-50 rounded-2xl text-sm font-bold text-slate-700 border-none focus:ring-2 focus:ring-emerald-500 transition-all outline-none shadow-inner">
+                            <option value="">Selecione o perfil...</option>
+                            <option value="Hiperresponsividade Auditiva (Defensiva Auditiva)">1 - Hiperresponsividade Auditiva (Defensiva Auditiva)</option>
+                            <option value="Hiporesponsividade Auditiva (Baixo registro)">2 - Hiporesponsividade Auditiva (Baixo registro)</option>
+                            <option value="Dificuldade Discriminação Auditiva">3 - Dificuldade Discriminação Auditiva</option>
+                            <option value="Normal">4 - Normal</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Sistema Interoceptivo</label>
+                        <select x-model="form.dados_json.sensorial['Sistema Interoceptivo']" class="w-full p-4 bg-slate-50 rounded-2xl text-sm font-bold text-slate-700 border-none focus:ring-2 focus:ring-emerald-500 transition-all outline-none shadow-inner">
+                            <option value="">Selecione o perfil...</option>
+                            <option value="Hiperesponsividade Interoceptiva (Sensibilidade Aguçada)">1 - Hiperesponsividade Interoceptiva (Sensibilidade Aguçada)</option>
+                            <option value="Hiporesposividade Interoceptiva (Baixo Registro)">2 - Hiporesposividade Interoceptiva (Baixo Registro)</option>
+                            <option value="Normal">3 - Normal</option>
+                        </select>
+                    </div>
+
                 </div>
             </div>
 
@@ -1921,6 +2144,7 @@ ARQUIVO: app\templates\paciente.html
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <script>
         tailwind.config = {
@@ -2077,52 +2301,64 @@ ARQUIVO: app\templates\paciente.html
                             </div>
                         </div>
 
-                        <template x-if="ultimaAnamnese && ultimaAnamnese.dados">
-                            <div @click="window.location.href = '/paciente/' + paciente.id + '/anamnese'" 
-                                 class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 mb-6 cursor-pointer group transition-all hover:border-orange-300 hover:shadow-md relative overflow-hidden">
-                                
-                                <div class="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-full -mr-8 -mt-8 opacity-50 pointer-events-none group-hover:scale-110 transition-transform"></div>
+                        <div @click="window.location.href = '/paciente/' + paciente.id + '/anamnese'" 
+                             class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 mb-6 cursor-pointer group transition-all hover:border-orange-300 hover:shadow-md relative overflow-hidden">
+                            
+                            <div class="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-full -mr-8 -mt-8 opacity-50 pointer-events-none group-hover:scale-110 transition-transform"></div>
 
-                                <div class="flex items-center justify-between mb-4 border-b border-slate-50 pb-3 relative z-10">
-                                    <h3 class="text-xs font-black text-slate-800 uppercase flex items-center gap-2 tracking-wide group-hover:text-orange-600 transition-colors">
-                                        <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                                        Síntese do Perfil Inicial (Mapa Clínico)
-                                    </h3>
-                                    <svg class="w-4 h-4 text-slate-300 group-hover:text-orange-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                                </div>
-
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 relative z-10">
-                                    <template x-if="ultimaAnamnese.dados.sensorial && ultimaAnamnese.dados.sensorial.length > 0">
-                                        <div class="p-3 border border-slate-100 rounded-2xl bg-slate-50/50 group-hover:bg-white transition-colors">
-                                            <h4 class="text-[9px] font-black text-emerald-600 uppercase mb-2 tracking-widest">Alerta Sensorial</h4>
-                                            <div class="flex flex-wrap gap-1">
-                                                <template x-for="item in ultimaAnamnese.dados.sensorial">
-                                                    <span class="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9px] font-bold px-2 py-1 rounded-md shadow-sm" x-text="item.split(':')[0]"></span>
-                                                </template>
-                                            </div>
-                                        </div>
-                                    </template>
-
-                                    <template x-if="ultimaAnamnese.dados.comportamento && ultimaAnamnese.dados.comportamento.length > 0">
-                                        <div class="p-3 border border-slate-100 rounded-2xl bg-slate-50/50 group-hover:bg-white transition-colors">
-                                            <h4 class="text-[9px] font-black text-rose-600 uppercase mb-2 tracking-widest">Comportamento/Regulação</h4>
-                                            <div class="flex flex-wrap gap-1">
-                                                <template x-for="item in ultimaAnamnese.dados.comportamento">
-                                                    <span class="bg-rose-50 text-rose-700 border border-rose-100 text-[9px] font-bold px-2 py-1 rounded-md shadow-sm" x-text="item.split(':')[0]"></span>
-                                                </template>
-                                            </div>
-                                        </div>
-                                    </template>
-                                </div>
-                                
-                                <template x-if="ultimaAnamnese.dados.observacoes">
-                                    <div class="mt-3 pt-3 border-t border-slate-50 relative z-10">
-                                         <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Observações Clínicas</span>
-                                         <p class="text-[11px] font-semibold text-slate-500 line-clamp-2" x-text="ultimaAnamnese.dados.observacoes"></p>
-                                    </div>
-                                </template>
+                            <div class="flex items-center justify-between mb-4 border-b border-slate-50 pb-3 relative z-10">
+                                <h3 class="text-xs font-black text-slate-800 uppercase flex items-center gap-2 tracking-wide group-hover:text-orange-600 transition-colors">
+                                    <svg class="w-4 h-4 text-orange-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                    Mapa Clínico
+                                </h3>
+                                <span class="text-[9px] font-black px-2 py-1 rounded uppercase shrink-0 ml-2" 
+                                      :class="ultimaAnamnese ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-400'"
+                                      x-text="ultimaAnamnese ? 'Concluído' : 'Pendente'"></span>
                             </div>
-                        </template>
+
+                            <template x-if="ultimaAnamnese && ultimaAnamnese.dados">
+                                <div>
+                                    <div class="grid grid-cols-1 gap-3 relative z-10">
+                                        <template x-if="ultimaAnamnese.dados.sensorial && ultimaAnamnese.dados.sensorial.length > 0">
+                                            <div class="p-3 border border-slate-100 rounded-2xl bg-slate-50/50 group-hover:bg-white transition-colors">
+                                                <h4 class="text-[9px] font-black text-emerald-600 uppercase mb-2 tracking-widest text-center">Alerta Sensorial</h4>
+                                                <div class="flex flex-wrap gap-1.5 justify-center">
+                                                    <template x-for="item in ultimaAnamnese.dados.sensorial">
+                                                        <span class="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9px] font-bold px-2 py-1.5 rounded-md shadow-sm whitespace-normal break-words text-center leading-tight max-w-full" x-text="item.split(':')[0]"></span>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
+
+                                        <template x-if="ultimaAnamnese.dados.comportamento && ultimaAnamnese.dados.comportamento.length > 0">
+                                            <div class="p-3 border border-slate-100 rounded-2xl bg-slate-50/50 group-hover:bg-white transition-colors">
+                                                <h4 class="text-[9px] font-black text-rose-600 uppercase mb-2 tracking-widest text-center">Comportamento/Regulação</h4>
+                                                <div class="flex flex-wrap gap-1.5 justify-center">
+                                                    <template x-for="item in ultimaAnamnese.dados.comportamento">
+                                                        <span class="bg-rose-50 text-rose-700 border border-rose-100 text-[9px] font-bold px-2 py-1.5 rounded-md shadow-sm whitespace-normal break-words text-center leading-tight max-w-full" x-text="item.split(':')[0]"></span>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                    
+                                    <template x-if="ultimaAnamnese.dados.observacoes">
+                                        <div class="mt-3 pt-3 border-t border-slate-50 relative z-10">
+                                             <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Observações Clínicas</span>
+                                             <p class="text-[11px] font-semibold text-slate-500 line-clamp-2" x-text="ultimaAnamnese.dados.observacoes"></p>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+
+                            <template x-if="!ultimaAnamnese">
+                                <div class="py-4 text-center relative z-10">
+                                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nenhuma triagem realizada.</p>
+                                    <p class="text-xs text-orange-500 font-black mt-2">CLIQUE AQUI PARA INICIAR</p>
+                                </div>
+                            </template>
+                        </div>
+
                         <button @click="apagarPaciente()" class="w-full p-4 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white border border-red-100 hover:border-red-500 rounded-3xl text-xs font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2 group shadow-sm">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                             Excluir Prontuário
@@ -2164,6 +2400,16 @@ ARQUIVO: app\templates\paciente.html
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
                                 Gerar Relatório Clínico (PDF)
                             </button>
+                        </div>
+
+                        <div x-show="temDadosParaGrafico()" style="display: none;" class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 relative">
+                            <h3 class="text-sm font-black text-slate-500 mb-4 uppercase tracking-widest flex items-center gap-2">
+                                <svg class="w-5 h-5 text-clinica-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
+                                Curva de Evolução (GAS)
+                            </h3>
+                            <div class="w-full h-64 relative">
+                                <canvas id="gasChart"></canvas>
+                            </div>
                         </div>
 
                         <div>
@@ -2370,6 +2616,7 @@ ARQUIVO: app\templates\paciente.html
                 modalEdicaoAberto: false,
                 formEdicao: {},
                 diagnosticosSelecionados: [],
+                chartInstance: null,
 
                 carregarDados() {
                     Promise.all([
@@ -2383,9 +2630,85 @@ ARQUIVO: app\templates\paciente.html
                         if (Array.isArray(dadosAnamnese) && dadosAnamnese.length > 0) this.ultimaAnamnese = dadosAnamnese[0];
                         this.historicoEvolucoes = Array.isArray(dadosConsultas) ? dadosConsultas : [];
                         this.carregando = false;
+                        
+                        // Após carregar os dados, renderiza o gráfico no próximo ciclo do DOM
+                        this.$nextTick(() => {
+                            this.renderizarGrafico();
+                        });
+                        
                     }).catch(err => {
                         console.error('Erro ao carregar prontuário:', err);
                         this.carregando = false;
+                    });
+                },
+
+                // ADICIONADO: Verifica se existem sessões Realizadas com notas preenchidas
+                temDadosParaGrafico() {
+                    if (!this.historicoEvolucoes || this.historicoEvolucoes.length === 0) return false;
+                    const validas = this.historicoEvolucoes.filter(e => e.status === 'Realizado' && e.micro_metas && 
+                        (e.micro_metas.autocuidado !== null || e.micro_metas.mobilidade !== null || e.micro_metas.funcao_social !== null)
+                    );
+                    return validas.length > 0;
+                },
+
+                // ADICIONADO: Função que constrói e desenha o Gráfico Chart.js
+                renderizarGrafico() {
+                    if (!this.temDadosParaGrafico()) return;
+
+                    const ctx = document.getElementById('gasChart');
+                    if (!ctx) return;
+
+                    // Filtra as realizadas e inverte para ficar cronológico (da mais antiga para a mais nova)
+                    const sessoesValidas = this.historicoEvolucoes
+                        .filter(e => e.status === 'Realizado' && e.micro_metas)
+                        .slice()
+                        .reverse();
+
+                    // Formata as datas (Ex: "2023-10-25 14:00" -> "25/10")
+                    const labels = sessoesValidas.map(e => {
+                        let partes = e.data_hora.split(' ')[0].split('-');
+                        if(partes.length === 3) return `${partes[2]}/${partes[1]}`;
+                        return e.data_hora;
+                    });
+
+                    // Extrai as notas (se for null, não plota ponto naquele dia)
+                    const dataAutocuidado = sessoesValidas.map(e => e.micro_metas.autocuidado !== undefined ? e.micro_metas.autocuidado : null);
+                    const dataMobilidade = sessoesValidas.map(e => e.micro_metas.mobilidade !== undefined ? e.micro_metas.mobilidade : null);
+                    const dataSocial = sessoesValidas.map(e => e.micro_metas.funcao_social !== undefined ? e.micro_metas.funcao_social : null);
+
+                    if (this.chartInstance) {
+                        this.chartInstance.destroy();
+                    }
+
+                    this.chartInstance = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [
+                                { label: 'Autocuidado', data: dataAutocuidado, borderColor: '#0d9488', backgroundColor: '#0d9488', tension: 0.3, spanGaps: true, pointRadius: 4, pointHoverRadius: 6 },
+                                { label: 'Mobilidade', data: dataMobilidade, borderColor: '#3b82f6', backgroundColor: '#3b82f6', tension: 0.3, spanGaps: true, pointRadius: 4, pointHoverRadius: 6 },
+                                { label: 'Social', data: dataSocial, borderColor: '#f43f5e', backgroundColor: '#f43f5e', tension: 0.3, spanGaps: true, pointRadius: 4, pointHoverRadius: 6 }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    min: -2,
+                                    max: 2,
+                                    ticks: { stepSize: 1, font: { weight: 'bold' } },
+                                    grid: {
+                                        color: (context) => context.tick.value === 0 ? '#94a3b8' : '#f1f5f9',
+                                        lineWidth: (context) => context.tick.value === 0 ? 2 : 1
+                                    }
+                                }
+                            },
+                            plugins: {
+                                legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8, font: { family: 'Nunito', weight: 'bold' } } },
+                                tooltip: { titleFont: { family: 'Nunito' }, bodyFont: { family: 'Nunito' } }
+                            }
+                        }
                     });
                 },
 
@@ -2491,6 +2814,11 @@ ARQUIVO: app\templates\pedi.html
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    </style>
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased font-sans" x-data="avaliacaoPedi({{ paciente_id }})">
 
@@ -2503,82 +2831,177 @@ ARQUIVO: app\templates\pedi.html
                 </a>
                 <div>
                     <h1 class="text-xl font-black uppercase tracking-widest">Anamnese PEDI</h1>
-                    <p class="text-blue-200 text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Habilidades Funcionais</p>
+                    <p class="text-blue-200 text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Inventário de Avaliação Pediátrica</p>
                 </div>
             </div>
         </header>
 
         <main class="p-6 space-y-6">
+            
+            <div class="bg-slate-100 p-1.5 rounded-2xl flex relative w-full max-w-sm mx-auto shadow-inner">
+                <button @click="mudarModo('rapida')" 
+                        class="flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all z-10"
+                        :class="modo === 'rapida' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'">
+                    Inserção Rápida
+                </button>
+                <button @click="mudarModo('guiada')" 
+                        class="flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all z-10"
+                        :class="modo === 'guiada' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'">
+                    Questionário
+                </button>
+            </div>
+
+            <div class="text-center px-4">
+                <p x-show="modo === 'rapida'" class="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Use as réguas abaixo para inserir os escores que já calculou.</p>
+                <p x-show="modo === 'guiada'" class="text-[11px] font-bold text-emerald-500 uppercase tracking-wide">As réguas são automáticas. Responda às perguntas para preenchê-las.</p>
+            </div>
+
             <form @submit.prevent="salvarAvaliacao" class="space-y-6">
-                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 group hover:border-blue-200 transition-colors">
-                    <div class="flex items-center gap-4 mb-5">
+                
+                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 group transition-colors relative overflow-hidden" :class="modo === 'guiada' ? 'border-blue-200' : ''">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-full -mr-10 -mt-10 opacity-50 pointer-events-none"></div>
+                    
+                    <div class="flex items-center gap-4 mb-5 relative z-10">
                         <div class="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-500 shadow-inner">
                             <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>
                         </div>
                         <h2 class="font-black text-lg text-slate-800 uppercase tracking-tight">Autocuidado</h2>
                     </div>
-                    <label class="block text-xs font-black text-slate-400 mb-3 uppercase tracking-widest flex justify-between">
-                        Nível de Independência <span class="text-blue-600 font-black text-sm" x-text="form.score_autocuidado + '%'"></span>
+
+                    <label class="block text-xs font-black text-slate-400 mb-3 uppercase tracking-widest flex justify-between relative z-10">
+                        Escore Contínuo <span class="text-blue-600 font-black text-sm" x-text="form.score_autocuidado + '/100'"></span>
                     </label>
-                    <input type="range" min="0" max="100" step="5" x-model="form.score_autocuidado" class="w-full h-3 bg-slate-100 rounded-full appearance-none cursor-pointer accent-blue-600">
-                    <div class="flex justify-between text-[10px] text-slate-400 mt-3 font-black uppercase tracking-widest px-1">
-                        <span>Dependente</span>
-                        <span>Independente</span>
+                    <input type="range" min="0" max="100" step="1" x-model="form.score_autocuidado" :disabled="modo === 'guiada'"
+                           class="w-full h-3 bg-slate-100 rounded-full appearance-none accent-blue-600 relative z-10" :class="modo === 'guiada' ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'">
+                    <div class="flex justify-between text-[10px] text-slate-400 mt-3 font-black uppercase tracking-widest px-1 relative z-10 mb-6">
+                        <span>Pobre/Dependente</span>
+                        <span>Domínio Total</span>
+                    </div>
+
+                    <div x-show="modo === 'guiada'" x-collapse class="pt-4 border-t border-slate-50 space-y-4">
+                        <span class="text-[10px] font-black text-blue-500 uppercase tracking-widest">Habilidades Funcionais (0 ou 1)</span>
+                        <template x-for="(q, index) in questoes.autocuidado" :key="index">
+                            <div class="flex items-center justify-between gap-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                <span class="text-xs font-bold text-slate-600 leading-tight flex-1" x-text="q.texto"></span>
+                                <div class="flex gap-1 shrink-0">
+                                    <button type="button" @click="responder('autocuidado', index, 0)" :class="q.resposta === 0 ? 'bg-red-500 text-white' : 'bg-white text-slate-400 border border-slate-200'" class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all">0</button>
+                                    <button type="button" @click="responder('autocuidado', index, 1)" :class="q.resposta === 1 ? 'bg-blue-500 text-white' : 'bg-white text-slate-400 border border-slate-200'" class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all">1</button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="mt-4 pt-4 border-t border-slate-50 relative z-10">
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Assistência do Cuidador (Autocuidado)</label>
+                        <select x-model="form.assistencia_autocuidado" class="w-full bg-slate-50 border-none rounded-2xl px-4 py-3 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                            <option value="" disabled selected>Selecione a assistência...</option>
+                            <option value="Total">Total (0)</option>
+                            <option value="Máxima">Máxima (1)</option>
+                            <option value="Moderada">Moderada (2)</option>
+                            <option value="Mínima">Mínima (3)</option>
+                            <option value="Supervisão">Supervisão (4)</option>
+                            <option value="Independente">Independente (5)</option>
+                        </select>
                     </div>
                 </div>
 
-                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 group hover:border-emerald-200 transition-colors">
-                    <div class="flex items-center gap-4 mb-5">
+                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 group transition-colors relative overflow-hidden" :class="modo === 'guiada' ? 'border-emerald-200' : ''">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-full -mr-10 -mt-10 opacity-50 pointer-events-none"></div>
+                    
+                    <div class="flex items-center gap-4 mb-5 relative z-10">
                         <div class="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-500 shadow-inner">
                             <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                         </div>
                         <h2 class="font-black text-lg text-slate-800 uppercase tracking-tight">Mobilidade</h2>
                     </div>
-                    <label class="block text-xs font-black text-slate-400 mb-3 uppercase tracking-widest flex justify-between">
-                        Nível de Independência <span class="text-emerald-600 font-black text-sm" x-text="form.score_mobilidade + '%'"></span>
+
+                    <label class="block text-xs font-black text-slate-400 mb-3 uppercase tracking-widest flex justify-between relative z-10">
+                        Escore Contínuo <span class="text-emerald-600 font-black text-sm" x-text="form.score_mobilidade + '/100'"></span>
                     </label>
-                    <input type="range" min="0" max="100" step="5" x-model="form.score_mobilidade" class="w-full h-3 bg-slate-100 rounded-full appearance-none cursor-pointer accent-emerald-600">
-                    <div class="flex justify-between text-[10px] text-slate-400 mt-3 font-black uppercase tracking-widest px-1">
-                        <span>Dependente</span>
-                        <span>Independente</span>
+                    <input type="range" min="0" max="100" step="1" x-model="form.score_mobilidade" :disabled="modo === 'guiada'"
+                           class="w-full h-3 bg-slate-100 rounded-full appearance-none accent-emerald-600 relative z-10" :class="modo === 'guiada' ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'">
+                    <div class="flex justify-between text-[10px] text-slate-400 mt-3 font-black uppercase tracking-widest px-1 relative z-10 mb-6">
+                        <span>Pobre/Dependente</span>
+                        <span>Domínio Total</span>
+                    </div>
+
+                    <div x-show="modo === 'guiada'" x-collapse class="pt-4 border-t border-slate-50 space-y-4">
+                        <span class="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Habilidades Funcionais (0 ou 1)</span>
+                        <template x-for="(q, index) in questoes.mobilidade" :key="index">
+                            <div class="flex items-center justify-between gap-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                <span class="text-xs font-bold text-slate-600 leading-tight flex-1" x-text="q.texto"></span>
+                                <div class="flex gap-1 shrink-0">
+                                    <button type="button" @click="responder('mobilidade', index, 0)" :class="q.resposta === 0 ? 'bg-red-500 text-white' : 'bg-white text-slate-400 border border-slate-200'" class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all">0</button>
+                                    <button type="button" @click="responder('mobilidade', index, 1)" :class="q.resposta === 1 ? 'bg-emerald-500 text-white' : 'bg-white text-slate-400 border border-slate-200'" class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all">1</button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="mt-4 pt-4 border-t border-slate-50 relative z-10">
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Assistência do Cuidador (Mobilidade)</label>
+                        <select x-model="form.assistencia_mobilidade" class="w-full bg-slate-50 border-none rounded-2xl px-4 py-3 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all">
+                            <option value="" disabled selected>Selecione a assistência...</option>
+                            <option value="Total">Total (0)</option>
+                            <option value="Máxima">Máxima (1)</option>
+                            <option value="Moderada">Moderada (2)</option>
+                            <option value="Mínima">Mínima (3)</option>
+                            <option value="Supervisão">Supervisão (4)</option>
+                            <option value="Independente">Independente (5)</option>
+                        </select>
                     </div>
                 </div>
 
-                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 group hover:border-purple-200 transition-colors">
-                    <div class="flex items-center gap-4 mb-5">
+                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 group transition-colors relative overflow-hidden" :class="modo === 'guiada' ? 'border-purple-200' : ''">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-purple-50 rounded-full -mr-10 -mt-10 opacity-50 pointer-events-none"></div>
+                    
+                    <div class="flex items-center gap-4 mb-5 relative z-10">
                         <div class="w-12 h-12 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-500 shadow-inner">
                             <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                         </div>
                         <h2 class="font-black text-lg text-slate-800 uppercase tracking-tight">Função Social</h2>
                     </div>
-                    <label class="block text-xs font-black text-slate-400 mb-3 uppercase tracking-widest flex justify-between">
-                        Nível de Independência <span class="text-purple-600 font-black text-sm" x-text="form.score_funcao_social + '%'"></span>
+
+                    <label class="block text-xs font-black text-slate-400 mb-3 uppercase tracking-widest flex justify-between relative z-10">
+                        Escore Contínuo <span class="text-purple-600 font-black text-sm" x-text="form.score_funcao_social + '/100'"></span>
                     </label>
-                    <input type="range" min="0" max="100" step="5" x-model="form.score_funcao_social" class="w-full h-3 bg-slate-100 rounded-full appearance-none cursor-pointer accent-purple-600">
-                    <div class="flex justify-between text-[10px] text-slate-400 mt-3 font-black uppercase tracking-widest px-1">
-                        <span>Dependente</span>
-                        <span>Independente</span>
+                    <input type="range" min="0" max="100" step="1" x-model="form.score_funcao_social" :disabled="modo === 'guiada'"
+                           class="w-full h-3 bg-slate-100 rounded-full appearance-none accent-purple-600 relative z-10" :class="modo === 'guiada' ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'">
+                    <div class="flex justify-between text-[10px] text-slate-400 mt-3 font-black uppercase tracking-widest px-1 relative z-10 mb-6">
+                        <span>Pobre/Dependente</span>
+                        <span>Domínio Total</span>
+                    </div>
+
+                    <div x-show="modo === 'guiada'" x-collapse class="pt-4 border-t border-slate-50 space-y-4">
+                        <span class="text-[10px] font-black text-purple-500 uppercase tracking-widest">Habilidades Funcionais (0 ou 1)</span>
+                        <template x-for="(q, index) in questoes.social" :key="index">
+                            <div class="flex items-center justify-between gap-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                <span class="text-xs font-bold text-slate-600 leading-tight flex-1" x-text="q.texto"></span>
+                                <div class="flex gap-1 shrink-0">
+                                    <button type="button" @click="responder('social', index, 0)" :class="q.resposta === 0 ? 'bg-red-500 text-white' : 'bg-white text-slate-400 border border-slate-200'" class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all">0</button>
+                                    <button type="button" @click="responder('social', index, 1)" :class="q.resposta === 1 ? 'bg-purple-500 text-white' : 'bg-white text-slate-400 border border-slate-200'" class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all">1</button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="mt-4 pt-4 border-t border-slate-50 relative z-10">
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Assistência do Cuidador (Social)</label>
+                        <select x-model="form.assistencia_social" class="w-full bg-slate-50 border-none rounded-2xl px-4 py-3 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-purple-500 transition-all">
+                            <option value="" disabled selected>Selecione a assistência...</option>
+                            <option value="Total">Total (0)</option>
+                            <option value="Máxima">Máxima (1)</option>
+                            <option value="Moderada">Moderada (2)</option>
+                            <option value="Mínima">Mínima (3)</option>
+                            <option value="Supervisão">Supervisão (4)</option>
+                            <option value="Independente">Independente (5)</option>
+                        </select>
                     </div>
                 </div>
 
-                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 space-y-4">
-                    <div>
-                        <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Assistência do Cuidador</label>
-                        <select x-model="form.assistencia_cuidador" class="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all">
-                            <option value="" disabled selected>Selecione...</option>
-                            <option value="Total">Total (Dependente)</option>
-                            <option value="Máxima">Máxima Assistência</option>
-                            <option value="Moderada">Moderada Assistência</option>
-                            <option value="Mínima">Mínima Assistência</option>
-                            <option value="Supervisão">Supervisão / Dica Verbal</option>
-                            <option value="Independente">Independente</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Notas Clínicas</label>
-                        <textarea x-model="form.observacoes" rows="3" placeholder="Anotações sobre autonomia..." class="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 shadow-inner resize-none"></textarea>
-                    </div>
+                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
+                    <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Notas Clínicas e Comportamentais</label>
+                    <textarea x-model="form.observacoes" rows="3" placeholder="Anotações gerais do PEDI..." class="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 shadow-inner resize-none"></textarea>
                 </div>
 
                 <div class="fixed bottom-0 max-w-4xl w-full p-4 bg-white/90 backdrop-blur-md border-t z-50">
@@ -2596,16 +3019,103 @@ ARQUIVO: app\templates\pedi.html
             return {
                 pacienteId: id,
                 salvando: false,
-                form: { score_autocuidado: 50, score_mobilidade: 50, score_funcao_social: 50, assistencia_cuidador: '', observacoes: '' },
+                modo: 'rapida', // 'rapida' ou 'guiada'
+                
+                form: { 
+                    score_autocuidado: 0, 
+                    score_mobilidade: 0, 
+                    score_funcao_social: 0, 
+                    assistencia_autocuidado: '', 
+                    assistencia_mobilidade: '', 
+                    assistencia_social: '', 
+                    observacoes: '' 
+                },
+
+                // Amostra estrutural real de perguntas do PEDI para a Dra. Edna. 
+                // Ela pode adicionar quantas perguntas quiser aqui dentro do código futuramente.
+                questoes: {
+                    autocuidado: [
+                        { texto: "Alimentação: Come alimentos com texturas variadas", resposta: null },
+                        { texto: "Alimentação: Usa colher / garfo sem derramar muito", resposta: null },
+                        { texto: "Higiene: Lava e seca as mãos de forma independente", resposta: null },
+                        { texto: "Vestuário: Veste a camisa/camiseta sozinho", resposta: null },
+                        { texto: "Vestuário: Consegue amarrar os sapatos ou fechar velcro", resposta: null }
+                    ],
+                    mobilidade: [
+                        { texto: "Transferência: Entra e sai da cama sem ajuda", resposta: null },
+                        { texto: "Transferência: Senta e levanta do vaso sanitário sozinho", resposta: null },
+                        { texto: "Locomoção: Anda por toda a casa sem bater ou cair", resposta: null },
+                        { texto: "Escadas: Sobe e desce um lance inteiro alternando os pés", resposta: null },
+                        { texto: "Ambiente externo: Anda no quintal/rua sem perder o equilíbrio", resposta: null }
+                    ],
+                    social: [
+                        { texto: "Compreensão: Entende frases complexas de duas ou três ordens", resposta: null },
+                        { texto: "Expressão: Conta o que aconteceu no seu dia de forma clara", resposta: null },
+                        { texto: "Resolução de Problemas: Pede ajuda quando algo dá errado", resposta: null },
+                        { texto: "Brincadeira: Brinca de forma interativa e com regras com outras crianças", resposta: null },
+                        { texto: "Segurança: Sabe evitar perigos claros (ex: faca, fogo, rua movimentada)", resposta: null }
+                    ]
+                },
+
+                mudarModo(novoModo) {
+                    this.modo = novoModo;
+                    if(novoModo === 'guiada') {
+                        // Força o recálculo imediato caso já tenha respostas gravadas
+                        this.calcularEscore('autocuidado');
+                        this.calcularEscore('mobilidade');
+                        this.calcularEscore('social');
+                    }
+                },
+
+                responder(categoria, index, valor) {
+                    this.questoes[categoria][index].resposta = valor;
+                    this.calcularEscore(categoria);
+                },
+
+                calcularEscore(categoria) {
+                    if (this.modo !== 'guiada') return;
+
+                    const arrayQuestoes = this.questoes[categoria];
+                    // Quantas perguntas foram respondidas?
+                    const respondidas = arrayQuestoes.filter(q => q.resposta !== null);
+                    
+                    if (respondidas.length === 0) {
+                        this.form['score_' + categoria] = 0;
+                        return;
+                    }
+
+                    // Soma dos "Capazes" (1)
+                    const acertos = respondidas.reduce((soma, q) => soma + q.resposta, 0);
+                    
+                    // Converte para Escore Contínuo (Regra de 3 simples baseada no respondido)
+                    // Na versão final clínica, pode-se aplicar a tabela de conversão exata do manual do PEDI
+                    let percentual = Math.round((acertos / respondidas.length) * 100);
+                    
+                    this.form['score_' + categoria] = percentual;
+                },
+
                 salvarAvaliacao() {
+                    // Validação básica do Módulo Rápido vs Guiado
+                    if (this.form.score_autocuidado === 0 && this.form.score_mobilidade === 0 && this.form.score_funcao_social === 0) {
+                        if(!confirm("Os escores estão zerados. Tem certeza que deseja salvar assim?")) return;
+                    }
+
                     this.salvando = true;
                     fetch('/api/pedi/' + this.pacienteId, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(this.form)
-                    }).then(res => res.json()).then(() => {
-                        alert('Avaliação Salva!'); window.location.href = '/paciente/' + this.pacienteId;
-                    }).catch(() => { this.salvando = false; });
+                    }).then(res => {
+                        if(res.ok) {
+                            alert('Avaliação PEDI Salva com Sucesso!');
+                            window.location.href = '/paciente/' + this.pacienteId;
+                        } else {
+                            throw new Error("Erro na gravação");
+                        }
+                    }).catch(err => { 
+                        alert("Erro ao salvar PEDI.");
+                        this.salvando = false; 
+                    });
                 }
             }
         }
