@@ -103,10 +103,10 @@
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                             </button>
                             
-                            <div class="relative mx-auto w-20 h-20 mb-4 group cursor-pointer" @click="$refs.fotoInput.click()">
-                                <div class="w-full h-full rounded-full bg-clinica-100 flex items-center justify-center text-clinica-600 font-black text-3xl shadow-inner uppercase overflow-hidden border-4 border-white group-hover:border-clinica-500 transition-all relative z-10">
+                            <div class="relative mx-auto w-24 h-24 mb-4 group cursor-pointer" @click="$refs.fotoInput.click()">
+                                <div class="w-full h-full rounded-full bg-clinica-100 flex items-center justify-center text-clinica-600 font-black text-3xl shadow-lg uppercase overflow-hidden border-4 border-white group-hover:border-clinica-500 transition-all relative z-10 shrink-0">
                                     <template x-if="paciente.foto_url">
-                                        <img :src="paciente.foto_url" class="w-full h-full object-cover">
+                                        <img :src="paciente.foto_url" class="w-full h-full object-cover object-top">
                                     </template>
                                     <template x-if="!paciente.foto_url">
                                         <span x-text="paciente.nome.charAt(0)"></span>
@@ -497,7 +497,6 @@
                         this.historicoEvolucoes = Array.isArray(dadosConsultas) ? dadosConsultas : [];
                         this.carregando = false;
                         
-                        // Após carregar os dados, renderiza o gráfico no próximo ciclo do DOM
                         this.$nextTick(() => {
                             this.renderizarGrafico();
                         });
@@ -508,7 +507,6 @@
                     });
                 },
 
-                // ADICIONADO: Verifica se existem sessões Realizadas com notas preenchidas
                 temDadosParaGrafico() {
                     if (!this.historicoEvolucoes || this.historicoEvolucoes.length === 0) return false;
                     const validas = this.historicoEvolucoes.filter(e => e.status === 'Realizado' && e.micro_metas && 
@@ -517,27 +515,23 @@
                     return validas.length > 0;
                 },
 
-                // ADICIONADO: Função que constrói e desenha o Gráfico Chart.js
                 renderizarGrafico() {
                     if (!this.temDadosParaGrafico()) return;
 
                     const ctx = document.getElementById('gasChart');
                     if (!ctx) return;
 
-                    // Filtra as realizadas e inverte para ficar cronológico (da mais antiga para a mais nova)
                     const sessoesValidas = this.historicoEvolucoes
                         .filter(e => e.status === 'Realizado' && e.micro_metas)
                         .slice()
                         .reverse();
 
-                    // Formata as datas (Ex: "2023-10-25 14:00" -> "25/10")
                     const labels = sessoesValidas.map(e => {
                         let partes = e.data_hora.split(' ')[0].split('-');
                         if(partes.length === 3) return `${partes[2]}/${partes[1]}`;
                         return e.data_hora;
                     });
 
-                    // Extrai as notas (se for null, não plota ponto naquele dia)
                     const dataAutocuidado = sessoesValidas.map(e => e.micro_metas.autocuidado !== undefined ? e.micro_metas.autocuidado : null);
                     const dataMobilidade = sessoesValidas.map(e => e.micro_metas.mobilidade !== undefined ? e.micro_metas.mobilidade : null);
                     const dataSocial = sessoesValidas.map(e => e.micro_metas.funcao_social !== undefined ? e.micro_metas.funcao_social : null);
