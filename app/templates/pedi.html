@@ -7,6 +7,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    </style>
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased font-sans" x-data="avaliacaoPedi({{ paciente_id }})">
 
@@ -19,82 +24,177 @@
                 </a>
                 <div>
                     <h1 class="text-xl font-black uppercase tracking-widest">Anamnese PEDI</h1>
-                    <p class="text-blue-200 text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Habilidades Funcionais</p>
+                    <p class="text-blue-200 text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Inventário de Avaliação Pediátrica</p>
                 </div>
             </div>
         </header>
 
         <main class="p-6 space-y-6">
+            
+            <div class="bg-slate-100 p-1.5 rounded-2xl flex relative w-full max-w-sm mx-auto shadow-inner">
+                <button @click="mudarModo('rapida')" 
+                        class="flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all z-10"
+                        :class="modo === 'rapida' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'">
+                    Inserção Rápida
+                </button>
+                <button @click="mudarModo('guiada')" 
+                        class="flex-1 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all z-10"
+                        :class="modo === 'guiada' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'">
+                    Questionário
+                </button>
+            </div>
+
+            <div class="text-center px-4">
+                <p x-show="modo === 'rapida'" class="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Use as réguas abaixo para inserir os escores que já calculou.</p>
+                <p x-show="modo === 'guiada'" class="text-[11px] font-bold text-emerald-500 uppercase tracking-wide">As réguas são automáticas. Responda às perguntas para preenchê-las.</p>
+            </div>
+
             <form @submit.prevent="salvarAvaliacao" class="space-y-6">
-                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 group hover:border-blue-200 transition-colors">
-                    <div class="flex items-center gap-4 mb-5">
+                
+                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 group transition-colors relative overflow-hidden" :class="modo === 'guiada' ? 'border-blue-200' : ''">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-full -mr-10 -mt-10 opacity-50 pointer-events-none"></div>
+                    
+                    <div class="flex items-center gap-4 mb-5 relative z-10">
                         <div class="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-500 shadow-inner">
                             <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>
                         </div>
                         <h2 class="font-black text-lg text-slate-800 uppercase tracking-tight">Autocuidado</h2>
                     </div>
-                    <label class="block text-xs font-black text-slate-400 mb-3 uppercase tracking-widest flex justify-between">
-                        Nível de Independência <span class="text-blue-600 font-black text-sm" x-text="form.score_autocuidado + '%'"></span>
+
+                    <label class="block text-xs font-black text-slate-400 mb-3 uppercase tracking-widest flex justify-between relative z-10">
+                        Escore Contínuo <span class="text-blue-600 font-black text-sm" x-text="form.score_autocuidado + '/100'"></span>
                     </label>
-                    <input type="range" min="0" max="100" step="5" x-model="form.score_autocuidado" class="w-full h-3 bg-slate-100 rounded-full appearance-none cursor-pointer accent-blue-600">
-                    <div class="flex justify-between text-[10px] text-slate-400 mt-3 font-black uppercase tracking-widest px-1">
-                        <span>Dependente</span>
-                        <span>Independente</span>
+                    <input type="range" min="0" max="100" step="1" x-model="form.score_autocuidado" :disabled="modo === 'guiada'"
+                           class="w-full h-3 bg-slate-100 rounded-full appearance-none accent-blue-600 relative z-10" :class="modo === 'guiada' ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'">
+                    <div class="flex justify-between text-[10px] text-slate-400 mt-3 font-black uppercase tracking-widest px-1 relative z-10 mb-6">
+                        <span>Pobre/Dependente</span>
+                        <span>Domínio Total</span>
+                    </div>
+
+                    <div x-show="modo === 'guiada'" x-collapse class="pt-4 border-t border-slate-50 space-y-4">
+                        <span class="text-[10px] font-black text-blue-500 uppercase tracking-widest">Habilidades Funcionais (0 ou 1)</span>
+                        <template x-for="(q, index) in questoes.autocuidado" :key="index">
+                            <div class="flex items-center justify-between gap-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                <span class="text-xs font-bold text-slate-600 leading-tight flex-1" x-text="q.texto"></span>
+                                <div class="flex gap-1 shrink-0">
+                                    <button type="button" @click="responder('autocuidado', index, 0)" :class="q.resposta === 0 ? 'bg-red-500 text-white' : 'bg-white text-slate-400 border border-slate-200'" class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all">0</button>
+                                    <button type="button" @click="responder('autocuidado', index, 1)" :class="q.resposta === 1 ? 'bg-blue-500 text-white' : 'bg-white text-slate-400 border border-slate-200'" class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all">1</button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="mt-4 pt-4 border-t border-slate-50 relative z-10">
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Assistência do Cuidador (Autocuidado)</label>
+                        <select x-model="form.assistencia_autocuidado" class="w-full bg-slate-50 border-none rounded-2xl px-4 py-3 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                            <option value="" disabled selected>Selecione a assistência...</option>
+                            <option value="Total">Total (0)</option>
+                            <option value="Máxima">Máxima (1)</option>
+                            <option value="Moderada">Moderada (2)</option>
+                            <option value="Mínima">Mínima (3)</option>
+                            <option value="Supervisão">Supervisão (4)</option>
+                            <option value="Independente">Independente (5)</option>
+                        </select>
                     </div>
                 </div>
 
-                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 group hover:border-emerald-200 transition-colors">
-                    <div class="flex items-center gap-4 mb-5">
+                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 group transition-colors relative overflow-hidden" :class="modo === 'guiada' ? 'border-emerald-200' : ''">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-full -mr-10 -mt-10 opacity-50 pointer-events-none"></div>
+                    
+                    <div class="flex items-center gap-4 mb-5 relative z-10">
                         <div class="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-500 shadow-inner">
                             <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                         </div>
                         <h2 class="font-black text-lg text-slate-800 uppercase tracking-tight">Mobilidade</h2>
                     </div>
-                    <label class="block text-xs font-black text-slate-400 mb-3 uppercase tracking-widest flex justify-between">
-                        Nível de Independência <span class="text-emerald-600 font-black text-sm" x-text="form.score_mobilidade + '%'"></span>
+
+                    <label class="block text-xs font-black text-slate-400 mb-3 uppercase tracking-widest flex justify-between relative z-10">
+                        Escore Contínuo <span class="text-emerald-600 font-black text-sm" x-text="form.score_mobilidade + '/100'"></span>
                     </label>
-                    <input type="range" min="0" max="100" step="5" x-model="form.score_mobilidade" class="w-full h-3 bg-slate-100 rounded-full appearance-none cursor-pointer accent-emerald-600">
-                    <div class="flex justify-between text-[10px] text-slate-400 mt-3 font-black uppercase tracking-widest px-1">
-                        <span>Dependente</span>
-                        <span>Independente</span>
+                    <input type="range" min="0" max="100" step="1" x-model="form.score_mobilidade" :disabled="modo === 'guiada'"
+                           class="w-full h-3 bg-slate-100 rounded-full appearance-none accent-emerald-600 relative z-10" :class="modo === 'guiada' ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'">
+                    <div class="flex justify-between text-[10px] text-slate-400 mt-3 font-black uppercase tracking-widest px-1 relative z-10 mb-6">
+                        <span>Pobre/Dependente</span>
+                        <span>Domínio Total</span>
+                    </div>
+
+                    <div x-show="modo === 'guiada'" x-collapse class="pt-4 border-t border-slate-50 space-y-4">
+                        <span class="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Habilidades Funcionais (0 ou 1)</span>
+                        <template x-for="(q, index) in questoes.mobilidade" :key="index">
+                            <div class="flex items-center justify-between gap-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                <span class="text-xs font-bold text-slate-600 leading-tight flex-1" x-text="q.texto"></span>
+                                <div class="flex gap-1 shrink-0">
+                                    <button type="button" @click="responder('mobilidade', index, 0)" :class="q.resposta === 0 ? 'bg-red-500 text-white' : 'bg-white text-slate-400 border border-slate-200'" class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all">0</button>
+                                    <button type="button" @click="responder('mobilidade', index, 1)" :class="q.resposta === 1 ? 'bg-emerald-500 text-white' : 'bg-white text-slate-400 border border-slate-200'" class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all">1</button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="mt-4 pt-4 border-t border-slate-50 relative z-10">
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Assistência do Cuidador (Mobilidade)</label>
+                        <select x-model="form.assistencia_mobilidade" class="w-full bg-slate-50 border-none rounded-2xl px-4 py-3 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 transition-all">
+                            <option value="" disabled selected>Selecione a assistência...</option>
+                            <option value="Total">Total (0)</option>
+                            <option value="Máxima">Máxima (1)</option>
+                            <option value="Moderada">Moderada (2)</option>
+                            <option value="Mínima">Mínima (3)</option>
+                            <option value="Supervisão">Supervisão (4)</option>
+                            <option value="Independente">Independente (5)</option>
+                        </select>
                     </div>
                 </div>
 
-                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 group hover:border-purple-200 transition-colors">
-                    <div class="flex items-center gap-4 mb-5">
+                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 group transition-colors relative overflow-hidden" :class="modo === 'guiada' ? 'border-purple-200' : ''">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-purple-50 rounded-full -mr-10 -mt-10 opacity-50 pointer-events-none"></div>
+                    
+                    <div class="flex items-center gap-4 mb-5 relative z-10">
                         <div class="w-12 h-12 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-500 shadow-inner">
                             <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                         </div>
                         <h2 class="font-black text-lg text-slate-800 uppercase tracking-tight">Função Social</h2>
                     </div>
-                    <label class="block text-xs font-black text-slate-400 mb-3 uppercase tracking-widest flex justify-between">
-                        Nível de Independência <span class="text-purple-600 font-black text-sm" x-text="form.score_funcao_social + '%'"></span>
+
+                    <label class="block text-xs font-black text-slate-400 mb-3 uppercase tracking-widest flex justify-between relative z-10">
+                        Escore Contínuo <span class="text-purple-600 font-black text-sm" x-text="form.score_funcao_social + '/100'"></span>
                     </label>
-                    <input type="range" min="0" max="100" step="5" x-model="form.score_funcao_social" class="w-full h-3 bg-slate-100 rounded-full appearance-none cursor-pointer accent-purple-600">
-                    <div class="flex justify-between text-[10px] text-slate-400 mt-3 font-black uppercase tracking-widest px-1">
-                        <span>Dependente</span>
-                        <span>Independente</span>
+                    <input type="range" min="0" max="100" step="1" x-model="form.score_funcao_social" :disabled="modo === 'guiada'"
+                           class="w-full h-3 bg-slate-100 rounded-full appearance-none accent-purple-600 relative z-10" :class="modo === 'guiada' ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'">
+                    <div class="flex justify-between text-[10px] text-slate-400 mt-3 font-black uppercase tracking-widest px-1 relative z-10 mb-6">
+                        <span>Pobre/Dependente</span>
+                        <span>Domínio Total</span>
+                    </div>
+
+                    <div x-show="modo === 'guiada'" x-collapse class="pt-4 border-t border-slate-50 space-y-4">
+                        <span class="text-[10px] font-black text-purple-500 uppercase tracking-widest">Habilidades Funcionais (0 ou 1)</span>
+                        <template x-for="(q, index) in questoes.social" :key="index">
+                            <div class="flex items-center justify-between gap-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                <span class="text-xs font-bold text-slate-600 leading-tight flex-1" x-text="q.texto"></span>
+                                <div class="flex gap-1 shrink-0">
+                                    <button type="button" @click="responder('social', index, 0)" :class="q.resposta === 0 ? 'bg-red-500 text-white' : 'bg-white text-slate-400 border border-slate-200'" class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all">0</button>
+                                    <button type="button" @click="responder('social', index, 1)" :class="q.resposta === 1 ? 'bg-purple-500 text-white' : 'bg-white text-slate-400 border border-slate-200'" class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all">1</button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="mt-4 pt-4 border-t border-slate-50 relative z-10">
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Assistência do Cuidador (Social)</label>
+                        <select x-model="form.assistencia_social" class="w-full bg-slate-50 border-none rounded-2xl px-4 py-3 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-purple-500 transition-all">
+                            <option value="" disabled selected>Selecione a assistência...</option>
+                            <option value="Total">Total (0)</option>
+                            <option value="Máxima">Máxima (1)</option>
+                            <option value="Moderada">Moderada (2)</option>
+                            <option value="Mínima">Mínima (3)</option>
+                            <option value="Supervisão">Supervisão (4)</option>
+                            <option value="Independente">Independente (5)</option>
+                        </select>
                     </div>
                 </div>
 
-                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 space-y-4">
-                    <div>
-                        <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Assistência do Cuidador</label>
-                        <select x-model="form.assistencia_cuidador" class="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 transition-all">
-                            <option value="" disabled selected>Selecione...</option>
-                            <option value="Total">Total (Dependente)</option>
-                            <option value="Máxima">Máxima Assistência</option>
-                            <option value="Moderada">Moderada Assistência</option>
-                            <option value="Mínima">Mínima Assistência</option>
-                            <option value="Supervisão">Supervisão / Dica Verbal</option>
-                            <option value="Independente">Independente</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Notas Clínicas</label>
-                        <textarea x-model="form.observacoes" rows="3" placeholder="Anotações sobre autonomia..." class="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 shadow-inner resize-none"></textarea>
-                    </div>
+                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
+                    <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Notas Clínicas e Comportamentais</label>
+                    <textarea x-model="form.observacoes" rows="3" placeholder="Anotações gerais do PEDI..." class="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 shadow-inner resize-none"></textarea>
                 </div>
 
                 <div class="fixed bottom-0 max-w-4xl w-full p-4 bg-white/90 backdrop-blur-md border-t z-50">
@@ -112,16 +212,103 @@
             return {
                 pacienteId: id,
                 salvando: false,
-                form: { score_autocuidado: 50, score_mobilidade: 50, score_funcao_social: 50, assistencia_cuidador: '', observacoes: '' },
+                modo: 'rapida', // 'rapida' ou 'guiada'
+                
+                form: { 
+                    score_autocuidado: 0, 
+                    score_mobilidade: 0, 
+                    score_funcao_social: 0, 
+                    assistencia_autocuidado: '', 
+                    assistencia_mobilidade: '', 
+                    assistencia_social: '', 
+                    observacoes: '' 
+                },
+
+                // Amostra estrutural real de perguntas do PEDI para a Dra. Edna. 
+                // Ela pode adicionar quantas perguntas quiser aqui dentro do código futuramente.
+                questoes: {
+                    autocuidado: [
+                        { texto: "Alimentação: Come alimentos com texturas variadas", resposta: null },
+                        { texto: "Alimentação: Usa colher / garfo sem derramar muito", resposta: null },
+                        { texto: "Higiene: Lava e seca as mãos de forma independente", resposta: null },
+                        { texto: "Vestuário: Veste a camisa/camiseta sozinho", resposta: null },
+                        { texto: "Vestuário: Consegue amarrar os sapatos ou fechar velcro", resposta: null }
+                    ],
+                    mobilidade: [
+                        { texto: "Transferência: Entra e sai da cama sem ajuda", resposta: null },
+                        { texto: "Transferência: Senta e levanta do vaso sanitário sozinho", resposta: null },
+                        { texto: "Locomoção: Anda por toda a casa sem bater ou cair", resposta: null },
+                        { texto: "Escadas: Sobe e desce um lance inteiro alternando os pés", resposta: null },
+                        { texto: "Ambiente externo: Anda no quintal/rua sem perder o equilíbrio", resposta: null }
+                    ],
+                    social: [
+                        { texto: "Compreensão: Entende frases complexas de duas ou três ordens", resposta: null },
+                        { texto: "Expressão: Conta o que aconteceu no seu dia de forma clara", resposta: null },
+                        { texto: "Resolução de Problemas: Pede ajuda quando algo dá errado", resposta: null },
+                        { texto: "Brincadeira: Brinca de forma interativa e com regras com outras crianças", resposta: null },
+                        { texto: "Segurança: Sabe evitar perigos claros (ex: faca, fogo, rua movimentada)", resposta: null }
+                    ]
+                },
+
+                mudarModo(novoModo) {
+                    this.modo = novoModo;
+                    if(novoModo === 'guiada') {
+                        // Força o recálculo imediato caso já tenha respostas gravadas
+                        this.calcularEscore('autocuidado');
+                        this.calcularEscore('mobilidade');
+                        this.calcularEscore('social');
+                    }
+                },
+
+                responder(categoria, index, valor) {
+                    this.questoes[categoria][index].resposta = valor;
+                    this.calcularEscore(categoria);
+                },
+
+                calcularEscore(categoria) {
+                    if (this.modo !== 'guiada') return;
+
+                    const arrayQuestoes = this.questoes[categoria];
+                    // Quantas perguntas foram respondidas?
+                    const respondidas = arrayQuestoes.filter(q => q.resposta !== null);
+                    
+                    if (respondidas.length === 0) {
+                        this.form['score_' + categoria] = 0;
+                        return;
+                    }
+
+                    // Soma dos "Capazes" (1)
+                    const acertos = respondidas.reduce((soma, q) => soma + q.resposta, 0);
+                    
+                    // Converte para Escore Contínuo (Regra de 3 simples baseada no respondido)
+                    // Na versão final clínica, pode-se aplicar a tabela de conversão exata do manual do PEDI
+                    let percentual = Math.round((acertos / respondidas.length) * 100);
+                    
+                    this.form['score_' + categoria] = percentual;
+                },
+
                 salvarAvaliacao() {
+                    // Validação básica do Módulo Rápido vs Guiado
+                    if (this.form.score_autocuidado === 0 && this.form.score_mobilidade === 0 && this.form.score_funcao_social === 0) {
+                        if(!confirm("Os escores estão zerados. Tem certeza que deseja salvar assim?")) return;
+                    }
+
                     this.salvando = true;
                     fetch('/api/pedi/' + this.pacienteId, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(this.form)
-                    }).then(res => res.json()).then(() => {
-                        alert('Avaliação Salva!'); window.location.href = '/paciente/' + this.pacienteId;
-                    }).catch(() => { this.salvando = false; });
+                    }).then(res => {
+                        if(res.ok) {
+                            alert('Avaliação PEDI Salva com Sucesso!');
+                            window.location.href = '/paciente/' + this.pacienteId;
+                        } else {
+                            throw new Error("Erro na gravação");
+                        }
+                    }).catch(err => { 
+                        alert("Erro ao salvar PEDI.");
+                        this.salvando = false; 
+                    });
                 }
             }
         }
