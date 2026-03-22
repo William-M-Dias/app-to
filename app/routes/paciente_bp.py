@@ -106,15 +106,15 @@ def upload_foto(id):
     if arquivo.filename == '':
         return jsonify({"erro": "Arquivo sem nome"}), 400
 
-    # MUDANÇA: Usa os.path.join passo a passo para evitar erros de barra no SO
-    upload_path = os.path.join(current_app.root_path, 'static', 'uploads', 'perfil')
+    # SOLUÇÃO DEFINITIVA: Usa o static_folder para encontrar a pasta verdadeira do projeto
+    upload_path = os.path.join(current_app.static_folder, 'uploads', 'perfil')
+    
     if not os.path.exists(upload_path):
         os.makedirs(upload_path, exist_ok=True)
 
     filename = secure_filename(f"avatar_{id}_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg")
     arquivo.save(os.path.join(upload_path, filename))
     
-    # MUDANÇA: Usa url_for para gerar a rota pública que o HTML consegue ler sempre
     paciente.foto_url = url_for('static', filename=f'uploads/perfil/{filename}')
     db.session.commit()
     
