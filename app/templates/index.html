@@ -146,13 +146,13 @@
                         Próximos Atendimentos
                     </h2>
                     
-                    <button x-show="agenda.length > 0" @click="abrirModalAgendamento()" class="bg-slate-800 hover:bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-sm active:scale-95 transition-all">
+                    <button x-show="agendaVisual.length > 0 || agendaHoje.length > 0" @click="abrirModalAgendamento()" class="bg-slate-800 hover:bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-sm active:scale-95 transition-all">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                         Agendar
                     </button>
                 </div>
 
-                <template x-if="agenda.length === 0 && !carregando">
+                <template x-if="agendaVisual.length === 0 && !carregando">
                     <div class="bg-white/80 backdrop-blur-sm p-10 rounded-3xl border-2 border-dashed border-clinica-200 text-center shadow-sm relative overflow-hidden group">
                         <div class="absolute inset-0 bg-gradient-to-br from-clinica-50 to-transparent opacity-50"></div>
                         <svg class="mx-auto h-16 w-16 text-clinica-300 mb-4 relative z-10 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -166,10 +166,18 @@
                     </div>
                 </template>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <template x-for="item in agenda" :key="item.id">
+                <div x-show="agendaVisual.length > 0" class="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar gap-4 pb-4 items-stretch px-1" style="scroll-behavior: smooth;">
+                    
+                    <div class="min-w-[160px] shrink-0 snap-start flex items-center justify-center">
+                        <button @click="carregarPassado()" class="h-full w-full bg-slate-100/50 hover:bg-slate-200 border-2 border-dashed border-slate-300 rounded-3xl text-slate-500 font-black uppercase tracking-widest text-[10px] flex flex-col items-center justify-center gap-2 transition-colors active:scale-95">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                            Histórico<br>Anterior
+                        </button>
+                    </div>
+
+                    <template x-for="item in agendaVisual" :key="item.id">
                         <div @click="window.location.href = '/paciente/' + item.paciente_id" 
-                             class="bg-white/90 backdrop-blur-sm p-6 rounded-3xl shadow-md border-l-4 hover:-translate-y-1 transition-all cursor-pointer group flex items-center gap-4"
+                             class="min-w-[320px] w-[320px] shrink-0 snap-center bg-white/90 backdrop-blur-sm p-6 rounded-3xl shadow-md border-l-4 hover:-translate-y-1 transition-all cursor-pointer group flex items-center gap-4"
                              :class="isHoje(item.data) ? 'border-clinica-500 shadow-clinica-100' : 'border-slate-300'">
                             
                             <div class="w-14 h-14 rounded-full bg-clinica-100 flex items-center justify-center text-clinica-600 font-black text-xl overflow-hidden shrink-0 border-2 border-white shadow-sm transition-colors group-hover:border-clinica-300">
@@ -195,7 +203,15 @@
                             </div>
                         </div>
                     </template>
+
+                    <div class="min-w-[160px] shrink-0 snap-start flex items-center justify-center" x-show="temMaisFuturo">
+                        <button @click="carregarFuturo()" class="h-full w-full bg-clinica-50/50 hover:bg-clinica-100 border-2 border-dashed border-clinica-300 rounded-3xl text-clinica-600 font-black uppercase tracking-widest text-[10px] flex flex-col items-center justify-center gap-2 transition-colors active:scale-95">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                            Carregar<br>Próximos
+                        </button>
+                    </div>
                 </div>
+
             </div>
 
             <div class="bg-white/90 backdrop-blur-sm p-6 rounded-3xl shadow-sm border border-slate-100">
@@ -409,9 +425,9 @@
         function gestaoDashboard() {
             return {
                 pacientes: [],
-                agenda: [],
-                agendaHoje: [],
-                alertas: [], // NOVA VARIÁVEL
+                agendaHoje: [], 
+                agendaVisual: [], 
+                alertas: [], 
                 carregando: true,
                 pesquisa: '',
                 mostrarLista: false, 
@@ -424,25 +440,53 @@
                 modalAgendamentoAberto: false,
                 salvandoAgendamento: false,
                 novoAgendamento: { paciente_id: '', data_hora: '', tipo_sessao: 'Intervenção' },
+                
+                // Variáveis para a Filtração Bidirecional
+                offsetFuturo: 0,
+                offsetPassado: 0,
+                temMaisFuturo: true,
 
                 inicializar() {
                     this.carregando = true;
+                    // Mantemos a chamada para 'agenda' padrão apenas para pegar a contagem de hoje rapidamente.
                     Promise.all([
                         fetch('/api/pacientes/').then(res => res.json()),
                         fetch('/api/consultas/agenda').then(res => res.json()),
-                        // NOVA ROTA DE ALERTAS
                         fetch('/api/pacientes/alertas').then(res => res.json())
                     ]).then(([dadosPacientes, dadosAgenda, dadosAlertas]) => {
                         this.pacientes = dadosPacientes;
-                        this.agenda = Array.isArray(dadosAgenda) ? dadosAgenda : [];
                         this.alertas = Array.isArray(dadosAlertas) ? dadosAlertas : [];
                         
                         const hoje = new Date().toLocaleDateString('pt-BR');
-                        this.agendaHoje = this.agenda.filter(item => item.data === hoje);
-                        this.carregando = false;
+                        this.agendaHoje = Array.isArray(dadosAgenda) ? dadosAgenda.filter(item => item.data === hoje) : [];
+                        
+                        // Busca a paginação (Carrossel Horizontal)
+                        this.carregarFuturo();
+                        
                     }).catch(err => {
                         console.error('Erro ao carregar dashboard:', err);
                         this.carregando = false;
+                    });
+                },
+
+                carregarFuturo() {
+                    fetch(`/api/consultas/agenda_paginada?direcao=futuro&offset=${this.offsetFuturo}&limit=6`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if(data.length < 6) this.temMaisFuturo = false;
+                        this.agendaVisual.push(...data);
+                        this.offsetFuturo += data.length;
+                        this.carregando = false;
+                    });
+                },
+
+                carregarPassado() {
+                    fetch(`/api/consultas/agenda_paginada?direcao=passado&offset=${this.offsetPassado}&limit=6`)
+                    .then(res => res.json())
+                    .then(data => {
+                        // Inverte para colocar na ordem correta da esquerda
+                        this.agendaVisual.unshift(...data.reverse()); 
+                        this.offsetPassado += data.length;
                     });
                 },
 
@@ -473,6 +517,11 @@
                     }).then(res => res.json()).then(data => {
                         if (data.id) { 
                             this.fecharModal(); 
+                            // Reseta o carrossel para forçar a atualização
+                            this.agendaVisual = [];
+                            this.offsetFuturo = 0;
+                            this.offsetPassado = 0;
+                            this.temMaisFuturo = true;
                             this.inicializar(); 
                         }
                         this.salvando = false;
@@ -510,7 +559,14 @@
                         body: JSON.stringify(payload)
                     }).then(res => res.json()).then(data => {
                         this.fecharModalAgendamento();
+                        
+                        // Zera os contadores e recarrega para mostrar o novo agendamento!
+                        this.agendaVisual = [];
+                        this.offsetFuturo = 0;
+                        this.offsetPassado = 0;
+                        this.temMaisFuturo = true;
                         this.inicializar(); 
+                        
                         this.salvandoAgendamento = false;
                         this.novoAgendamento = { paciente_id: '', data_hora: '', tipo_sessao: 'Intervenção' };
                     }).catch(() => { this.salvandoAgendamento = false; });

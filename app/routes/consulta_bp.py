@@ -2,11 +2,12 @@ from flask import Blueprint, request, jsonify
 from app.extensions import db
 from app.models.consulta import Consulta
 from datetime import datetime
+from sqlalchemy import asc, desc
 
 consulta_bp = Blueprint('consulta_bp', __name__, url_prefix='/api/consultas')
 
 # ==========================================
-# NOVA ROTA: O MOTOR DA AGENDA GLOBAL
+# ROTA ORIGINAL: AGENDA GLOBAL
 # ==========================================
 @consulta_bp.route('/agenda', methods=['GET'])
 def agenda_global():
@@ -33,6 +34,54 @@ def agenda_global():
                 "data": c.data_hora.strftime('%d/%m/%Y'),
                 "hora": c.data_hora.strftime('%H:%M'),
                 "tipo_sessao": c.tipo_sessao
+            })
+            
+    return jsonify(resultado), 200
+
+# ==========================================
+# NOVA ROTA: AGENDA PAGINADA (Carrossel)
+# ==========================================
+@consulta_bp.route('/agenda_paginada', methods=['GET'])
+def agenda_paginada():
+    from app.models.paciente import Paciente 
+    
+    direcao = request.args.get('direcao', 'futuro')
+    offset = int(request.args.get('offset', 0))
+    limit = int(request.args.get('limit', 6))
+    
+    hoje = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    if direcao == 'futuro':
+        # De hoje para a frente, ordem cronológica natural
+        consultas = Consulta.query.filter(
+            Consulta.data_hora >= hoje
+        ).order_by(asc(Consulta.data_hora)).offset(offset).limit(limit).all()
+    else:
+        # Antes de hoje, do mais recente para o mais antigo
+        consultas = Consulta.query.filter(
+            Consulta.data_hora < hoje
+        ).order_by(desc(Consulta.data_hora)).offset(offset).limit(limit).all()
+        
+    resultado = []
+    for c in consultas:
+        paciente = Paciente.query.get(c.paciente_id)
+        if paciente:
+            data_obj = c.data_hora
+            # Tratamento caso a data venha como string do banco
+            if isinstance(data_obj, str):
+                try:
+                    data_obj = datetime.strptime(data_obj, '%Y-%m-%d %H:%M:%S')
+                except ValueError:
+                    data_obj = datetime.strptime(data_obj, '%Y-%m-%d %H:%M')
+                    
+            resultado.append({
+                "id": c.id,
+                "paciente_id": paciente.id,
+                "nome_paciente": paciente.nome,
+                "data": data_obj.strftime('%d/%m/%Y'),
+                "hora": data_obj.strftime('%H:%M'),
+                "tipo_sessao": c.tipo_sessao,
+                "status": c.status
             })
             
     return jsonify(resultado), 200
