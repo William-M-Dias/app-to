@@ -122,10 +122,31 @@
             <div class="mb-8">
                 <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 border-b pb-2">Resumo das Últimas Intervenções</h2>
                 <div class="space-y-4">
-                    <template x-for="evo in historicoEvolucoes.slice(0, 5)">
-                        <div class="border-l-2 border-teal-500 pl-4 py-1">
-                            <span class="text-[10px] font-black text-slate-400" x-text="evo.data_hora"></span>
-                            <p class="text-sm font-semibold text-slate-700 mt-1 whitespace-pre-line" x-text="evo.evolucao_texto || 'Sessão com intervenção prática em consultório.'"></p>
+                    <template x-for="evo in historicoEvolucoes.slice(0, 5)" :key="evo.id">
+                        <div class="border-l-4 border-teal-500 pl-4 py-2 bg-slate-50 rounded-r-xl pr-4">
+                            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest" x-text="evo.data_hora"></span>
+                            
+                            <template x-if="evo.micro_metas && (evo.micro_metas.autocuidado !== null || evo.micro_metas.mobilidade !== null || evo.micro_metas.funcao_social !== null)">
+                                <div class="flex flex-wrap gap-2 mt-2 mb-2">
+                                    <template x-if="evo.micro_metas.autocuidado !== null">
+                                        <span class="text-[9px] font-black uppercase px-2 py-1 rounded bg-teal-100 text-teal-800 border border-teal-200">
+                                            Autocuidado: <span x-text="evo.micro_metas.autocuidado > 0 ? '+' + evo.micro_metas.autocuidado : evo.micro_metas.autocuidado"></span>
+                                        </span>
+                                    </template>
+                                    <template x-if="evo.micro_metas.mobilidade !== null">
+                                        <span class="text-[9px] font-black uppercase px-2 py-1 rounded bg-blue-100 text-blue-800 border border-blue-200">
+                                            Mobilidade: <span x-text="evo.micro_metas.mobilidade > 0 ? '+' + evo.micro_metas.mobilidade : evo.micro_metas.mobilidade"></span>
+                                        </span>
+                                    </template>
+                                    <template x-if="evo.micro_metas.funcao_social !== null">
+                                        <span class="text-[9px] font-black uppercase px-2 py-1 rounded bg-rose-100 text-rose-800 border border-rose-200">
+                                            Social: <span x-text="evo.micro_metas.funcao_social > 0 ? '+' + evo.micro_metas.funcao_social : evo.micro_metas.funcao_social"></span>
+                                        </span>
+                                    </template>
+                                </div>
+                            </template>
+
+                            <p class="text-sm font-semibold text-slate-700 mt-2 whitespace-pre-line leading-relaxed" x-text="evo.evolucao_texto || 'Sessão estruturada realizada conforme plano terapêutico.'"></p>
                         </div>
                     </template>
                     <template x-if="historicoEvolucoes.length === 0">
@@ -152,7 +173,7 @@
                 ultimaAnamnese: null, 
                 historicoEvolucoes: [], 
                 carregando: true,
-                temDadosGrafico: false, // Controle de exibição do gráfico
+                temDadosGrafico: false, 
                 
                 carregarDados() {
                     Promise.all([
@@ -164,10 +185,12 @@
                         this.paciente = dadosPaciente;
                         this.avaliacoesPedi = Array.isArray(dadosPedi) ? dadosPedi : [];
                         if (Array.isArray(dadosAnamnese) && dadosAnamnese.length > 0) this.ultimaAnamnese = dadosAnamnese[0];
-                        this.historicoEvolucoes = Array.isArray(dadosConsultas) ? dadosConsultas.filter(c => c.status === 'Realizado') : [];
+                        
+                        // CORREÇÃO AQUI: adicionado o .reverse() para pegar as mais recentes!
+                        this.historicoEvolucoes = Array.isArray(dadosConsultas) ? dadosConsultas.filter(c => c.status === 'Realizado').reverse() : [];
+                        
                         this.carregando = false;
                         
-                        // Espera o Alpine atualizar o DOM e então renderiza o gráfico
                         this.$nextTick(() => {
                             this.renderizarGrafico();
                         });
@@ -187,22 +210,21 @@
                 },
 
                 renderizarGrafico() {
-                    // Filtra apenas as evoluções que têm dados GAS válidos
+                    // Aqui precisa de reverse() novamente porque o array original já foi invertido acima,
+                    // e o Chart.js desenha o eixo X da esquerda (antigo) para a direita (recente).
                     const evolucoesGAS = this.historicoEvolucoes.filter(e => 
                         e.micro_metas && 
                         (e.micro_metas.autocuidado !== null || e.micro_metas.mobilidade !== null || e.micro_metas.funcao_social !== null)
-                    ).reverse(); // Inverte para ordem cronológica (da mais antiga para a mais nova)
+                    ).slice().reverse(); 
 
                     if (evolucoesGAS.length === 0) return;
                     
                     this.temDadosGrafico = true;
 
-                    // Extrai as datas (DD/MM) para o eixo X
                     const labels = evolucoesGAS.map(e => {
                         return e.data_hora.split(' ')[0].split('-').reverse().slice(0, 2).join('/');
                     });
 
-                    // Calcula a média do GAS por sessão
                     const dataEvolucao = evolucoesGAS.map(e => {
                         let sum = 0;
                         let count = 0;
@@ -212,7 +234,6 @@
                         return count > 0 ? parseFloat((sum / count).toFixed(1)) : 0;
                     });
 
-                    // Garante que o canvas existe antes de plotar
                     this.$nextTick(() => {
                         const ctx = document.getElementById('gasChart');
                         if (!ctx) return;
@@ -224,7 +245,7 @@
                                 datasets: [{
                                     label: 'Média GAS',
                                     data: dataEvolucao,
-                                    borderColor: '#0d9488', // clinica-600
+                                    borderColor: '#0d9488', 
                                     backgroundColor: 'rgba(13, 148, 136, 0.1)',
                                     borderWidth: 3,
                                     pointBackgroundColor: '#fff',

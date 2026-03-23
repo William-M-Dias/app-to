@@ -770,15 +770,15 @@ def upload_foto(id):
     if arquivo.filename == '':
         return jsonify({"erro": "Arquivo sem nome"}), 400
 
-    # MUDANÇA: Usa os.path.join passo a passo para evitar erros de barra no SO
-    upload_path = os.path.join(current_app.root_path, 'static', 'uploads', 'perfil')
+    # SOLUÇÃO DEFINITIVA: Usa o static_folder para encontrar a pasta verdadeira do projeto
+    upload_path = os.path.join(current_app.static_folder, 'uploads', 'perfil')
+    
     if not os.path.exists(upload_path):
         os.makedirs(upload_path, exist_ok=True)
 
     filename = secure_filename(f"avatar_{id}_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg")
     arquivo.save(os.path.join(upload_path, filename))
     
-    # MUDANÇA: Usa url_for para gerar a rota pública que o HTML consegue ler sempre
     paciente.foto_url = url_for('static', filename=f'uploads/perfil/{filename}')
     db.session.commit()
     
@@ -1524,8 +1524,8 @@ ARQUIVO: app\templates\index.html
             
             <div class="flex justify-between items-center relative z-10">
                 <div class="flex items-center gap-4">
-                    <div class="w-16 h-16 rounded-2xl border-2 border-white/30 shadow-lg overflow-hidden bg-white/10 backdrop-blur-sm flex items-center justify-center">
-                        <img src="{{ url_for('static', filename='img/edna_perfil.png') }}" alt="Dra. Edna" class="w-full h-full object-cover">
+                    <div class="w-20 h-20 rounded-full border-2 border-white/30 shadow-lg overflow-hidden bg-white/10 backdrop-blur-sm flex items-center justify-center shrink-0">
+                        <img src="{{ url_for('static', filename='img/edna_perfil.png') }}" alt="Dra. Edna" class="w-full h-full object-cover object-top">
                     </div>
                     
                     <div>
@@ -1534,13 +1534,8 @@ ARQUIVO: app\templates\index.html
                     </div>
                 </div>
                 
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-inner overflow-hidden border border-white/20 hidden md:flex">
-                        <img src="{{ url_for('static', filename='img/logo_appto_oficial.png') }}?v=2" alt="Logo" class="w-full h-full object-cover scale-125">
-                    </div>
-                    <a href="/logout" class="bg-red-500/20 text-white border border-red-500/50 hover:bg-red-500 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-2 shadow-sm active:scale-95">
-                        Sair
-                    </a>
+                <div class="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-xl border border-white/20 overflow-hidden hidden md:flex shrink-0">
+                    <img src="{{ url_for('static', filename='img/logo_appto_oficial.png') }}?v=2" alt="Logo APP-TO" class="w-full h-full object-cover">
                 </div>
             </div>
 
@@ -1683,6 +1678,21 @@ ARQUIVO: app\templates\index.html
             </div>
 
         </main>
+
+        <footer class="mt-12 p-8 text-center space-y-6">
+            <a href="/logout" class="inline-flex items-center gap-2 px-6 py-3 bg-red-50 text-red-500 rounded-2xl text-[11px] font-black uppercase tracking-widest border border-red-100 hover:bg-red-500 hover:text-white transition-all active:scale-95 shadow-sm mx-auto">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                Encerrar Sessão Clínica
+            </a>
+
+            <div class="opacity-40 grayscale flex flex-col items-center gap-2">
+                <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Tecnologia e Inovação</span>
+                <div class="flex items-center gap-2">
+                    <div class="w-6 h-6 bg-slate-800 rounded flex items-center justify-center text-white font-black text-[10px]">V</div>
+                    <span class="text-xs font-black text-slate-700 tracking-tight uppercase">Vórtice Hub</span>
+                </div>
+            </div>
+        </footer>
 
         <div x-show="modalAgendamentoAberto" style="display: none;" class="fixed inset-0 z-[60] overflow-y-auto">
             <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
@@ -2270,8 +2280,8 @@ ARQUIVO: app\templates\paciente.html
                     <h1 class="text-xl font-black uppercase tracking-widest drop-shadow-sm">Prontuário</h1>
                 </div>
                 
-                <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-inner overflow-hidden border border-white/20">
-                    <img src="{{ url_for('static', filename='img/logo_appto_oficial.png') }}?v=2" alt="Logo" class="w-full h-full object-cover scale-150">
+                <div class="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-lg overflow-hidden border border-white/20 shrink-0">
+                    <img src="{{ url_for('static', filename='img/logo_appto_oficial.png') }}?v=2" alt="Logo" class="w-full h-full object-cover">
                 </div>
             </div>
         </header>
@@ -2295,10 +2305,10 @@ ARQUIVO: app\templates\paciente.html
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                             </button>
                             
-                            <div class="relative mx-auto w-20 h-20 mb-4 group cursor-pointer" @click="$refs.fotoInput.click()">
-                                <div class="w-full h-full rounded-full bg-clinica-100 flex items-center justify-center text-clinica-600 font-black text-3xl shadow-inner uppercase overflow-hidden border-4 border-white group-hover:border-clinica-500 transition-all relative z-10">
+                            <div class="relative mx-auto w-24 h-24 mb-4 group cursor-pointer" @click="$refs.fotoInput.click()">
+                                <div class="w-full h-full rounded-full bg-clinica-100 flex items-center justify-center text-clinica-600 font-black text-3xl shadow-lg uppercase overflow-hidden border-4 border-white group-hover:border-clinica-500 transition-all relative z-10 shrink-0">
                                     <template x-if="paciente.foto_url">
-                                        <img :src="paciente.foto_url" class="w-full h-full object-cover">
+                                        <img :src="paciente.foto_url" class="w-full h-full object-cover object-top">
                                     </template>
                                     <template x-if="!paciente.foto_url">
                                         <span x-text="paciente.nome.charAt(0)"></span>
@@ -2689,7 +2699,6 @@ ARQUIVO: app\templates\paciente.html
                         this.historicoEvolucoes = Array.isArray(dadosConsultas) ? dadosConsultas : [];
                         this.carregando = false;
                         
-                        // Após carregar os dados, renderiza o gráfico no próximo ciclo do DOM
                         this.$nextTick(() => {
                             this.renderizarGrafico();
                         });
@@ -2700,7 +2709,6 @@ ARQUIVO: app\templates\paciente.html
                     });
                 },
 
-                // ADICIONADO: Verifica se existem sessões Realizadas com notas preenchidas
                 temDadosParaGrafico() {
                     if (!this.historicoEvolucoes || this.historicoEvolucoes.length === 0) return false;
                     const validas = this.historicoEvolucoes.filter(e => e.status === 'Realizado' && e.micro_metas && 
@@ -2709,27 +2717,23 @@ ARQUIVO: app\templates\paciente.html
                     return validas.length > 0;
                 },
 
-                // ADICIONADO: Função que constrói e desenha o Gráfico Chart.js
                 renderizarGrafico() {
                     if (!this.temDadosParaGrafico()) return;
 
                     const ctx = document.getElementById('gasChart');
                     if (!ctx) return;
 
-                    // Filtra as realizadas e inverte para ficar cronológico (da mais antiga para a mais nova)
                     const sessoesValidas = this.historicoEvolucoes
                         .filter(e => e.status === 'Realizado' && e.micro_metas)
                         .slice()
                         .reverse();
 
-                    // Formata as datas (Ex: "2023-10-25 14:00" -> "25/10")
                     const labels = sessoesValidas.map(e => {
                         let partes = e.data_hora.split(' ')[0].split('-');
                         if(partes.length === 3) return `${partes[2]}/${partes[1]}`;
                         return e.data_hora;
                     });
 
-                    // Extrai as notas (se for null, não plota ponto naquele dia)
                     const dataAutocuidado = sessoesValidas.map(e => e.micro_metas.autocuidado !== undefined ? e.micro_metas.autocuidado : null);
                     const dataMobilidade = sessoesValidas.map(e => e.micro_metas.mobilidade !== undefined ? e.micro_metas.mobilidade : null);
                     const dataSocial = sessoesValidas.map(e => e.micro_metas.funcao_social !== undefined ? e.micro_metas.funcao_social : null);

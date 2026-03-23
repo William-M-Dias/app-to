@@ -102,7 +102,43 @@
         </header>
 
         <main class="p-6 space-y-10">
-            
+
+            <template x-if="alertas.length > 0">
+                <div class="relative">
+                    <h2 class="text-sm font-black text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-amber-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L1 21h22L12 2zm1 16h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+                        Alertas de Prontidão 
+                    </h2>
+                    <div class="space-y-3">
+                        <template x-for="alerta in alertas" :key="alerta.paciente_id">
+                            <div @click="window.location.href = '/paciente/' + alerta.paciente_id" 
+                                 class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-2xl shadow-sm cursor-pointer hover:bg-amber-100 transition-colors flex items-start gap-4">
+                                
+                                <div class="w-12 h-12 rounded-full bg-amber-200 flex items-center justify-center text-amber-700 font-black text-lg shrink-0 overflow-hidden border-2 border-white shadow-sm">
+                                    <template x-if="alerta.foto_url">
+                                        <img :src="alerta.foto_url" class="w-full h-full object-cover object-top">
+                                    </template>
+                                    <template x-if="!alerta.foto_url">
+                                        <span x-text="alerta.nome_paciente.charAt(0)"></span>
+                                    </template>
+                                </div>
+
+                                <div class="flex-1">
+                                    <h3 class="font-black text-slate-800 text-sm" x-text="alerta.nome_paciente"></h3>
+                                    <ul class="mt-1.5 space-y-1.5">
+                                        <template x-for="motivo in alerta.motivos">
+                                            <li class="text-xs font-bold text-amber-800 flex items-start gap-1.5 leading-tight">
+                                                <span class="text-amber-500 mt-0.5">•</span>
+                                                <span x-text="motivo"></span>
+                                            </li>
+                                        </template>
+                                    </ul>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
             <div class="relative">
                 <div class="flex justify-between items-end mb-4">
                     <h2 class="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
@@ -375,6 +411,7 @@
                 pacientes: [],
                 agenda: [],
                 agendaHoje: [],
+                alertas: [], // NOVA VARIÁVEL
                 carregando: true,
                 pesquisa: '',
                 mostrarLista: false, 
@@ -392,10 +429,14 @@
                     this.carregando = true;
                     Promise.all([
                         fetch('/api/pacientes/').then(res => res.json()),
-                        fetch('/api/consultas/agenda').then(res => res.json())
-                    ]).then(([dadosPacientes, dadosAgenda]) => {
+                        fetch('/api/consultas/agenda').then(res => res.json()),
+                        // NOVA ROTA DE ALERTAS
+                        fetch('/api/pacientes/alertas').then(res => res.json())
+                    ]).then(([dadosPacientes, dadosAgenda, dadosAlertas]) => {
                         this.pacientes = dadosPacientes;
                         this.agenda = Array.isArray(dadosAgenda) ? dadosAgenda : [];
+                        this.alertas = Array.isArray(dadosAlertas) ? dadosAlertas : [];
+                        
                         const hoje = new Date().toLocaleDateString('pt-BR');
                         this.agendaHoje = this.agenda.filter(item => item.data === hoje);
                         this.carregando = false;
