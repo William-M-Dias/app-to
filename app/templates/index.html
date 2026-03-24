@@ -119,12 +119,12 @@
                                         <img :src="alerta.foto_url" class="w-full h-full object-cover object-top">
                                     </template>
                                     <template x-if="!alerta.foto_url">
-                                        <span x-text="alerta.nome_paciente.charAt(0)"></span>
+                                        <span x-text="alerta.nome_paciente ? alerta.nome_paciente.trim().charAt(0).toUpperCase() : '?'"></span>
                                     </template>
                                 </div>
 
-                                <div class="flex-1">
-                                    <h3 class="font-black text-slate-800 text-sm" x-text="alerta.nome_paciente"></h3>
+                                <div class="flex-1 min-w-0 overflow-hidden">
+                                    <h3 class="font-black text-slate-800 text-sm truncate" x-text="alerta.nome_paciente"></h3>
                                     <ul class="mt-1.5 space-y-1.5">
                                         <template x-for="motivo in alerta.motivos">
                                             <li class="text-xs font-bold text-amber-800 flex items-start gap-1.5 leading-tight">
@@ -185,11 +185,11 @@
                                     <img :src="getPacienteFoto(item.paciente_id)" class="w-full h-full object-cover">
                                 </template>
                                 <template x-if="!getPacienteFoto(item.paciente_id)">
-                                    <span x-text="item.nome_paciente.charAt(0)"></span>
+                                    <span x-text="item.nome_paciente ? item.nome_paciente.trim().charAt(0).toUpperCase() : '?'"></span>
                                 </template>
                             </div>
 
-                            <div class="flex-1 min-w-0">
+                            <div class="flex-1 min-w-0 overflow-hidden">
                                 <div class="flex justify-between items-start mb-1">
                                     <div>
                                         <span class="text-2xl font-black text-slate-800" x-text="item.hora"></span>
@@ -199,7 +199,7 @@
                                     </div>
                                 </div>
                                 <h3 class="font-black text-slate-700 text-lg truncate group-hover:text-clinica-600 transition-colors" x-text="item.nome_paciente"></h3>
-                                <p class="text-slate-400 text-xs font-bold uppercase tracking-widest" x-text="item.tipo_sessao"></p>
+                                <p class="text-slate-400 text-xs font-bold uppercase tracking-widest truncate" x-text="item.tipo_sessao"></p>
                             </div>
                         </div>
                     </template>
@@ -244,13 +244,13 @@
                                     <img :src="paciente.foto_url" class="w-full h-full object-cover">
                                 </template>
                                 <template x-if="!paciente.foto_url">
-                                    <span x-text="paciente.nome.charAt(0)"></span>
+                                    <span x-text="paciente.nome ? paciente.nome.trim().charAt(0).toUpperCase() : '?'"></span>
                                 </template>
                             </div>
 
-                            <div class="flex-1 min-w-0">
+                            <div class="flex-1 min-w-0 overflow-hidden">
                                 <h3 class="font-black text-slate-700 text-sm truncate mb-0.5 group-hover:text-slate-900" x-text="paciente.nome"></h3>
-                                <span class="inline-block text-slate-400 text-[9px] font-bold truncate uppercase tracking-wider" 
+                                <span class="block w-full text-slate-400 text-[9px] font-bold truncate uppercase tracking-wider" 
                                       x-text="paciente.diagnostico || 'Triagem Inicial'"></span>
                             </div>
                             <div class="shrink-0 text-slate-300 group-hover:text-clinica-500 transition-colors">

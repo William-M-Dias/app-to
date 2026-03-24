@@ -13,7 +13,6 @@ consulta_bp = Blueprint('consulta_bp', __name__, url_prefix='/api/consultas')
 def agenda_global():
     from app.models.paciente import Paciente 
     
-    # Pega o dia de hoje (Fuso Horário Brasil UTC-3) a partir da meia-noite
     hoje_brasil = datetime.utcnow() - timedelta(hours=3)
     hoje_meia_noite = hoje_brasil.replace(hour=0, minute=0, second=0, microsecond=0)
     
@@ -48,19 +47,14 @@ def agenda_paginada():
     offset = int(request.args.get('offset', 0))
     limit = int(request.args.get('limit', 6))
     
-    # A MÁGICA DO WILLIAM: O momento atual (Brasil) MENOS 60 minutos de tolerância
-    # (50 min de sessão + 10 min de intervalo). 
-    # Assim, o paciente em atendimento continua visível no carrossel principal.
     agora = datetime.utcnow() - timedelta(hours=3)
     linha_de_corte = agora - timedelta(minutes=60)
     
     if direcao == 'futuro':
-        # Do corte para a frente (inclui o paciente que está na sala agora)
         consultas = Consulta.query.filter(
             Consulta.data_hora >= linha_de_corte
         ).order_by(asc(Consulta.data_hora)).offset(offset).limit(limit).all()
     else:
-        # Antes do corte (pacientes que já foram embora e terminaram a sessão)
         consultas = Consulta.query.filter(
             Consulta.data_hora < linha_de_corte
         ).order_by(desc(Consulta.data_hora)).offset(offset).limit(limit).all()
@@ -101,35 +95,75 @@ def listar_consultas_paciente(paciente_id):
     } for c in consultas]
     return jsonify(resultado), 200
 
+# ==========================================
+# ROTA INTELIGENTE DE REGISTRO / EVOLUÇÃO
+# ==========================================
 @consulta_bp.route('/', methods=['POST'])
 def registrar_evolucao():
     dados = request.get_json()
     
-    if not dados or not dados.get('paciente_id') or not dados.get('data_hora'):
+    if not dados or not dados.get('paciente_id'):
         return jsonify({"erro": "Dados incompletos para registo."}), 400
         
     try:
-        data_string = dados['data_hora']
+        paciente_id = dados['paciente_id']
+        status_recebido = dados.get('status', 'Realizado')
+        
+        # Formatação segura da data
+        data_string = dados.get('data_hora')
+        if not data_string:
+            data_string = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d %H:%M')
+            
         if 'T' in data_string:
             data_string = data_string.replace('T', ' ')
         if len(data_string) == 10:
             data_string += ' 00:00'
             
-        data_hora_consulta = datetime.strptime(data_string, '%Y-%m-%d %H:%M')
+        data_hora_requisicao = datetime.strptime(data_string, '%Y-%m-%d %H:%M')
+        data_apenas = data_hora_requisicao.date()
         
-        nova_consulta = Consulta(
-            paciente_id=dados['paciente_id'],
-            data_hora=data_hora_consulta,
-            tipo_sessao=dados.get('tipo_sessao', 'Intervenção de Rotina'),
-            status=dados.get('status', 'Realizado'),
-            evolucao_texto=dados.get('evolucao_texto', ''),
-            micro_metas=dados.get('micro_metas', {})
-        )
+        consulta_existente = None
         
-        db.session.add(nova_consulta)
-        db.session.commit()
-        return jsonify({"mensagem": "Registo salvo com sucesso!"}), 201
-        
+        # A MÁGICA: Se ela estiver dando BAIXA (Realizado ou Falta)
+        # Vamos buscar o agendamento original do dia para ATUALIZAR em vez de duplicar
+        if status_recebido in ['Realizado', 'Falta']:
+            inicio_dia = datetime.combine(data_apenas, datetime.min.time())
+            fim_dia = datetime.combine(data_apenas, datetime.max.time())
+            
+            consulta_existente = Consulta.query.filter(
+                Consulta.paciente_id == paciente_id,
+                Consulta.data_hora >= inicio_dia,
+                Consulta.data_hora <= fim_dia,
+                Consulta.status == 'Agendado'
+            ).first()
+            
+        if consulta_existente:
+            # ATUALIZA O CARD EXISTENTE (Mantém a hora das 10:00 intacta!)
+            consulta_existente.status = status_recebido
+            consulta_existente.evolucao_texto = dados.get('evolucao_texto', '')
+            consulta_existente.micro_metas = dados.get('micro_metas', {})
+            
+            if 'tipo_sessao' in dados:
+                consulta_existente.tipo_sessao = dados['tipo_sessao']
+                
+            db.session.commit()
+            return jsonify({"mensagem": "Agenda atualizada com evolução/falta!"}), 200
+            
+        else:
+            # CRIA UM CARD NOVO (Apenas se não tinha agenda hoje, ou se está marcando uma nova data futura)
+            nova_consulta = Consulta(
+                paciente_id=paciente_id,
+                data_hora=data_hora_requisicao,
+                tipo_sessao=dados.get('tipo_sessao', 'Intervenção de Rotina'),
+                status=status_recebido,
+                evolucao_texto=dados.get('evolucao_texto', ''),
+                micro_metas=dados.get('micro_metas', {})
+            )
+            
+            db.session.add(nova_consulta)
+            db.session.commit()
+            return jsonify({"mensagem": "Novo registo salvo com sucesso!"}), 201
+            
     except Exception as e:
         db.session.rollback()
         return jsonify({"erro": str(e)}), 500
