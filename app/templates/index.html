@@ -146,7 +146,7 @@
                         Próximos Atendimentos
                     </h2>
                     
-                    <button x-show="agendaVisual.length > 0 || agendaHoje.length > 0" @click="abrirModalAgendamento()" class="bg-slate-800 hover:bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-sm active:scale-95 transition-all">
+                    <button @click="abrirModalAgendamento()" class="bg-slate-800 hover:bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-sm active:scale-95 transition-all">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                         Agendar
                     </button>
@@ -168,10 +168,10 @@
 
                 <div x-show="agendaVisual.length > 0" class="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar gap-4 pb-4 items-stretch px-1" style="scroll-behavior: smooth;">
                     
-                    <div class="min-w-[160px] shrink-0 snap-start flex items-center justify-center">
+                    <div class="min-w-[120px] shrink-0 snap-start flex items-center justify-center" x-show="temMaisPassado">
                         <button @click="carregarPassado()" class="h-full w-full bg-slate-100/50 hover:bg-slate-200 border-2 border-dashed border-slate-300 rounded-3xl text-slate-500 font-black uppercase tracking-widest text-[10px] flex flex-col items-center justify-center gap-2 transition-colors active:scale-95">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
-                            Histórico<br>Anterior
+                            Anterior
                         </button>
                     </div>
 
@@ -204,10 +204,10 @@
                         </div>
                     </template>
 
-                    <div class="min-w-[160px] shrink-0 snap-start flex items-center justify-center" x-show="temMaisFuturo">
+                    <div class="min-w-[120px] shrink-0 snap-start flex items-center justify-center" x-show="temMaisFuturo">
                         <button @click="carregarFuturo()" class="h-full w-full bg-clinica-50/50 hover:bg-clinica-100 border-2 border-dashed border-clinica-300 rounded-3xl text-clinica-600 font-black uppercase tracking-widest text-[10px] flex flex-col items-center justify-center gap-2 transition-colors active:scale-95">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-                            Carregar<br>Próximos
+                            Próximo
                         </button>
                     </div>
                 </div>
@@ -445,10 +445,10 @@
                 offsetFuturo: 0,
                 offsetPassado: 0,
                 temMaisFuturo: true,
+                temMaisPassado: true,
 
                 inicializar() {
                     this.carregando = true;
-                    // Mantemos a chamada para 'agenda' padrão apenas para pegar a contagem de hoje rapidamente.
                     Promise.all([
                         fetch('/api/pacientes/').then(res => res.json()),
                         fetch('/api/consultas/agenda').then(res => res.json()),
@@ -460,7 +460,7 @@
                         const hoje = new Date().toLocaleDateString('pt-BR');
                         this.agendaHoje = Array.isArray(dadosAgenda) ? dadosAgenda.filter(item => item.data === hoje) : [];
                         
-                        // Busca a paginação (Carrossel Horizontal)
+                        // Busca a paginação (Carrossel Horizontal) do momento atual para frente
                         this.carregarFuturo();
                         
                     }).catch(err => {
@@ -474,8 +474,11 @@
                     .then(res => res.json())
                     .then(data => {
                         if(data.length < 6) this.temMaisFuturo = false;
-                        this.agendaVisual.push(...data);
-                        this.offsetFuturo += data.length;
+                        
+                        if (data.length > 0) {
+                            this.agendaVisual = [...this.agendaVisual, ...data];
+                            this.offsetFuturo += data.length;
+                        }
                         this.carregando = false;
                     });
                 },
@@ -484,9 +487,13 @@
                     fetch(`/api/consultas/agenda_paginada?direcao=passado&offset=${this.offsetPassado}&limit=6`)
                     .then(res => res.json())
                     .then(data => {
-                        // Inverte para colocar na ordem correta da esquerda
-                        this.agendaVisual.unshift(...data.reverse()); 
-                        this.offsetPassado += data.length;
+                        if (data.length < 6) this.temMaisPassado = false;
+                        
+                        if (data.length > 0) {
+                            // Coloca os antigos no início da lista!
+                            this.agendaVisual = [...data.reverse(), ...this.agendaVisual]; 
+                            this.offsetPassado += data.length;
+                        }
                     });
                 },
 
@@ -517,11 +524,11 @@
                     }).then(res => res.json()).then(data => {
                         if (data.id) { 
                             this.fecharModal(); 
-                            // Reseta o carrossel para forçar a atualização
                             this.agendaVisual = [];
                             this.offsetFuturo = 0;
                             this.offsetPassado = 0;
                             this.temMaisFuturo = true;
+                            this.temMaisPassado = true;
                             this.inicializar(); 
                         }
                         this.salvando = false;
@@ -560,11 +567,11 @@
                     }).then(res => res.json()).then(data => {
                         this.fecharModalAgendamento();
                         
-                        // Zera os contadores e recarrega para mostrar o novo agendamento!
                         this.agendaVisual = [];
                         this.offsetFuturo = 0;
                         this.offsetPassado = 0;
                         this.temMaisFuturo = true;
+                        this.temMaisPassado = true;
                         this.inicializar(); 
                         
                         this.salvandoAgendamento = false;

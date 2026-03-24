@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from app.extensions import db
 from app.models.consulta import Consulta
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import asc, desc
 
 consulta_bp = Blueprint('consulta_bp', __name__, url_prefix='/api/consultas')
@@ -11,16 +11,15 @@ consulta_bp = Blueprint('consulta_bp', __name__, url_prefix='/api/consultas')
 # ==========================================
 @consulta_bp.route('/agenda', methods=['GET'])
 def agenda_global():
-    # Importação local para evitar choque com outros módulos
     from app.models.paciente import Paciente 
     
-    # Pega o dia de hoje, a partir da meia-noite
-    hoje = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    # Pega o dia de hoje (Fuso Horário Brasil UTC-3) a partir da meia-noite
+    hoje_brasil = datetime.utcnow() - timedelta(hours=3)
+    hoje_meia_noite = hoje_brasil.replace(hour=0, minute=0, second=0, microsecond=0)
     
-    # Filtra tudo que for 'Agendado' e que a data seja de hoje para a frente
     consultas = Consulta.query.filter(
         Consulta.status == 'Agendado',
-        Consulta.data_hora >= hoje
+        Consulta.data_hora >= hoje_meia_noite
     ).order_by(Consulta.data_hora.asc()).all()
     
     resultado = []
@@ -39,7 +38,7 @@ def agenda_global():
     return jsonify(resultado), 200
 
 # ==========================================
-# NOVA ROTA: AGENDA PAGINADA (Carrossel)
+# ROTA: AGENDA PAGINADA (Carrossel Horizontal)
 # ==========================================
 @consulta_bp.route('/agenda_paginada', methods=['GET'])
 def agenda_paginada():
@@ -49,17 +48,21 @@ def agenda_paginada():
     offset = int(request.args.get('offset', 0))
     limit = int(request.args.get('limit', 6))
     
-    hoje = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    # A MÁGICA DO WILLIAM: O momento atual (Brasil) MENOS 60 minutos de tolerância
+    # (50 min de sessão + 10 min de intervalo). 
+    # Assim, o paciente em atendimento continua visível no carrossel principal.
+    agora = datetime.utcnow() - timedelta(hours=3)
+    linha_de_corte = agora - timedelta(minutes=60)
     
     if direcao == 'futuro':
-        # De hoje para a frente, ordem cronológica natural
+        # Do corte para a frente (inclui o paciente que está na sala agora)
         consultas = Consulta.query.filter(
-            Consulta.data_hora >= hoje
+            Consulta.data_hora >= linha_de_corte
         ).order_by(asc(Consulta.data_hora)).offset(offset).limit(limit).all()
     else:
-        # Antes de hoje, do mais recente para o mais antigo
+        # Antes do corte (pacientes que já foram embora e terminaram a sessão)
         consultas = Consulta.query.filter(
-            Consulta.data_hora < hoje
+            Consulta.data_hora < linha_de_corte
         ).order_by(desc(Consulta.data_hora)).offset(offset).limit(limit).all()
         
     resultado = []
@@ -67,7 +70,6 @@ def agenda_paginada():
         paciente = Paciente.query.get(c.paciente_id)
         if paciente:
             data_obj = c.data_hora
-            # Tratamento caso a data venha como string do banco
             if isinstance(data_obj, str):
                 try:
                     data_obj = datetime.strptime(data_obj, '%Y-%m-%d %H:%M:%S')
