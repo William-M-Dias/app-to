@@ -146,6 +146,17 @@
                                 </div>
                             </template>
 
+                            <template x-if="evo.micro_metas && evo.micro_metas.atividades && evo.micro_metas.atividades.length > 0">
+                                <div class="mb-3">
+                                    <span class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Atividades Realizadas:</span>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        <template x-for="ativ in evo.micro_metas.atividades">
+                                            <span class="bg-teal-50 text-teal-700 text-[10px] font-bold px-2 py-1 rounded-md border border-teal-100" x-text="ativ"></span>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+
                             <p class="text-sm font-semibold text-slate-700 mt-2 whitespace-pre-line leading-relaxed" x-text="evo.evolucao_texto || 'Sessão estruturada realizada conforme plano terapêutico.'"></p>
                         </div>
                     </template>

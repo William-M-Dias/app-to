@@ -440,7 +440,7 @@
                                     <svg class="h-5 w-5 text-slate-500 transition-transform" :class="{'rotate-180': open}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                                 </button>
                                 <div x-show="open" @click.away="open = false" class="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar p-2">
-                                    <template x-for="opcao in ['TEA - Nível de Suporte 1', 'TEA - Nível de Suporte 2', 'TEA - Nível de Suporte 3', 'TDAH', 'TPS', 'TDC', 'Paralisia Cerebral', 'Síndrome de Down', 'TOD', 'Em Investigação', 'Outro']" :key="opcao">
+                                    <template x-for="opcao in ['TEA - Nível de Suporte 1', 'TEA - Nível de Suporte 2', 'TEA - Nível de Suporte 3', 'TDAH', 'TPS', 'TDC', 'DI - (Deficiência Intelectual)', 'Paralisia Cerebral', 'Síndrome de Down', 'TOD', 'Em Investigação', 'Outro']" :key="opcao">
                                         <label class="flex items-center gap-3 p-3 hover:bg-clinica-50 rounded-lg cursor-pointer">
                                             <input type="checkbox" :value="opcao" x-model="diagnosticosSelecionados" class="w-5 h-5 text-clinica-600 rounded">
                                             <span class="text-sm font-bold text-slate-700" x-text="opcao"></span>
