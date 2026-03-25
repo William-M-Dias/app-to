@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Estatísticas da Clínica | APP-TO</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Nunito', 'sans-serif'] },
+                    colors: { 
+                        clinica: { 50: '#f0fdfa', 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 900: '#134e4a' } 
+                    } 
+                } 
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #f8fafc; font-family: 'Nunito', sans-serif; }
+    </style>
+</head>
+<body class="text-slate-800 antialiased relative min-h-screen" x-data="gestaoEstatisticas()" x-init="carregarDados()">
+
+    <header class="bg-clinica-600 text-white p-6 shadow-lg relative">
+        <div class="max-w-4xl mx-auto flex items-center gap-4">
+            <a href="/" class="p-2 -ml-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors active:scale-95">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+            </a>
+            <div>
+                <h1 class="text-xl font-black uppercase tracking-widest flex items-center gap-2">Gestão e Estatísticas</h1>
+                <p class="text-clinica-100 text-[10px] font-bold uppercase tracking-widest mt-1">Inteligência de Dados APP-TO</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto p-6 space-y-6">
+        
+        <div x-show="carregando" class="flex justify-center items-center py-20">
+            <svg class="animate-spin h-8 w-8 text-clinica-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+        </div>
+
+        <div x-show="!carregando" style="display: none;" class="space-y-6">
+            
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                
+                <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center text-center">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Diretório Ativo</p>
+                    <p class="text-4xl font-black text-clinica-600" x-text="dados.total_pacientes"></p>
+                    <p class="text-[9px] font-bold text-slate-400 mt-1 uppercase">Pacientes</p>
+                </div>
+
+                <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center text-center">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Assiduidade</p>
+                    <p class="text-4xl font-black text-emerald-500" x-text="dados.taxa_assiduidade + '%'"></p>
+                    <p class="text-[9px] font-bold text-slate-400 mt-1 uppercase">Últimos 30 dias</p>
+                </div>
+
+                <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center text-center">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Carga Semanal</p>
+                    <p class="text-4xl font-black text-slate-800" x-text="dados.carga_semana"></p>
+                    <p class="text-[9px] font-bold text-slate-400 mt-1 uppercase">Sessões Programadas</p>
+                </div>
+
+                <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center text-center">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Faltas no Mês</p>
+                    <p class="text-4xl font-black text-rose-500" x-text="dados.sessoes_faltas"></p>
+                    <p class="text-[9px] font-bold text-slate-400 mt-1 uppercase">Últimos 30 dias</p>
+                </div>
+
+            </div>
+
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                <h2 class="text-sm font-black text-slate-800 uppercase tracking-widest mb-6 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-clinica-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg>
+                    Distribuição Clínica (Diagnósticos)
+                </h2>
+                
+                <div class="relative h-64 w-full">
+                    <canvas id="graficoDiagnosticos"></canvas>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        function gestaoEstatisticas() {
+            return {
+                carregando: true,
+                dados: {
+                    total_pacientes: 0,
+                    taxa_assiduidade: 0,
+                    sessoes_faltas: 0,
+                    carga_semana: 0,
+                    grafico_diagnosticos: { labels: [], data: [] }
+                },
+
+                carregarDados() {
+                    fetch('/api/estatisticas/geral')
+                        .then(res => res.json())
+                        .then(data => {
+                            this.dados = data;
+                            this.carregando = false;
+                            
+                            // Adia a renderização do gráfico até o DOM estar visível
+                            setTimeout(() => {
+                                this.renderizarGrafico();
+                            }, 100);
+                        })
+                        .catch(err => {
+                            console.error("Erro ao carregar estatísticas", err);
+                            this.carregando = false;
+                        });
+                },
+
+                renderizarGrafico() {
+                    const ctx = document.getElementById('graficoDiagnosticos');
+                    if (!ctx) return;
+
+                    new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: this.dados.grafico_diagnosticos.labels,
+                            datasets: [{
+                                data: this.dados.grafico_diagnosticos.data,
+                                backgroundColor: [
+                                    '#0d9488', '#14b8a6', '#2dd4bf', '#5eead4', '#99f6e4',
+                                    '#3b82f6', '#8b5cf6', '#f43f5e', '#f59e0b', '#10b981'
+                                ],
+                                borderWidth: 0,
+                                hoverOffset: 4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'right',
+                                    labels: { font: { family: 'Nunito', weight: 'bold', size: 11 } }
+                                }
+                            },
+                            cutout: '70%'
+                        }
+                    });
+                }
+            }
+        }
+    </script>
+</body>
+</html>

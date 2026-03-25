@@ -30,7 +30,6 @@
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         
-        /* ANIMAÇÕES DO FUNDO LÚDICO */
         @keyframes flutuar {
             0%, 100% { transform: translateY(0) rotate(0deg); }
             50% { transform: translateY(-30px) rotate(15deg); }
@@ -84,19 +83,22 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-4 mt-8 relative z-10">
-                <div class="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-5 shadow-inner">
-                    <p class="text-clinica-100 text-[10px] font-black uppercase mb-1 tracking-widest">Sessões Hoje</p>
-                    <div class="flex items-baseline gap-2">
-                        <p class="text-4xl font-black" x-text="agendaHoje.length"></p>
-                        <span class="text-clinica-200 text-xs font-bold uppercase tracking-wider">Agendadas</span>
-                    </div>
+            <div class="grid grid-cols-3 gap-3 mt-8 relative z-10">
+                <div class="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-4 shadow-inner flex flex-col justify-center items-center text-center">
+                    <p class="text-clinica-100 text-[9px] font-black uppercase mb-1 tracking-widest">Hoje</p>
+                    <p class="text-3xl font-black" x-text="agendaHoje.length"></p>
                 </div>
-                <button @click="abrirModalCadastro()" class="bg-white text-clinica-600 rounded-3xl p-5 flex flex-col items-center justify-center gap-2 hover:bg-clinica-50 shadow-lg hover:shadow-xl active:scale-95 transition-all group border-2 border-transparent hover:border-clinica-200">
-                    <div class="w-10 h-10 rounded-full bg-clinica-50 flex items-center justify-center group-hover:bg-clinica-100 transition-colors">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg>
+                
+                <a href="/estatisticas" class="bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-3xl p-4 flex flex-col items-center justify-center gap-2 hover:bg-white/20 transition-all active:scale-95 group shadow-sm">
+                    <svg class="w-6 h-6 text-clinica-100" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    <span class="text-[9px] font-black uppercase tracking-widest text-center">Gestão</span>
+                </a>
+
+                <button @click="abrirModalCadastro()" class="bg-white text-clinica-600 rounded-3xl p-4 flex flex-col items-center justify-center gap-2 hover:bg-clinica-50 shadow-lg hover:shadow-xl active:scale-95 transition-all group border-2 border-transparent hover:border-clinica-200">
+                    <div class="w-7 h-7 rounded-full bg-clinica-50 flex items-center justify-center group-hover:bg-clinica-100 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg>
                     </div>
-                    <span class="text-[11px] font-black uppercase tracking-widest">Novo Paciente</span>
+                    <span class="text-[9px] font-black uppercase tracking-widest text-center">Novo<br>Paciente</span>
                 </button>
             </div>
         </header>
@@ -140,12 +142,7 @@
                 </div>
             </template>
             <div class="relative">
-                <div class="flex justify-between items-end mb-4">
-                    <h2 class="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
-                        <svg class="w-5 h-5 text-clinica-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                        Próximos Atendimentos
-                    </h2>
-                    
+                <div class="flex justify-end items-end mb-4">
                     <div class="flex items-center gap-2">
                         <a href="/agenda" class="bg-clinica-50 hover:bg-clinica-100 text-clinica-600 border border-clinica-200 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-sm active:scale-95 transition-all">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
@@ -465,7 +462,6 @@
                 agendaVisual: [], 
                 alertas: [], 
                 
-                // MÁGICA: A LISTA DOS SEUS TERAPEUTAS (Gestão de Equipe)
                 profissionais: [
                     { id: 1, nome: 'Dra. Edna Nogueira (T.O.)' },
                     { id: 2, nome: 'Dr. Profissional 2' },
