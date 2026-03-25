@@ -4,90 +4,65 @@ from datetime import datetime
 
 documentacao_bp = Blueprint('documentacao_bp', __name__, url_prefix='/api/documentacao')
 
-class PDFDocumentacao(FPDF):
+class PDFManual(FPDF):
     def header(self):
-        self.set_font('Arial', 'B', 15)
+        self.set_font('Arial', 'B', 16)
         self.set_text_color(13, 148, 136) # Cor clinica-600
-        self.cell(0, 10, 'APP-TO: Documentacao Oficial de Arquitetura', 0, 1, 'C')
-        self.ln(5)
+        self.cell(0, 10, 'APP-TO: Guia Pratico de Uso', 0, 1, 'C')
+        
+        self.set_font('Arial', 'I', 10)
+        self.set_text_color(100, 116, 139) # slate-500
+        self.cell(0, 6, 'Manual Operacional para a Rotina da Clinica', 0, 1, 'C')
+        self.ln(8)
 
     def footer(self):
         self.set_y(-15)
         self.set_font('Arial', 'I', 8)
         self.set_text_color(128)
-        self.cell(0, 10, f'Página {self.page_no()} | Gerado em {datetime.now().strftime("%d/%m/%Y")}', 0, 0, 'C')
+        self.cell(0, 10, f'Página {self.page_no()} | Gerado automaticamente pelo APP-TO em {datetime.now().strftime("%d/%m/%Y")}', 0, 0, 'C')
 
 @documentacao_bp.route('/gerar_pdf', methods=['GET'])
 def gerar_pdf():
-    pdf = PDFDocumentacao()
+    pdf = PDFManual()
     pdf.add_page()
     
-    # --- 1. INTRODUÇÃO ---
-    pdf.set_font('Arial', 'B', 14)
+    # --- 1. PACIENTES ---
+    pdf.set_font('Arial', 'B', 13)
     pdf.set_text_color(30, 41, 59)
-    pdf.cell(0, 10, '1. O Ecossistema (Mapa Mental)', 0, 1)
+    pdf.cell(0, 10, '1. Gestao de Pacientes e Cadastro', 0, 1)
     
     pdf.set_font('Arial', '', 11)
-    mapa_mental = """
-    APP-TO (Sistema de Gestão Clínica T.O.)
-    |
-    |-- FRONTEND (A Cara do Sistema)
-    |   |-- Tailwind CSS (Estilização visual e responsividade)
-    |   |-- Alpine.js (Interatividade leve, modais, abas)
-    |   |-- FullCalendar.js (Motor da Agenda Inteligente)
-    |   |-- Chart.js (Gráficos da tela de Gestão)
-    |
-    |-- BACKEND (O Cérebro)
-    |   |-- Python 3.x + Flask (Servidor e Roteamento)
-    |   |-- SQLAlchemy (Mapeamento do Banco de Dados)
-    |
-    |-- BANCO DE DADOS (A Memória)
-    |   |-- PostgreSQL hospedado no Neon.tech
-    |   |-- Cloudinary (Armazenamento permanente de imagens)
-    """
-    pdf.multi_cell(0, 6, mapa_mental)
-    pdf.ln(5)
+    pdf.multi_cell(0, 6, "Para cadastrar uma nova criança, clique em 'Novo Paciente' na Mesa de Controle. Preencha os dados de contato dos responsáveis, o laudo e a queixa principal.\n\nIMPORTANTE: Se um paciente receber alta ou interromper o tratamento, altere o status dele para 'Inativo' ou 'Alta' no perfil. O APP-TO cancelará automaticamente todas as sessões futuras dessa criança, liberando espaço na agenda da clínica.")
+    pdf.ln(6)
 
-    # --- 2. SOLUÇÃO DE FOTOS ---
-    pdf.set_font('Arial', 'B', 14)
-    pdf.cell(0, 10, '2. Estrutura de Armazenamento de Fotos (Cloudinary)', 0, 1)
+    # --- 2. AGENDA ---
+    pdf.set_font('Arial', 'B', 13)
+    pdf.cell(0, 10, '2. Como Funciona a Agenda Inteligente', 0, 1)
     
     pdf.set_font('Arial', '', 11)
-    texto_fotos = """
-    Devido à natureza de 'discos efêmeros' em servidores de nuvem (como o Render), as imagens 
-    salvas localmente são apagadas durante os deploys. 
-    
-    SOLUÇÃO IMPLEMENTADA:
-    Utilizamos a API do Cloudinary. Quando a clínica faz o upload de um avatar, o backend 
-    direciona o arquivo para o Cloudinary, que o otimiza e devolve uma URL segura (HTTPS). 
-    Apenas essa URL é salva na coluna 'foto_url' do banco de dados Neon. Isso garante que as 
-    fotos jamais sumam, independentemente de reboots do servidor.
-    """
-    pdf.multi_cell(0, 6, texto_fotos)
-    pdf.ln(5)
+    pdf.multi_cell(0, 6, "A agenda permite criar sessões Únicas ou Recorrentes. Ao agendar uma sessão recorrente (ex: repetir por 6 meses), o sistema bloqueará aquele horário semanalmente para o paciente.\n\nREMARCAÇÃO: Na tela de Agenda (Visualização Semanal), você pode simplesmente clicar e arrastar (Drag & Drop) a sessão de um dia para o outro. O banco de dados salva a nova data na hora.\n\nCORES DA AGENDA:\nVerde = Realizado | Vermelho = Falta/Cancelado | Roxo = Recorrente | Azul = Única.")
+    pdf.ln(6)
 
-    # --- 3. PERFORMANCE ---
-    pdf.set_font('Arial', 'B', 14)
-    pdf.cell(0, 10, '3. Otimizacao de Performance (Gargalo N+1)', 0, 1)
+    # --- 3. PRONTUÁRIO ---
+    pdf.set_font('Arial', 'B', 13)
+    pdf.cell(0, 10, '3. Prontuario, Evolucoes e Metas (GAS)', 0, 1)
     
     pdf.set_font('Arial', '', 11)
-    texto_perf = """
-    A página inicial (Mesa de Controle) realiza a verificação de 'Alertas de Prontidão' 
-    cruzando dados de pacientes com o histórico de PEDI e o GAS das últimas 5 consultas.
+    pdf.multi_cell(0, 6, "Ao abrir o perfil do paciente, você encontra a linha do tempo de evolução. Em cada sessão realizada, você pode atribuir notas para as micro-metas (Mobilidade, Autocuidado, etc).\n\nQuando o sistema detectar que a criança está com um desempenho médio alto (Média GAS superior a +1) em várias sessões consecutivas, a Mesa de Controle exibirá um 'Alerta de Prontidão', sugerindo que é o momento ideal para aplicar uma nova Avaliação PEDI.")
+    pdf.ln(6)
     
-    ESTRATÉGIA APLICADA:
-    Em vez de realizar consultas iterativas (N+1 trips), o motor realiza um 'Eager Load' manual 
-    (Bulk Query). Todos os dados necessários são carregados em duas consultas únicas e mapeados 
-    em dicionários na memória do servidor, reduzindo o tempo de carregamento em mais de 95%.
-    """
-    pdf.multi_cell(0, 6, texto_perf)
+    # --- 4. ESTATÍSTICAS ---
+    pdf.set_font('Arial', 'B', 13)
+    pdf.cell(0, 10, '4. Painel de Gestao', 0, 1)
+    
+    pdf.set_font('Arial', '', 11)
+    pdf.multi_cell(0, 6, "Acesse a aba 'Gestão' para ter um panorama completo da clínica. Lá você visualizará gráficos de assiduidade (presenças vs. faltas) e o progresso clínico geral. Isso facilita a tomada de decisão terapêutica e financeira do consultório.")
 
-    # Gerando o binário do PDF
+    # Gera o arquivo
     pdf_bytes = pdf.output(dest='S').encode('latin-1')
 
-    # Enviando para o navegador baixar
     response = make_response(pdf_bytes)
     response.headers['Content-Type'] = 'application/pdf'
-    response.headers['Content-Disposition'] = 'attachment; filename=APP-TO_Documentacao_Arquitetura.pdf'
+    response.headers['Content-Disposition'] = 'attachment; filename=Manual_de_Uso_APP-TO.pdf'
     
     return response
