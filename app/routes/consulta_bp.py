@@ -7,9 +7,6 @@ import uuid
 
 consulta_bp = Blueprint('consulta_bp', __name__, url_prefix='/api/consultas')
 
-# ==========================================
-# ROTA ORIGINAL: AGENDA GLOBAL
-# ==========================================
 @consulta_bp.route('/agenda', methods=['GET'])
 def agenda_global():
     from app.models.paciente import Paciente 
@@ -37,9 +34,6 @@ def agenda_global():
             
     return jsonify(resultado), 200
 
-# ==========================================
-# ROTA: AGENDA PAGINADA (Carrossel Horizontal)
-# ==========================================
 @consulta_bp.route('/agenda_paginada', methods=['GET'])
 def agenda_paginada():
     from app.models.paciente import Paciente 
@@ -96,9 +90,6 @@ def listar_consultas_paciente(paciente_id):
     } for c in consultas]
     return jsonify(resultado), 200
 
-# ==========================================
-# ROTA INTELIGENTE DE REGISTRO / EVOLUÇÃO / RECORRÊNCIA
-# ==========================================
 @consulta_bp.route('/', methods=['POST'])
 def registrar_evolucao():
     dados = request.get_json()
@@ -220,21 +211,21 @@ def deletar_consulta(id):
         db.session.rollback()
         return jsonify({"erro": str(e)}), 500
 
-# =====================================================================
-# NOVO: ROTAS DO CALENDÁRIO VISUAL (FULLCALENDAR) - FASE 4
-# =====================================================================
 @consulta_bp.route('/calendario', methods=['GET'])
 def obter_eventos_calendario():
     from app.models.paciente import Paciente
     
-    # O FullCalendar envia 'start' e 'end' na URL automaticamente quando a tela é carregada
     start_str = request.args.get('start')
     end_str = request.args.get('end')
+    prof_id = request.args.get('profissional_id')
     
-    query = Consulta.query.filter(Consulta.status == 'Agendado')
+    query = Consulta.query
+    
+    # Filtro opcional por profissional
+    if prof_id:
+        query = query.filter(Consulta.profissional_id == int(prof_id))
     
     if start_str and end_str:
-        # Pega só a parte da data (AAAA-MM-DD)
         start_date = datetime.strptime(start_str[:10], '%Y-%m-%d')
         end_date = datetime.strptime(end_str[:10], '%Y-%m-%d')
         query = query.filter(Consulta.data_hora >= start_date, Consulta.data_hora <= end_date)
@@ -245,16 +236,27 @@ def obter_eventos_calendario():
     for c in consultas:
         paciente = Paciente.query.get(c.paciente_id)
         if paciente:
-            # Se não houver data_fim, estima 50 minutos para desenhar o bloco perfeitamente
             fim_estimado = c.data_fim if c.data_fim else c.data_hora + timedelta(minutes=50)
             
+            cor_fundo = "#0d9488" 
+            
+            if c.status == 'Realizado':
+                cor_fundo = "#10b981" 
+            elif c.status in ['Falta', 'Cancelado']:
+                cor_fundo = "#ef4444" 
+            elif c.recorrente:
+                cor_fundo = "#7e22ce" 
+            
+            titulo = f"{paciente.nome}"
+            if c.status != 'Agendado':
+                titulo = f"{paciente.nome} ({c.status})"
+
             eventos.append({
                 "id": c.id,
-                "title": f"{paciente.nome}",
+                "title": titulo,
                 "start": c.data_hora.isoformat(),
                 "end": fim_estimado.isoformat(),
-                # Sessões únicas ficam verde-água (teal), recorrentes ficam roxas (purple)
-                "backgroundColor": "#0d9488" if not c.recorrente else "#7e22ce", 
+                "backgroundColor": cor_fundo, 
                 "borderColor": "transparent"
             })
             
@@ -272,7 +274,6 @@ def mover_consulta(id):
         return jsonify({"erro": "Nova data não informada"}), 400
         
     try:
-        # O FullCalendar envia no padrão ISO: 2026-03-24T10:00:00Z
         consulta.data_hora = datetime.fromisoformat(nova_data_str.replace('Z', '+00:00')).replace(tzinfo=None)
         
         if nova_data_fim_str:

@@ -324,18 +324,47 @@
                             </div>
                             
                             <div>
-                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Data e Hora</label>
-                                <input type="datetime-local" x-model="novoAgendamento.data_hora" class="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-clinica-500 outline-none text-sm font-bold text-slate-700 shadow-inner">
-                            </div>
-
-                            <div>
-                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Tipo de Sessão</label>
-                                <select x-model="novoAgendamento.tipo_sessao" class="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-clinica-500 outline-none text-sm font-bold text-slate-700 shadow-inner">
-                                    <option>Intervenção</option>
-                                    <option>Avaliação</option>
-                                    <option>Reunião Familiar</option>
+                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Profissional / Equipe</label>
+                                <select x-model="novoAgendamento.profissional_id" class="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-clinica-500 outline-none text-sm font-bold text-slate-700 shadow-inner">
+                                    <template x-for="prof in profissionais" :key="prof.id">
+                                        <option :value="prof.id" x-text="prof.nome"></option>
+                                    </template>
                                 </select>
                             </div>
+
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Data e Hora Inicial</label>
+                                    <input type="datetime-local" x-model="novoAgendamento.data_hora" class="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-clinica-500 outline-none text-sm font-bold text-slate-700 shadow-inner">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Tipo de Sessão</label>
+                                    <select x-model="novoAgendamento.tipo_sessao" class="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-clinica-500 outline-none text-sm font-bold text-slate-700 shadow-inner">
+                                        <option>Intervenção</option>
+                                        <option>Avaliação</option>
+                                        <option>Reunião Familiar</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 p-4 bg-clinica-50/50 rounded-xl border border-clinica-100">
+                                <label class="flex items-center gap-2 cursor-pointer mb-3">
+                                    <input type="checkbox" x-model="novoAgendamento.is_recorrente" class="w-4 h-4 text-clinica-600 rounded">
+                                    <span class="text-xs font-black text-slate-700 uppercase tracking-widest">Agendamento Recorrente?</span>
+                                </label>
+
+                                <div x-show="novoAgendamento.is_recorrente" x-transition class="pl-6 space-y-2 border-l-2 border-clinica-200">
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Repetir por quanto tempo?</label>
+                                    <select x-model="novoAgendamento.meses_recorrencia" class="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-clinica-500">
+                                        <option value="1">1 Mês (4 semanas)</option>
+                                        <option value="3">3 Meses (12 semanas)</option>
+                                        <option value="6">6 Meses (24 semanas)</option>
+                                        <option value="12">1 Ano (48 semanas)</option>
+                                    </select>
+                                    <p class="text-[9px] text-slate-500 italic mt-1">O sistema reservará este mesmo horário semanalmente no calendário.</p>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
 
@@ -435,6 +464,14 @@
                 agendaHoje: [], 
                 agendaVisual: [], 
                 alertas: [], 
+                
+                // MÁGICA: A LISTA DOS SEUS TERAPEUTAS (Gestão de Equipe)
+                profissionais: [
+                    { id: 1, nome: 'Dra. Edna Nogueira (T.O.)' },
+                    { id: 2, nome: 'Dr. Profissional 2' },
+                    { id: 3, nome: 'Dra. Profissional 3' }
+                ],
+                
                 carregando: true,
                 pesquisa: '',
                 mostrarLista: false, 
@@ -446,9 +483,8 @@
                 
                 modalAgendamentoAberto: false,
                 salvandoAgendamento: false,
-                novoAgendamento: { paciente_id: '', data_hora: '', tipo_sessao: 'Intervenção' },
+                novoAgendamento: { paciente_id: '', data_hora: '', tipo_sessao: 'Intervenção', is_recorrente: false, meses_recorrencia: '1', profissional_id: '1' },
                 
-                // Variáveis para a Filtração Bidirecional
                 offsetFuturo: 0,
                 offsetPassado: 0,
                 temMaisFuturo: true,
@@ -467,7 +503,6 @@
                         const hoje = new Date().toLocaleDateString('pt-BR');
                         this.agendaHoje = Array.isArray(dadosAgenda) ? dadosAgenda.filter(item => item.data === hoje) : [];
                         
-                        // Busca a paginação (Carrossel Horizontal) do momento atual para frente
                         this.carregarFuturo();
                         
                     }).catch(err => {
@@ -481,7 +516,6 @@
                     .then(res => res.json())
                     .then(data => {
                         if(data.length < 6) this.temMaisFuturo = false;
-                        
                         if (data.length > 0) {
                             this.agendaVisual = [...this.agendaVisual, ...data];
                             this.offsetFuturo += data.length;
@@ -495,9 +529,7 @@
                     .then(res => res.json())
                     .then(data => {
                         if (data.length < 6) this.temMaisPassado = false;
-                        
                         if (data.length > 0) {
-                            // Coloca os antigos no início da lista!
                             this.agendaVisual = [...data.reverse(), ...this.agendaVisual]; 
                             this.offsetPassado += data.length;
                         }
@@ -558,11 +590,15 @@
                         return;
                     }
                     this.salvandoAgendamento = true;
+                    
                     const payload = {
                         paciente_id: this.novoAgendamento.paciente_id,
+                        profissional_id: parseInt(this.novoAgendamento.profissional_id),
                         data_hora: this.novoAgendamento.data_hora.replace('T', ' '),
                         status: 'Agendado',
                         tipo_sessao: this.novoAgendamento.tipo_sessao,
+                        recorrente: this.novoAgendamento.is_recorrente,
+                        meses_recorrencia: parseInt(this.novoAgendamento.meses_recorrencia),
                         evolucao_texto: '',
                         micro_metas: {}
                     };
@@ -582,7 +618,7 @@
                         this.inicializar(); 
                         
                         this.salvandoAgendamento = false;
-                        this.novoAgendamento = { paciente_id: '', data_hora: '', tipo_sessao: 'Intervenção' };
+                        this.novoAgendamento = { paciente_id: '', data_hora: '', tipo_sessao: 'Intervenção', is_recorrente: false, meses_recorrencia: '1', profissional_id: '1' };
                     }).catch(() => { this.salvandoAgendamento = false; });
                 },
 
