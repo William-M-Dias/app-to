@@ -29,16 +29,21 @@
         .fc-theme-standard .fc-scrollgrid { border: none !important; }
         .fc-theme-standard td, .fc-theme-standard th { border-color: #f1f5f9; }
         .fc-col-header-cell-cushion { font-weight: 800; color: #475569; text-transform: uppercase; font-size: 12px; padding: 12px !important; }
+        
+        /* AQUI O SEGREDO DOS BOTÕES GRANDES E LEGÍVEIS NO CELULAR */
         .fc-event { 
             border-radius: 8px; 
             font-weight: 800; 
-            font-size: 11px; 
-            padding: 3px 6px; 
+            font-size: 13px !important; 
+            padding: 6px !important; 
             border: none; 
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
             cursor: pointer; 
             transition: transform 0.2s;
+            white-space: normal !important; /* Permite quebrar a linha e mostrar todo o nome! */
         }
+        .fc-event-title { font-weight: 900 !important; }
+
         .fc-event:hover { transform: scale(1.02); }
         .fc-timegrid-slot-label-cushion { font-weight: 800; color: #94a3b8; font-size: 11px; }
         .fc-button-primary {
@@ -104,13 +109,17 @@
             var calendarEl = document.getElementById('calendar');
             var selectFiltro = document.getElementById('filtro-profissional');
             
+            // Lógica para detectar se é celular
+            var isMobile = window.innerWidth < 768;
+            
             var calendar = new FullCalendar.Calendar(calendarEl, {
-                initialView: 'timeGridWeek',
+                // Se for celular, abre com a visão do DIA (confortável). Se for PC, abre a SEMANA.
+                initialView: isMobile ? 'timeGridDay' : 'timeGridWeek',
                 locale: 'pt-br',
                 headerToolbar: {
                     left: 'prev,next today',
                     center: 'title',
-                    right: 'timeGridWeek,timeGridDay'
+                    right: isMobile ? 'timeGridDay,listWeek' : 'timeGridWeek,timeGridDay,listWeek'
                 },
                 slotMinTime: '07:00:00',
                 slotMaxTime: '20:00:00',
@@ -119,7 +128,6 @@
                 selectable: true,
                 eventDurationEditable: true, 
                 
-                // MÁGICA 4: O CALENDÁRIO AGORA RESPEITA O FILTRO DE PROFISSIONAL!
                 events: function(info, successCallback, failureCallback) {
                     var profId = selectFiltro.value;
                     var url = '/api/consultas/calendario?start=' + info.startStr + '&end=' + info.endStr;
@@ -132,6 +140,13 @@
                         .then(res => res.json())
                         .then(data => successCallback(data))
                         .catch(err => failureCallback(err));
+                },
+                
+                // MÁGICA DO CLIQUE: Redireciona para o prontuário do paciente!
+                eventClick: function(info) {
+                    if (info.event.extendedProps.paciente_id) {
+                        window.location.href = '/paciente/' + info.event.extendedProps.paciente_id;
+                    }
                 },
                 
                 eventDrop: function(info) {
@@ -167,7 +182,6 @@
             
             calendar.render();
 
-            // Quando mudar a seleção de equipe no Dropdown, atualiza o calendário na hora!
             selectFiltro.addEventListener('change', function() {
                 calendar.refetchEvents();
             });

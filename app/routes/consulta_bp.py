@@ -118,7 +118,6 @@ def registrar_evolucao():
         
         consulta_existente = None
         
-        # 1. ATUALIZAR UM AGENDAMENTO (Baixa de Sessão: Realizado, Falta ou Cancelado)
         if status_recebido in ['Realizado', 'Falta', 'Cancelado']:
             inicio_dia = datetime.combine(data_apenas, datetime.min.time())
             fim_dia = datetime.combine(data_apenas, datetime.max.time())
@@ -140,7 +139,6 @@ def registrar_evolucao():
                 db.session.commit()
                 return jsonify({"mensagem": "Agenda atualizada com evolução/falta!"}), 200
 
-        # 2. SE CHEGOU AQUI, É UM NOVO AGENDAMENTO (Podendo ser único ou recorrente)
         recorrente = dados.get('recorrente', False)
         
         if recorrente:
@@ -179,7 +177,6 @@ def registrar_evolucao():
             return jsonify({"mensagem": f"{consultas_criadas} sessões agendadas com sucesso!"}), 201
             
         else:
-            # 3. AGENDAMENTO ÚNICO
             nova_consulta = Consulta(
                 paciente_id=paciente_id,
                 profissional_id=profissional_id,
@@ -221,7 +218,6 @@ def obter_eventos_calendario():
     
     query = Consulta.query
     
-    # Filtro opcional por profissional
     if prof_id:
         query = query.filter(Consulta.profissional_id == int(prof_id))
     
@@ -253,6 +249,7 @@ def obter_eventos_calendario():
 
             eventos.append({
                 "id": c.id,
+                "paciente_id": paciente.id, # <--- INJEÇÃO DO ID PARA O CLIQUE FUNCIONAR!
                 "title": titulo,
                 "start": c.data_hora.isoformat(),
                 "end": fim_estimado.isoformat(),
