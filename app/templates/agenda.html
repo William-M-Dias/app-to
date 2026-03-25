@@ -30,21 +30,42 @@
         .fc-theme-standard td, .fc-theme-standard th { border-color: #f1f5f9; }
         .fc-col-header-cell-cushion { font-weight: 800; color: #475569; text-transform: uppercase; font-size: 12px; padding: 12px !important; }
         
-        /* AQUI O SEGREDO DOS BOTÕES GRANDES E LEGÍVEIS NO CELULAR */
+        /* O SEGREDO DEFINITIVO PARA NÃO CORTAR OS NOMES NO CALENDÁRIO */
         .fc-event { 
             border-radius: 8px; 
-            font-weight: 800; 
-            font-size: 13px !important; 
-            padding: 6px !important; 
             border: none; 
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
             cursor: pointer; 
             transition: transform 0.2s;
-            white-space: normal !important; /* Permite quebrar a linha e mostrar todo o nome! */
+            padding: 4px !important;
         }
-        .fc-event-title { font-weight: 900 !important; }
-
         .fc-event:hover { transform: scale(1.02); }
+        
+        /* Força a quebra de linha em vez de esconder o texto */
+        .fc-event-main {
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            overflow: hidden !important;
+            display: flex !important;
+            flex-direction: column !important;
+        }
+        .fc-event-time {
+            font-size: 10px !important;
+            font-weight: 900 !important;
+            margin-bottom: 2px !important;
+            opacity: 0.9;
+        }
+        .fc-event-title {
+            font-size: 12px !important;
+            font-weight: 800 !important;
+            white-space: normal !important;
+            word-break: break-word !important;
+            line-height: 1.2 !important;
+        }
+        .fc-v-event .fc-event-main-frame {
+            display: block !important; 
+        }
+
         .fc-timegrid-slot-label-cushion { font-weight: 800; color: #94a3b8; font-size: 11px; }
         .fc-button-primary {
             background-color: #0d9488 !important;
@@ -109,17 +130,16 @@
             var calendarEl = document.getElementById('calendar');
             var selectFiltro = document.getElementById('filtro-profissional');
             
-            // Lógica para detectar se é celular
             var isMobile = window.innerWidth < 768;
             
             var calendar = new FullCalendar.Calendar(calendarEl, {
-                // Se for celular, abre com a visão do DIA (confortável). Se for PC, abre a SEMANA.
                 initialView: isMobile ? 'timeGridDay' : 'timeGridWeek',
                 locale: 'pt-br',
+                dayMinWidth: 120, // <--- MÁGICA DE VERDADE: Garante no mínimo 120px de largura por dia (cria scroll horizontal se faltar tela)
                 headerToolbar: {
                     left: 'prev,next today',
                     center: 'title',
-                    right: isMobile ? 'timeGridDay,listWeek' : 'timeGridWeek,timeGridDay,listWeek'
+                    right: isMobile ? 'timeGridDay,timeGridWeek,listWeek' : 'timeGridWeek,timeGridDay,listWeek'
                 },
                 slotMinTime: '07:00:00',
                 slotMaxTime: '20:00:00',
@@ -142,7 +162,6 @@
                         .catch(err => failureCallback(err));
                 },
                 
-                // MÁGICA DO CLIQUE: Redireciona para o prontuário do paciente!
                 eventClick: function(info) {
                     if (info.event.extendedProps.paciente_id) {
                         window.location.href = '/paciente/' + info.event.extendedProps.paciente_id;

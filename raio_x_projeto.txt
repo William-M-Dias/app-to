@@ -2,6 +2,44 @@
 
 
 ============================================================
+ARQUIVO: atualizar_banco_agenda.py
+============================================================
+
+import os
+from dotenv import load_dotenv
+
+# Carrega as variáveis do arquivo .env (URL do Neon)
+load_dotenv()
+
+from app import create_app
+from app.extensions import db
+from sqlalchemy import text
+
+app = create_app()
+
+with app.app_context():
+    print("🚀 Iniciando injeção das novas colunas de Agenda...")
+    
+    try:
+        # 1. Atualizando tabela pacientes
+        db.session.execute(text("ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS status_clinico VARCHAR(50) DEFAULT 'Ativo';"))
+        
+        # 2. Atualizando tabela consultas
+        db.session.execute(text("ALTER TABLE consultas ADD COLUMN IF NOT EXISTS profissional_id INTEGER;"))
+        db.session.execute(text("ALTER TABLE consultas ADD COLUMN IF NOT EXISTS data_fim TIMESTAMP;"))
+        db.session.execute(text("ALTER TABLE consultas ADD COLUMN IF NOT EXISTS grupo_recorrencia VARCHAR(100);"))
+        
+        # Opcional: Se 'usuarios' não existir ainda, criaremos uma foreign key no futuro,
+        # por enquanto o PostgreSQL aceita a coluna integer limpa.
+        
+        db.session.commit()
+        print("✅ Banco de dados blindado! Novas colunas adicionadas sem perda de dados.")
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Erro durante a atualização do banco: {str(e)}")
+
+============================================================
 ARQUIVO: criar_usuario.py
 ============================================================
 
@@ -196,6 +234,7 @@ def create_app():
     from app.routes.obs_clinica_bp import obs_clinica_bp
     from app.routes.anamnese_bp import anamnese_bp
     from app.routes.auth_bp import auth_bp 
+    from app.routes.estatisticas_bp import estatisticas_bp # <-- AQUI: Importação do novo motor de estatísticas
 
     app.register_blueprint(paciente_bp)
     app.register_blueprint(consulta_bp)
@@ -204,6 +243,7 @@ def create_app():
     app.register_blueprint(obs_clinica_bp)
     app.register_blueprint(anamnese_bp)
     app.register_blueprint(auth_bp) 
+    app.register_blueprint(estatisticas_bp) # <-- AQUI: Registro do novo motor no sistema
 
     @app.before_request
     def bloquear_acesso():
@@ -267,9 +307,18 @@ class Consulta(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     paciente_id = db.Column(db.Integer, db.ForeignKey('pacientes.id'), nullable=False)
+    
+    # NOVO: Profissional responsável pela sessão
+    profissional_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=True)
+    
     data_hora = db.Column(db.DateTime, nullable=False)
+    # NOVO: Data/Hora de término para desenhar o bloco na Agenda Visual
+    data_fim = db.Column(db.DateTime, nullable=True)
     
     recorrente = db.Column(db.Boolean, default=False) 
+    # NOVO: ID unificador para sessões clonadas (Ex: todas as sessões do Miguel geradas juntas)
+    grupo_recorrencia = db.Column(db.String(100), nullable=True)
+    
     tipo_sessao = db.Column(db.String(100), nullable=False) 
     status = db.Column(db.String(50), default='Agendado') 
     
@@ -282,8 +331,6 @@ class Consulta(db.Model):
     micro_metas = db.Column(JSONB, nullable=True)
     
     data_registro = db.Column(db.DateTime, default=datetime.utcnow)
-
-    # A linha que causava o conflito foi removida daqui, pois o paciente.py já faz esse trabalho.
 
     def __repr__(self):
         return f'<Consulta {self.data_hora} - Paciente ID {self.paciente_id}>'
@@ -334,15 +381,16 @@ class Paciente(db.Model):
     historico_desenvolvimento = db.Column(db.Text)
     intervencoes_atuais = db.Column(db.Text)
     
-    # NOVO: Campo para URL da foto (Fase 6)
+    # Campo para URL da foto
     foto_url = db.Column(db.String(255), nullable=True)
+    
+    # NOVO: Status clínico para controle da agenda inteligente
+    status_clinico = db.Column(db.String(50), default='Ativo')
     
     data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # RELAÇÕES COM CASCADE TOTAL (Resolve o Teste 4)
-    # Ao apagar o paciente, o SQLAlchemy limpa tudo o que estiver ligado a ele automaticamente
+    # RELAÇÕES COM CASCADE TOTAL
     consultas = db.relationship('Consulta', backref='paciente', lazy=True, cascade="all, delete-orphan")
-    # Nota: As outras relações (Anamnese, PEDI) usam backref nos seus próprios arquivos de modelo
 
     def to_dict(self):
         return {
@@ -355,7 +403,8 @@ class Paciente(db.Model):
             "nome_responsavel": self.nome_responsavel,
             "telefone_responsavel": self.telefone_responsavel,
             "email_responsavel": self.email_responsavel,
-            "foto_url": self.foto_url
+            "foto_url": self.foto_url,
+            "status_clinico": self.status_clinico
         }
 
 ============================================================
@@ -495,12 +544,10 @@ from app.extensions import db
 from app.models.consulta import Consulta
 from datetime import datetime, timedelta
 from sqlalchemy import asc, desc
+import uuid 
 
 consulta_bp = Blueprint('consulta_bp', __name__, url_prefix='/api/consultas')
 
-# ==========================================
-# ROTA ORIGINAL: AGENDA GLOBAL
-# ==========================================
 @consulta_bp.route('/agenda', methods=['GET'])
 def agenda_global():
     from app.models.paciente import Paciente 
@@ -528,9 +575,6 @@ def agenda_global():
             
     return jsonify(resultado), 200
 
-# ==========================================
-# ROTA: AGENDA PAGINADA (Carrossel Horizontal)
-# ==========================================
 @consulta_bp.route('/agenda_paginada', methods=['GET'])
 def agenda_paginada():
     from app.models.paciente import Paciente 
@@ -587,9 +631,6 @@ def listar_consultas_paciente(paciente_id):
     } for c in consultas]
     return jsonify(resultado), 200
 
-# ==========================================
-# ROTA INTELIGENTE DE REGISTRO / EVOLUÇÃO
-# ==========================================
 @consulta_bp.route('/', methods=['POST'])
 def registrar_evolucao():
     dados = request.get_json()
@@ -599,9 +640,10 @@ def registrar_evolucao():
         
     try:
         paciente_id = dados['paciente_id']
-        status_recebido = dados.get('status', 'Realizado')
+        status_recebido = dados.get('status', 'Agendado') 
+        profissional_id = dados.get('profissional_id')
+        duracao_minutos = int(dados.get('duracao_minutos', 50)) 
         
-        # Formatação segura da data
         data_string = dados.get('data_hora')
         if not data_string:
             data_string = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d %H:%M')
@@ -612,13 +654,12 @@ def registrar_evolucao():
             data_string += ' 00:00'
             
         data_hora_requisicao = datetime.strptime(data_string, '%Y-%m-%d %H:%M')
+        data_fim_estimada = data_hora_requisicao + timedelta(minutes=duracao_minutos)
         data_apenas = data_hora_requisicao.date()
         
         consulta_existente = None
         
-        # A MÁGICA: Se ela estiver dando BAIXA (Realizado ou Falta)
-        # Vamos buscar o agendamento original do dia para ATUALIZAR em vez de duplicar
-        if status_recebido in ['Realizado', 'Falta']:
+        if status_recebido in ['Realizado', 'Falta', 'Cancelado']:
             inicio_dia = datetime.combine(data_apenas, datetime.min.time())
             fim_dia = datetime.combine(data_apenas, datetime.max.time())
             
@@ -629,23 +670,60 @@ def registrar_evolucao():
                 Consulta.status == 'Agendado'
             ).first()
             
-        if consulta_existente:
-            # ATUALIZA O CARD EXISTENTE (Mantém a hora das 10:00 intacta!)
-            consulta_existente.status = status_recebido
-            consulta_existente.evolucao_texto = dados.get('evolucao_texto', '')
-            consulta_existente.micro_metas = dados.get('micro_metas', {})
+            if consulta_existente:
+                consulta_existente.status = status_recebido
+                consulta_existente.evolucao_texto = dados.get('evolucao_texto', '')
+                consulta_existente.micro_metas = dados.get('micro_metas', {})
+                if 'tipo_sessao' in dados:
+                    consulta_existente.tipo_sessao = dados['tipo_sessao']
+                    
+                db.session.commit()
+                return jsonify({"mensagem": "Agenda atualizada com evolução/falta!"}), 200
+
+        recorrente = dados.get('recorrente', False)
+        
+        if recorrente:
+            dias_semana = dados.get('dias_semana', []) 
+            meses = int(dados.get('meses_recorrencia', 1))
             
-            if 'tipo_sessao' in dados:
-                consulta_existente.tipo_sessao = dados['tipo_sessao']
+            if not dias_semana:
+                dias_semana = [data_hora_requisicao.weekday()]
+                
+            data_limite = data_hora_requisicao + timedelta(days=30 * meses)
+            grupo_id = str(uuid.uuid4()) 
+            
+            data_atual_loop = data_hora_requisicao
+            consultas_criadas = 0
+            
+            while data_atual_loop <= data_limite:
+                if data_atual_loop.weekday() in dias_semana:
+                    nova_consulta = Consulta(
+                        paciente_id=paciente_id,
+                        profissional_id=profissional_id,
+                        data_hora=data_atual_loop,
+                        data_fim=data_atual_loop + timedelta(minutes=duracao_minutos),
+                        recorrente=True,
+                        grupo_recorrencia=grupo_id,
+                        tipo_sessao=dados.get('tipo_sessao', 'Intervenção de Rotina'),
+                        status='Agendado',
+                        evolucao_texto='',
+                        micro_metas={}
+                    )
+                    db.session.add(nova_consulta)
+                    consultas_criadas += 1
+                    
+                data_atual_loop += timedelta(days=1)
                 
             db.session.commit()
-            return jsonify({"mensagem": "Agenda atualizada com evolução/falta!"}), 200
+            return jsonify({"mensagem": f"{consultas_criadas} sessões agendadas com sucesso!"}), 201
             
         else:
-            # CRIA UM CARD NOVO (Apenas se não tinha agenda hoje, ou se está marcando uma nova data futura)
             nova_consulta = Consulta(
                 paciente_id=paciente_id,
+                profissional_id=profissional_id,
                 data_hora=data_hora_requisicao,
+                data_fim=data_fim_estimada,
+                recorrente=False,
                 tipo_sessao=dados.get('tipo_sessao', 'Intervenção de Rotina'),
                 status=status_recebido,
                 evolucao_texto=dados.get('evolucao_texto', ''),
@@ -654,7 +732,7 @@ def registrar_evolucao():
             
             db.session.add(nova_consulta)
             db.session.commit()
-            return jsonify({"mensagem": "Novo registo salvo com sucesso!"}), 201
+            return jsonify({"mensagem": "Novo registro único salvo com sucesso!"}), 201
             
     except Exception as e:
         db.session.rollback()
@@ -669,6 +747,162 @@ def deletar_consulta(id):
         return jsonify({"mensagem": "Registro excluído com sucesso!"}), 200
     except Exception as e:
         db.session.rollback()
+        return jsonify({"erro": str(e)}), 500
+
+@consulta_bp.route('/calendario', methods=['GET'])
+def obter_eventos_calendario():
+    from app.models.paciente import Paciente
+    
+    start_str = request.args.get('start')
+    end_str = request.args.get('end')
+    prof_id = request.args.get('profissional_id')
+    
+    query = Consulta.query
+    
+    if prof_id:
+        query = query.filter(Consulta.profissional_id == int(prof_id))
+    
+    if start_str and end_str:
+        start_date = datetime.strptime(start_str[:10], '%Y-%m-%d')
+        end_date = datetime.strptime(end_str[:10], '%Y-%m-%d')
+        query = query.filter(Consulta.data_hora >= start_date, Consulta.data_hora <= end_date)
+        
+    consultas = query.all()
+    eventos = []
+    
+    for c in consultas:
+        paciente = Paciente.query.get(c.paciente_id)
+        if paciente:
+            fim_estimado = c.data_fim if c.data_fim else c.data_hora + timedelta(minutes=50)
+            
+            cor_fundo = "#0d9488" 
+            
+            if c.status == 'Realizado':
+                cor_fundo = "#10b981" 
+            elif c.status in ['Falta', 'Cancelado']:
+                cor_fundo = "#ef4444" 
+            elif c.recorrente:
+                cor_fundo = "#7e22ce" 
+            
+            titulo = f"{paciente.nome}"
+            if c.status != 'Agendado':
+                titulo = f"{paciente.nome} ({c.status})"
+
+            eventos.append({
+                "id": c.id,
+                "paciente_id": paciente.id, # <--- INJEÇÃO DO ID PARA O CLIQUE FUNCIONAR!
+                "title": titulo,
+                "start": c.data_hora.isoformat(),
+                "end": fim_estimado.isoformat(),
+                "backgroundColor": cor_fundo, 
+                "borderColor": "transparent"
+            })
+            
+    return jsonify(eventos), 200
+
+@consulta_bp.route('/<int:id>/mover', methods=['PUT'])
+def mover_consulta(id):
+    consulta = Consulta.query.get_or_404(id)
+    dados = request.get_json()
+    
+    nova_data_str = dados.get('nova_data')
+    nova_data_fim_str = dados.get('nova_data_fim')
+    
+    if not nova_data_str:
+        return jsonify({"erro": "Nova data não informada"}), 400
+        
+    try:
+        consulta.data_hora = datetime.fromisoformat(nova_data_str.replace('Z', '+00:00')).replace(tzinfo=None)
+        
+        if nova_data_fim_str:
+            consulta.data_fim = datetime.fromisoformat(nova_data_fim_str.replace('Z', '+00:00')).replace(tzinfo=None)
+            
+        db.session.commit()
+        return jsonify({"mensagem": "Horário atualizado com sucesso!"}), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"erro": str(e)}), 500
+
+============================================================
+ARQUIVO: app\routes\estatisticas_bp.py
+============================================================
+
+from flask import Blueprint, jsonify
+from sqlalchemy import func
+from app.extensions import db
+from app.models.paciente import Paciente
+from app.models.consulta import Consulta
+from datetime import datetime, timedelta
+
+estatisticas_bp = Blueprint('estatisticas_bp', __name__, url_prefix='/api/estatisticas')
+
+@estatisticas_bp.route('/geral', methods=['GET'])
+def obter_estatisticas():
+    try:
+        # 1. Total de Pacientes Ativos no Diretório
+        total_pacientes = Paciente.query.count()
+
+        # 2. Distribuição Clínica (Diagnósticos)
+        # Como o diagnóstico pode vir separado por vírgula (ex: "TEA, TDAH"), 
+        # puxamos tudo e contabilizamos via Python para garantir precisão
+        todos_pacientes = Paciente.query.all()
+        distribuicao_clinica = {}
+        for p in todos_pacientes:
+            if p.diagnostico:
+                diags = [d.strip() for d in p.diagnostico.split(',')]
+                for d in diags:
+                    if d:
+                        distribuicao_clinica[d] = distribuicao_clinica.get(d, 0) + 1
+            else:
+                distribuicao_clinica["Em Investigação"] = distribuicao_clinica.get("Em Investigação", 0) + 1
+
+        # Prepara para o formato do gráfico do Chart.js
+        grafico_diagnosticos = {
+            "labels": list(distribuicao_clinica.keys()),
+            "data": list(distribuicao_clinica.values())
+        }
+
+        # 3. Taxa de Assiduidade (Últimos 30 dias)
+        hoje = datetime.utcnow() - timedelta(hours=3)
+        trinta_dias_atras = hoje - timedelta(days=30)
+
+        sessoes_periodo = Consulta.query.filter(
+            Consulta.data_hora >= trinta_dias_atras,
+            Consulta.data_hora <= hoje,
+            Consulta.status.in_(['Realizado', 'Falta', 'Cancelado'])
+        ).all()
+
+        total_sessoes = len(sessoes_periodo)
+        realizadas = sum(1 for s in sessoes_periodo if s.status == 'Realizado')
+        faltas = sum(1 for s in sessoes_periodo if s.status in ['Falta', 'Cancelado'])
+
+        # Evita divisão por zero
+        taxa_assiduidade = 0
+        if total_sessoes > 0:
+            taxa_assiduidade = round((realizadas / total_sessoes) * 100, 1)
+
+        # 4. Consultas da Semana (Previsão de Carga de Trabalho)
+        inicio_semana = hoje - timedelta(days=hoje.weekday()) # Segunda-feira
+        fim_semana = inicio_semana + timedelta(days=6, hours=23, minutes=59) # Domingo
+
+        carga_semana = Consulta.query.filter(
+            Consulta.data_hora >= inicio_semana,
+            Consulta.data_hora <= fim_semana,
+            Consulta.status != 'Cancelado'
+        ).count()
+
+        return jsonify({
+            "total_pacientes": total_pacientes,
+            "taxa_assiduidade": taxa_assiduidade,
+            "total_sessoes_30d": total_sessoes,
+            "sessoes_realizadas": realizadas,
+            "sessoes_faltas": faltas,
+            "carga_semana": carga_semana,
+            "grafico_diagnosticos": grafico_diagnosticos
+        }), 200
+
+    except Exception as e:
         return jsonify({"erro": str(e)}), 500
 
 ============================================================
@@ -703,10 +937,18 @@ def obs_clinica_paciente(id):
 def evolucao_paciente(id):
     return render_template('evolucao.html', paciente_id=id)
 
-# <--- ROTA 5: RELATÓRIO CLÍNICO (FASE 3) --->
 @frontend_bp.route('/paciente/<int:id>/relatorio')
 def relatorio_paciente(id):
     return render_template('relatorio.html', paciente_id=id)
+
+@frontend_bp.route('/agenda')
+def abrir_agenda_visual():
+    return render_template('agenda.html')
+
+# <--- ROTA NOVA: DASHBOARD DE ESTATÍSTICAS (FASE 5) --->
+@frontend_bp.route('/estatisticas')
+def dashboard_estatisticas():
+    return render_template('estatisticas.html')
 
 ============================================================
 ARQUIVO: app\routes\obs_clinica_bp.py
@@ -753,7 +995,7 @@ from app.extensions import db
 from app.models.paciente import Paciente
 from app.models.consulta import Consulta
 from app.models.pedi import AvaliacaoPEDI
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import text, desc
 from werkzeug.utils import secure_filename
 
@@ -765,7 +1007,6 @@ def listar_pacientes():
         pacientes = Paciente.query.all()
         return jsonify([p.to_dict() for p in pacientes]), 200
     except Exception as e:
-        # Se a coluna foto_url der erro, o log dirá exatamente aqui
         return jsonify({"erro": f"Erro ao listar: {str(e)}"}), 500
 
 @paciente_bp.route('/<int:id>', methods=['GET'])
@@ -822,7 +1063,6 @@ def atualizar_paciente(id):
 def deletar_paciente(id):
     paciente = Paciente.query.get_or_404(id)
     try:
-        # Nomes das tabelas ajustados conforme seu log do Neon
         db.session.execute(text("DELETE FROM consultas WHERE paciente_id = :pid"), {"pid": id})
         db.session.execute(text("DELETE FROM anamnese WHERE paciente_id = :pid"), {"pid": id})
         db.session.execute(text("DELETE FROM avaliacoes_pedi WHERE paciente_id = :pid"), {"pid": id})
@@ -857,7 +1097,6 @@ def upload_foto(id):
     if arquivo.filename == '':
         return jsonify({"erro": "Arquivo sem nome"}), 400
 
-    # SOLUÇÃO DEFINITIVA: Usa o static_folder para encontrar a pasta verdadeira do projeto
     upload_path = os.path.join(current_app.static_folder, 'uploads', 'perfil')
     
     if not os.path.exists(upload_path):
@@ -871,9 +1110,6 @@ def upload_foto(id):
     
     return jsonify({"url": paciente.foto_url}), 200
 
-# ==============================================================================
-# MOTOR DE INTELIGÊNCIA CLÍNICA (Alertas de Prontidão)
-# ==============================================================================
 @paciente_bp.route('/alertas', methods=['GET'])
 def alertas_prontidao():
     try:
@@ -882,15 +1118,11 @@ def alertas_prontidao():
         hoje = datetime.utcnow().date()
 
         for p in pacientes:
-            # Pega a última avaliação PEDI do paciente
             ultimo_pedi = AvaliacaoPEDI.query.filter_by(paciente_id=p.id).order_by(desc(AvaliacaoPEDI.data_avaliacao)).first()
-            
-            # Pega as últimas 5 evoluções clínicas realizadas
             ultimas_consultas = Consulta.query.filter_by(paciente_id=p.id, status='Realizado').order_by(desc(Consulta.data_hora)).limit(5).all()
             
             motivos = []
             
-            # REGRA 1: Tempo desde o último PEDI (Tempo de Reavaliação Padrão)
             if ultimo_pedi:
                 data_pedi = ultimo_pedi.data_avaliacao
                 if isinstance(data_pedi, str):
@@ -909,24 +1141,20 @@ def alertas_prontidao():
                 if len(ultimas_consultas) > 0:
                     motivos.append("Paciente em intervenção, mas ainda não possui o PEDI base registado.")
                     
-            # REGRA 2: Consistência de Alta Performance (Escala GAS)
             gas_total = 0
             qtd_gas = 0
             for c in ultimas_consultas:
                 if c.micro_metas and isinstance(c.micro_metas, dict):
-                    # Extrai os valores numéricos válidos da escala GAS (-2 a +2)
                     valores = [v for k, v in c.micro_metas.items() if v is not None and isinstance(v, (int, float)) and k in ['autocuidado', 'mobilidade', 'funcao_social']]
                     if valores:
                         gas_total += sum(valores) / len(valores)
                         qtd_gas += 1
                         
-            # Se teve pelo menos 3 sessões com GAS preenchido e a média é alta (+1.0 ou mais)
             if qtd_gas >= 3:
                 media_gas = gas_total / qtd_gas
                 if media_gas >= 1.0:
                     motivos.append(f"Alta performance constante detectada (Média GAS: +{media_gas:.1f}). Criança pronta para subir de nível no PEDI.")
                     
-            # Se houver algum motivo de alerta, adiciona ao painel
             if motivos:
                 alertas.append({
                     "paciente_id": p.id,
@@ -938,6 +1166,42 @@ def alertas_prontidao():
         return jsonify(alertas), 200
     except Exception as e:
         return jsonify({"erro": f"Erro ao processar alertas: {str(e)}"}), 500
+
+# ==============================================================================
+# NOVO: MOTOR DE INATIVAÇÃO DE PACIENTE E LIMPEZA DE AGENDA (Fase 3)
+# ==============================================================================
+@paciente_bp.route('/<int:id>/status', methods=['PUT'])
+def alterar_status(id):
+    paciente = Paciente.query.get_or_404(id)
+    dados = request.get_json()
+    novo_status = dados.get('status_clinico')
+
+    if not novo_status:
+        return jsonify({"erro": "Status não fornecido."}), 400
+
+    try:
+        paciente.status_clinico = novo_status
+        
+        # A MÁGICA DA LIMPEZA: Se inativar ou der alta, apaga as sessões futuras!
+        if novo_status in ['Inativo', 'Alta']:
+            hoje = datetime.utcnow() - timedelta(hours=3)
+            
+            consultas_futuras = Consulta.query.filter(
+                Consulta.paciente_id == id,
+                Consulta.data_hora > hoje,
+                Consulta.status == 'Agendado'
+            ).all()
+            
+            # Deleta as sessões futuras para liberar espaço na agenda da clínica
+            for c in consultas_futuras:
+                db.session.delete(c)
+                
+        db.session.commit()
+        return jsonify({"mensagem": f"Paciente {novo_status}. Agenda atualizada!"}), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"erro": str(e)}), 500
 
 ============================================================
 ARQUIVO: app\routes\pedi_bp.py
@@ -994,6 +1258,221 @@ ARQUIVO: app\routes\__init__.py
 ============================================================
 
 
+
+============================================================
+ARQUIVO: app\templates\agenda.html
+============================================================
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agenda Interativa | APP-TO</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
+    
+    <script>
+        tailwind.config = {
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Nunito', 'sans-serif'] },
+                    colors: { 
+                        clinica: { 50: '#f0fdfa', 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 900: '#134e4a' } 
+                    } 
+                } 
+            }
+        }
+    </script>
+    
+    <style>
+        body { font-family: 'Nunito', sans-serif; background-color: #f8fafc; }
+        .fc-theme-standard .fc-scrollgrid { border: none !important; }
+        .fc-theme-standard td, .fc-theme-standard th { border-color: #f1f5f9; }
+        .fc-col-header-cell-cushion { font-weight: 800; color: #475569; text-transform: uppercase; font-size: 12px; padding: 12px !important; }
+        
+        /* O SEGREDO DEFINITIVO PARA NÃO CORTAR OS NOMES NO CALENDÁRIO */
+        .fc-event { 
+            border-radius: 8px; 
+            border: none; 
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
+            cursor: pointer; 
+            transition: transform 0.2s;
+            padding: 4px !important;
+        }
+        .fc-event:hover { transform: scale(1.02); }
+        
+        /* Força a quebra de linha em vez de esconder o texto */
+        .fc-event-main {
+            white-space: normal !important;
+            word-wrap: break-word !important;
+            overflow: hidden !important;
+            display: flex !important;
+            flex-direction: column !important;
+        }
+        .fc-event-time {
+            font-size: 10px !important;
+            font-weight: 900 !important;
+            margin-bottom: 2px !important;
+            opacity: 0.9;
+        }
+        .fc-event-title {
+            font-size: 12px !important;
+            font-weight: 800 !important;
+            white-space: normal !important;
+            word-break: break-word !important;
+            line-height: 1.2 !important;
+        }
+        .fc-v-event .fc-event-main-frame {
+            display: block !important; 
+        }
+
+        .fc-timegrid-slot-label-cushion { font-weight: 800; color: #94a3b8; font-size: 11px; }
+        .fc-button-primary {
+            background-color: #0d9488 !important;
+            border-color: #0d9488 !important;
+            font-weight: 800 !important;
+            text-transform: uppercase !important;
+            border-radius: 8px !important;
+            padding: 8px 16px !important;
+            font-size: 12px !important;
+            box-shadow: 0 4px 6px -1px rgba(13, 148, 136, 0.2) !important;
+        }
+        .fc-button-primary:hover {
+            background-color: #0f766e !important;
+            border-color: #0f766e !important;
+        }
+        .fc-button-active {
+            background-color: #115e59 !important;
+            border-color: #115e59 !important;
+        }
+        .fc-toolbar-title { font-weight: 900 !important; color: #1e293b !important; text-transform: uppercase; font-size: 1.25rem !important; }
+    </style>
+</head>
+<body class="text-slate-800 antialiased h-screen flex flex-col">
+
+    <header class="bg-clinica-600 text-white p-4 shadow-lg shrink-0 relative z-20">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-3 w-full md:w-auto">
+                <a href="/" class="p-2 -ml-2 hover:bg-white/20 rounded-full transition-colors active:scale-95">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                </a>
+                <h1 class="text-xl font-black uppercase tracking-widest flex items-center gap-2">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    Quadro Clínico
+                </h1>
+            </div>
+            
+            <div class="flex items-center justify-between w-full md:w-auto gap-4">
+                <select id="filtro-profissional" class="bg-clinica-900 border border-clinica-500 text-white text-xs font-bold rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-clinica-300 w-full md:w-auto shadow-inner">
+                    <option value="">Clínica Completa (Todos)</option>
+                    <option value="1">Dra. Edna Nogueira (T.O.)</option>
+                    <option value="2">Dr. Profissional 2</option>
+                    <option value="3">Dra. Profissional 3</option>
+                </select>
+
+                <div class="hidden lg:flex gap-4 text-[10px] font-black uppercase tracking-widest bg-black/20 px-4 py-2 rounded-full shrink-0">
+                    <span class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-teal-600 shadow-sm border border-white/20"></div> Única</span>
+                    <span class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-purple-600 shadow-sm border border-white/20"></div> Recorrente</span>
+                    <span class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-emerald-500 shadow-sm border border-white/20"></div> Realizada</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow p-4 md:p-6 overflow-hidden max-w-7xl mx-auto w-full flex flex-col relative z-10">
+        <div class="bg-white p-6 rounded-3xl shadow-xl border border-slate-100 h-full flex flex-col relative">
+            <div id='calendar' class="flex-grow"></div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var calendarEl = document.getElementById('calendar');
+            var selectFiltro = document.getElementById('filtro-profissional');
+            
+            var isMobile = window.innerWidth < 768;
+            
+            var calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: isMobile ? 'timeGridDay' : 'timeGridWeek',
+                locale: 'pt-br',
+                dayMinWidth: 120, // <--- MÁGICA DE VERDADE: Garante no mínimo 120px de largura por dia (cria scroll horizontal se faltar tela)
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: isMobile ? 'timeGridDay,timeGridWeek,listWeek' : 'timeGridWeek,timeGridDay,listWeek'
+                },
+                slotMinTime: '07:00:00',
+                slotMaxTime: '20:00:00',
+                allDaySlot: false,
+                editable: true,
+                selectable: true,
+                eventDurationEditable: true, 
+                
+                events: function(info, successCallback, failureCallback) {
+                    var profId = selectFiltro.value;
+                    var url = '/api/consultas/calendario?start=' + info.startStr + '&end=' + info.endStr;
+                    
+                    if (profId) {
+                        url += '&profissional_id=' + profId;
+                    }
+
+                    fetch(url)
+                        .then(res => res.json())
+                        .then(data => successCallback(data))
+                        .catch(err => failureCallback(err));
+                },
+                
+                eventClick: function(info) {
+                    if (info.event.extendedProps.paciente_id) {
+                        window.location.href = '/paciente/' + info.event.extendedProps.paciente_id;
+                    }
+                },
+                
+                eventDrop: function(info) {
+                    if (!confirm(`Confirmar a mudança de horário de ${info.event.title}?`)) {
+                        info.revert();
+                        return;
+                    }
+                    fetch(`/api/consultas/${info.event.id}/mover`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            nova_data: info.event.startStr,
+                            nova_data_fim: info.event.endStr
+                        })
+                    }).then(res => {
+                        if (!res.ok) { alert("Erro ao salvar mudança no banco."); info.revert(); }
+                    }).catch(err => { alert("Falha de conexão."); info.revert(); });
+                },
+                
+                eventResize: function(info) {
+                     fetch(`/api/consultas/${info.event.id}/mover`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            nova_data: info.event.startStr,
+                            nova_data_fim: info.event.endStr
+                        })
+                    }).then(res => {
+                        if (!res.ok) { alert("Erro ao salvar mudança de tempo."); info.revert(); }
+                    });
+                }
+            });
+            
+            calendar.render();
+
+            selectFiltro.addEventListener('change', function() {
+                calendar.refetchEvents();
+            });
+        });
+    </script>
+</body>
+</html>
 
 ============================================================
 ARQUIVO: app\templates\anamnese.html
@@ -1640,7 +2119,6 @@ ARQUIVO: app\templates\index.html
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         
-        /* ANIMAÇÕES DO FUNDO LÚDICO */
         @keyframes flutuar {
             0%, 100% { transform: translateY(0) rotate(0deg); }
             50% { transform: translateY(-30px) rotate(15deg); }
@@ -1694,19 +2172,22 @@ ARQUIVO: app\templates\index.html
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-4 mt-8 relative z-10">
-                <div class="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-5 shadow-inner">
-                    <p class="text-clinica-100 text-[10px] font-black uppercase mb-1 tracking-widest">Sessões Hoje</p>
-                    <div class="flex items-baseline gap-2">
-                        <p class="text-4xl font-black" x-text="agendaHoje.length"></p>
-                        <span class="text-clinica-200 text-xs font-bold uppercase tracking-wider">Agendadas</span>
-                    </div>
+            <div class="grid grid-cols-3 gap-3 mt-8 relative z-10">
+                <div class="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-4 shadow-inner flex flex-col justify-center items-center text-center">
+                    <p class="text-clinica-100 text-[9px] font-black uppercase mb-1 tracking-widest">Hoje</p>
+                    <p class="text-3xl font-black" x-text="agendaHoje.length"></p>
                 </div>
-                <button @click="abrirModalCadastro()" class="bg-white text-clinica-600 rounded-3xl p-5 flex flex-col items-center justify-center gap-2 hover:bg-clinica-50 shadow-lg hover:shadow-xl active:scale-95 transition-all group border-2 border-transparent hover:border-clinica-200">
-                    <div class="w-10 h-10 rounded-full bg-clinica-50 flex items-center justify-center group-hover:bg-clinica-100 transition-colors">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg>
+                
+                <a href="/estatisticas" class="bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-3xl p-4 flex flex-col items-center justify-center gap-2 hover:bg-white/20 transition-all active:scale-95 group shadow-sm">
+                    <svg class="w-6 h-6 text-clinica-100" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    <span class="text-[9px] font-black uppercase tracking-widest text-center">Gestão</span>
+                </a>
+
+                <button @click="abrirModalCadastro()" class="bg-white text-clinica-600 rounded-3xl p-4 flex flex-col items-center justify-center gap-2 hover:bg-clinica-50 shadow-lg hover:shadow-xl active:scale-95 transition-all group border-2 border-transparent hover:border-clinica-200">
+                    <div class="w-7 h-7 rounded-full bg-clinica-50 flex items-center justify-center group-hover:bg-clinica-100 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg>
                     </div>
-                    <span class="text-[11px] font-black uppercase tracking-widest">Novo Paciente</span>
+                    <span class="text-[9px] font-black uppercase tracking-widest text-center">Novo<br>Paciente</span>
                 </button>
             </div>
         </header>
@@ -1750,14 +2231,15 @@ ARQUIVO: app\templates\index.html
                 </div>
             </template>
             <div class="relative">
-                <div class="flex justify-between items-end mb-4">
-                    <h2 class="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
-                        <svg class="w-5 h-5 text-clinica-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                        Próximos Atendimentos
-                    </h2>
-                    
-                    <button @click="abrirModalAgendamento()" class="bg-slate-800 hover:bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-sm active:scale-95 transition-all">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                
+                <div class="flex justify-center items-center mb-6 gap-3 w-full">
+                    <a href="/agenda" class="flex-1 justify-center bg-clinica-50 hover:bg-clinica-100 text-clinica-600 border border-clinica-200 px-4 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 shadow-sm active:scale-95 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        Ver Agenda
+                    </a>
+
+                    <button @click="abrirModalAgendamento()" class="flex-1 justify-center bg-slate-800 hover:bg-slate-900 text-white px-4 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center gap-2 shadow-sm active:scale-95 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                         Agendar
                     </button>
                 </div>
@@ -1920,25 +2402,54 @@ ARQUIVO: app\templates\index.html
                                 </div>
                                 <select x-model="novoAgendamento.paciente_id" class="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-clinica-500 outline-none text-sm font-bold text-slate-700 shadow-inner">
                                     <option value="">Selecione a criança...</option>
-                                    <template x-for="paciente in pacients" :key="paciente.id">
+                                    <template x-for="paciente in pacientes" :key="paciente.id">
                                         <option :value="paciente.id" x-text="paciente.nome"></option>
                                     </template>
                                 </select>
                             </div>
                             
                             <div>
-                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Data e Hora</label>
-                                <input type="datetime-local" x-model="novoAgendamento.data_hora" class="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-clinica-500 outline-none text-sm font-bold text-slate-700 shadow-inner">
-                            </div>
-
-                            <div>
-                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Tipo de Sessão</label>
-                                <select x-model="novoAgendamento.tipo_sessao" class="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-clinica-500 outline-none text-sm font-bold text-slate-700 shadow-inner">
-                                    <option>Intervenção</option>
-                                    <option>Avaliação</option>
-                                    <option>Reunião Familiar</option>
+                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Profissional / Equipe</label>
+                                <select x-model="novoAgendamento.profissional_id" class="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-clinica-500 outline-none text-sm font-bold text-slate-700 shadow-inner">
+                                    <template x-for="prof in profissionais" :key="prof.id">
+                                        <option :value="prof.id" x-text="prof.nome"></option>
+                                    </template>
                                 </select>
                             </div>
+
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Data e Hora Inicial</label>
+                                    <input type="datetime-local" x-model="novoAgendamento.data_hora" class="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-clinica-500 outline-none text-sm font-bold text-slate-700 shadow-inner">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Tipo de Sessão</label>
+                                    <select x-model="novoAgendamento.tipo_sessao" class="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-clinica-500 outline-none text-sm font-bold text-slate-700 shadow-inner">
+                                        <option>Intervenção</option>
+                                        <option>Avaliação</option>
+                                        <option>Reunião Familiar</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 p-4 bg-clinica-50/50 rounded-xl border border-clinica-100">
+                                <label class="flex items-center gap-2 cursor-pointer mb-3">
+                                    <input type="checkbox" x-model="novoAgendamento.is_recorrente" class="w-4 h-4 text-clinica-600 rounded">
+                                    <span class="text-xs font-black text-slate-700 uppercase tracking-widest">Agendamento Recorrente?</span>
+                                </label>
+
+                                <div x-show="novoAgendamento.is_recorrente" x-transition class="pl-6 space-y-2 border-l-2 border-clinica-200">
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Repetir por quanto tempo?</label>
+                                    <select x-model="novoAgendamento.meses_recorrencia" class="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-clinica-500">
+                                        <option value="1">1 Mês (4 semanas)</option>
+                                        <option value="3">3 Meses (12 semanas)</option>
+                                        <option value="6">6 Meses (24 semanas)</option>
+                                        <option value="12">1 Ano (48 semanas)</option>
+                                    </select>
+                                    <p class="text-[9px] text-slate-500 italic mt-1">O sistema reservará este mesmo horário semanalmente no calendário.</p>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
 
@@ -2038,6 +2549,13 @@ ARQUIVO: app\templates\index.html
                 agendaHoje: [], 
                 agendaVisual: [], 
                 alertas: [], 
+                
+                profissionais: [
+                    { id: 1, nome: 'Dra. Edna Nogueira (T.O.)' },
+                    { id: 2, nome: 'Dr. Profissional 2' },
+                    { id: 3, nome: 'Dra. Profissional 3' }
+                ],
+                
                 carregando: true,
                 pesquisa: '',
                 mostrarLista: false, 
@@ -2049,9 +2567,8 @@ ARQUIVO: app\templates\index.html
                 
                 modalAgendamentoAberto: false,
                 salvandoAgendamento: false,
-                novoAgendamento: { paciente_id: '', data_hora: '', tipo_sessao: 'Intervenção' },
+                novoAgendamento: { paciente_id: '', data_hora: '', tipo_sessao: 'Intervenção', is_recorrente: false, meses_recorrencia: '1', profissional_id: '1' },
                 
-                // Variáveis para a Filtração Bidirecional
                 offsetFuturo: 0,
                 offsetPassado: 0,
                 temMaisFuturo: true,
@@ -2070,7 +2587,6 @@ ARQUIVO: app\templates\index.html
                         const hoje = new Date().toLocaleDateString('pt-BR');
                         this.agendaHoje = Array.isArray(dadosAgenda) ? dadosAgenda.filter(item => item.data === hoje) : [];
                         
-                        // Busca a paginação (Carrossel Horizontal) do momento atual para frente
                         this.carregarFuturo();
                         
                     }).catch(err => {
@@ -2084,7 +2600,6 @@ ARQUIVO: app\templates\index.html
                     .then(res => res.json())
                     .then(data => {
                         if(data.length < 6) this.temMaisFuturo = false;
-                        
                         if (data.length > 0) {
                             this.agendaVisual = [...this.agendaVisual, ...data];
                             this.offsetFuturo += data.length;
@@ -2098,9 +2613,7 @@ ARQUIVO: app\templates\index.html
                     .then(res => res.json())
                     .then(data => {
                         if (data.length < 6) this.temMaisPassado = false;
-                        
                         if (data.length > 0) {
-                            // Coloca os antigos no início da lista!
                             this.agendaVisual = [...data.reverse(), ...this.agendaVisual]; 
                             this.offsetPassado += data.length;
                         }
@@ -2161,11 +2674,15 @@ ARQUIVO: app\templates\index.html
                         return;
                     }
                     this.salvandoAgendamento = true;
+                    
                     const payload = {
                         paciente_id: this.novoAgendamento.paciente_id,
+                        profissional_id: parseInt(this.novoAgendamento.profissional_id),
                         data_hora: this.novoAgendamento.data_hora.replace('T', ' '),
                         status: 'Agendado',
                         tipo_sessao: this.novoAgendamento.tipo_sessao,
+                        recorrente: this.novoAgendamento.is_recorrente,
+                        meses_recorrencia: parseInt(this.novoAgendamento.meses_recorrencia),
                         evolucao_texto: '',
                         micro_metas: {}
                     };
@@ -2185,7 +2702,7 @@ ARQUIVO: app\templates\index.html
                         this.inicializar(); 
                         
                         this.salvandoAgendamento = false;
-                        this.novoAgendamento = { paciente_id: '', data_hora: '', tipo_sessao: 'Intervenção' };
+                        this.novoAgendamento = { paciente_id: '', data_hora: '', tipo_sessao: 'Intervenção', is_recorrente: false, meses_recorrencia: '1', profissional_id: '1' };
                     }).catch(() => { this.salvandoAgendamento = false; });
                 },
 
@@ -2586,7 +3103,20 @@ ARQUIVO: app\templates\paciente.html
                             </div>
                             
                             <h2 class="font-black text-xl text-slate-800 leading-tight mb-1 relative z-10" x-text="paciente.nome"></h2>
-                            <p class="text-clinica-600 font-bold text-sm mb-5 relative z-10" x-text="calcularIdade(paciente.data_nascimento)"></p>
+                            <p class="text-clinica-600 font-bold text-sm mb-3 relative z-10" x-text="calcularIdade(paciente.data_nascimento)"></p>
+
+                            <div class="flex justify-center gap-2 mb-4 relative z-10">
+                                <button @click="mudarStatus('Ativo')"
+                                        class="px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-sm"
+                                        :class="(!paciente.status_clinico || paciente.status_clinico === 'Ativo') ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-slate-50 text-slate-400 hover:bg-slate-100 border border-transparent'">
+                                    Ativo
+                                </button>
+                                <button @click="mudarStatus('Inativo')"
+                                        class="px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-sm"
+                                        :class="paciente.status_clinico === 'Inativo' ? 'bg-rose-50 text-rose-600 border border-rose-200' : 'bg-slate-50 text-slate-400 hover:bg-slate-100 border border-transparent'">
+                                    Pausa / Inativo
+                                </button>
+                            </div>
                             
                             <div class="text-left space-y-4 pt-4 border-t border-slate-50 relative z-10">
                                 <div>
@@ -2965,6 +3495,32 @@ ARQUIVO: app\templates\paciente.html
                     }).catch(err => {
                         console.error('Erro ao carregar prontuário:', err);
                         this.carregando = false;
+                    });
+                },
+
+                // NOVO: Função para alterar o status do paciente (Ativo/Inativo)
+                mudarStatus(novoStatus) {
+                    if (this.paciente && this.paciente.status_clinico === novoStatus) return;
+
+                    if (novoStatus === 'Inativo' && !confirm('Atenção: Mudar para "Pausa/Inativo" vai CANCELAR todos os agendamentos futuros deste paciente na agenda. Deseja continuar?')) {
+                        return;
+                    }
+
+                    fetch(`/api/pacientes/${this.pacienteId}/status`, {
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ status_clinico: novoStatus })
+                    }).then(res => {
+                        if (res.ok) {
+                            this.paciente.status_clinico = novoStatus;
+                            alert(`Status atualizado para ${novoStatus} com sucesso!`);
+                            this.carregarDados(); // Recarrega para limpar as evoluções/agendamentos futuros deletados
+                        } else {
+                            alert('Erro ao atualizar status do paciente.');
+                        }
+                    }).catch(err => {
+                        console.error(err);
+                        alert('Erro na comunicação com o servidor.');
                     });
                 },
 
@@ -3732,6 +4288,172 @@ ARQUIVO: app\templates\relatorio.html
                                 }
                             }
                         });
+                    });
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+
+============================================================
+ARQUIVO: app\templates\app\templates\estatisticas.html
+============================================================
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Estatísticas da Clínica | APP-TO</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Nunito', 'sans-serif'] },
+                    colors: { 
+                        clinica: { 50: '#f0fdfa', 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 900: '#134e4a' } 
+                    } 
+                } 
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #f8fafc; font-family: 'Nunito', sans-serif; }
+    </style>
+</head>
+<body class="text-slate-800 antialiased relative min-h-screen" x-data="gestaoEstatisticas()" x-init="carregarDados()">
+
+    <header class="bg-clinica-600 text-white p-6 shadow-lg relative">
+        <div class="max-w-4xl mx-auto flex items-center gap-4">
+            <a href="/" class="p-2 -ml-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors active:scale-95">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+            </a>
+            <div>
+                <h1 class="text-xl font-black uppercase tracking-widest flex items-center gap-2">Gestão e Estatísticas</h1>
+                <p class="text-clinica-100 text-[10px] font-bold uppercase tracking-widest mt-1">Inteligência de Dados APP-TO</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto p-6 space-y-6">
+        
+        <div x-show="carregando" class="flex justify-center items-center py-20">
+            <svg class="animate-spin h-8 w-8 text-clinica-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+        </div>
+
+        <div x-show="!carregando" style="display: none;" class="space-y-6">
+            
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                
+                <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center text-center">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Diretório Ativo</p>
+                    <p class="text-4xl font-black text-clinica-600" x-text="dados.total_pacientes"></p>
+                    <p class="text-[9px] font-bold text-slate-400 mt-1 uppercase">Pacientes</p>
+                </div>
+
+                <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center text-center">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Assiduidade</p>
+                    <p class="text-4xl font-black text-emerald-500" x-text="dados.taxa_assiduidade + '%'"></p>
+                    <p class="text-[9px] font-bold text-slate-400 mt-1 uppercase">Últimos 30 dias</p>
+                </div>
+
+                <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center text-center">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Carga Semanal</p>
+                    <p class="text-4xl font-black text-slate-800" x-text="dados.carga_semana"></p>
+                    <p class="text-[9px] font-bold text-slate-400 mt-1 uppercase">Sessões Programadas</p>
+                </div>
+
+                <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center text-center">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Faltas no Mês</p>
+                    <p class="text-4xl font-black text-rose-500" x-text="dados.sessoes_faltas"></p>
+                    <p class="text-[9px] font-bold text-slate-400 mt-1 uppercase">Últimos 30 dias</p>
+                </div>
+
+            </div>
+
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                <h2 class="text-sm font-black text-slate-800 uppercase tracking-widest mb-6 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-clinica-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg>
+                    Distribuição Clínica (Diagnósticos)
+                </h2>
+                
+                <div class="relative h-64 w-full">
+                    <canvas id="graficoDiagnosticos"></canvas>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        function gestaoEstatisticas() {
+            return {
+                carregando: true,
+                dados: {
+                    total_pacientes: 0,
+                    taxa_assiduidade: 0,
+                    sessoes_faltas: 0,
+                    carga_semana: 0,
+                    grafico_diagnosticos: { labels: [], data: [] }
+                },
+
+                carregarDados() {
+                    fetch('/api/estatisticas/geral')
+                        .then(res => res.json())
+                        .then(data => {
+                            this.dados = data;
+                            this.carregando = false;
+                            
+                            // Adia a renderização do gráfico até o DOM estar visível
+                            setTimeout(() => {
+                                this.renderizarGrafico();
+                            }, 100);
+                        })
+                        .catch(err => {
+                            console.error("Erro ao carregar estatísticas", err);
+                            this.carregando = false;
+                        });
+                },
+
+                renderizarGrafico() {
+                    const ctx = document.getElementById('graficoDiagnosticos');
+                    if (!ctx) return;
+
+                    new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: this.dados.grafico_diagnosticos.labels,
+                            datasets: [{
+                                data: this.dados.grafico_diagnosticos.data,
+                                backgroundColor: [
+                                    '#0d9488', '#14b8a6', '#2dd4bf', '#5eead4', '#99f6e4',
+                                    '#3b82f6', '#8b5cf6', '#f43f5e', '#f59e0b', '#10b981'
+                                ],
+                                borderWidth: 0,
+                                hoverOffset: 4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'right',
+                                    labels: { font: { family: 'Nunito', weight: 'bold', size: 11 } }
+                                }
+                            },
+                            cutout: '70%'
+                        }
                     });
                 }
             }
