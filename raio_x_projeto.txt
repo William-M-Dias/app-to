@@ -493,25 +493,24 @@ ARQUIVO: app\routes\consulta_bp.py
 from flask import Blueprint, request, jsonify
 from app.extensions import db
 from app.models.consulta import Consulta
-from datetime import datetime
+from datetime import datetime, timedelta
+from sqlalchemy import asc, desc
 
 consulta_bp = Blueprint('consulta_bp', __name__, url_prefix='/api/consultas')
 
 # ==========================================
-# NOVA ROTA: O MOTOR DA AGENDA GLOBAL
+# ROTA ORIGINAL: AGENDA GLOBAL
 # ==========================================
 @consulta_bp.route('/agenda', methods=['GET'])
 def agenda_global():
-    # Importação local para evitar choque com outros módulos
     from app.models.paciente import Paciente 
     
-    # Pega o dia de hoje, a partir da meia-noite
-    hoje = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    hoje_brasil = datetime.utcnow() - timedelta(hours=3)
+    hoje_meia_noite = hoje_brasil.replace(hour=0, minute=0, second=0, microsecond=0)
     
-    # Filtra tudo que for 'Agendado' e que a data seja de hoje para a frente
     consultas = Consulta.query.filter(
         Consulta.status == 'Agendado',
-        Consulta.data_hora >= hoje
+        Consulta.data_hora >= hoje_meia_noite
     ).order_by(Consulta.data_hora.asc()).all()
     
     resultado = []
@@ -529,6 +528,52 @@ def agenda_global():
             
     return jsonify(resultado), 200
 
+# ==========================================
+# ROTA: AGENDA PAGINADA (Carrossel Horizontal)
+# ==========================================
+@consulta_bp.route('/agenda_paginada', methods=['GET'])
+def agenda_paginada():
+    from app.models.paciente import Paciente 
+    
+    direcao = request.args.get('direcao', 'futuro')
+    offset = int(request.args.get('offset', 0))
+    limit = int(request.args.get('limit', 6))
+    
+    agora = datetime.utcnow() - timedelta(hours=3)
+    linha_de_corte = agora - timedelta(minutes=60)
+    
+    if direcao == 'futuro':
+        consultas = Consulta.query.filter(
+            Consulta.data_hora >= linha_de_corte
+        ).order_by(asc(Consulta.data_hora)).offset(offset).limit(limit).all()
+    else:
+        consultas = Consulta.query.filter(
+            Consulta.data_hora < linha_de_corte
+        ).order_by(desc(Consulta.data_hora)).offset(offset).limit(limit).all()
+        
+    resultado = []
+    for c in consultas:
+        paciente = Paciente.query.get(c.paciente_id)
+        if paciente:
+            data_obj = c.data_hora
+            if isinstance(data_obj, str):
+                try:
+                    data_obj = datetime.strptime(data_obj, '%Y-%m-%d %H:%M:%S')
+                except ValueError:
+                    data_obj = datetime.strptime(data_obj, '%Y-%m-%d %H:%M')
+                    
+            resultado.append({
+                "id": c.id,
+                "paciente_id": paciente.id,
+                "nome_paciente": paciente.nome,
+                "data": data_obj.strftime('%d/%m/%Y'),
+                "hora": data_obj.strftime('%H:%M'),
+                "tipo_sessao": c.tipo_sessao,
+                "status": c.status
+            })
+            
+    return jsonify(resultado), 200
+
 @consulta_bp.route('/paciente/<int:paciente_id>', methods=['GET'])
 def listar_consultas_paciente(paciente_id):
     consultas = Consulta.query.filter_by(paciente_id=paciente_id).order_by(Consulta.data_hora.desc()).all()
@@ -542,35 +587,75 @@ def listar_consultas_paciente(paciente_id):
     } for c in consultas]
     return jsonify(resultado), 200
 
+# ==========================================
+# ROTA INTELIGENTE DE REGISTRO / EVOLUÇÃO
+# ==========================================
 @consulta_bp.route('/', methods=['POST'])
 def registrar_evolucao():
     dados = request.get_json()
     
-    if not dados or not dados.get('paciente_id') or not dados.get('data_hora'):
+    if not dados or not dados.get('paciente_id'):
         return jsonify({"erro": "Dados incompletos para registo."}), 400
         
     try:
-        data_string = dados['data_hora']
+        paciente_id = dados['paciente_id']
+        status_recebido = dados.get('status', 'Realizado')
+        
+        # Formatação segura da data
+        data_string = dados.get('data_hora')
+        if not data_string:
+            data_string = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d %H:%M')
+            
         if 'T' in data_string:
             data_string = data_string.replace('T', ' ')
         if len(data_string) == 10:
             data_string += ' 00:00'
             
-        data_hora_consulta = datetime.strptime(data_string, '%Y-%m-%d %H:%M')
+        data_hora_requisicao = datetime.strptime(data_string, '%Y-%m-%d %H:%M')
+        data_apenas = data_hora_requisicao.date()
         
-        nova_consulta = Consulta(
-            paciente_id=dados['paciente_id'],
-            data_hora=data_hora_consulta,
-            tipo_sessao=dados.get('tipo_sessao', 'Intervenção de Rotina'),
-            status=dados.get('status', 'Realizado'),
-            evolucao_texto=dados.get('evolucao_texto', ''),
-            micro_metas=dados.get('micro_metas', {})
-        )
+        consulta_existente = None
         
-        db.session.add(nova_consulta)
-        db.session.commit()
-        return jsonify({"mensagem": "Registo salvo com sucesso!"}), 201
-        
+        # A MÁGICA: Se ela estiver dando BAIXA (Realizado ou Falta)
+        # Vamos buscar o agendamento original do dia para ATUALIZAR em vez de duplicar
+        if status_recebido in ['Realizado', 'Falta']:
+            inicio_dia = datetime.combine(data_apenas, datetime.min.time())
+            fim_dia = datetime.combine(data_apenas, datetime.max.time())
+            
+            consulta_existente = Consulta.query.filter(
+                Consulta.paciente_id == paciente_id,
+                Consulta.data_hora >= inicio_dia,
+                Consulta.data_hora <= fim_dia,
+                Consulta.status == 'Agendado'
+            ).first()
+            
+        if consulta_existente:
+            # ATUALIZA O CARD EXISTENTE (Mantém a hora das 10:00 intacta!)
+            consulta_existente.status = status_recebido
+            consulta_existente.evolucao_texto = dados.get('evolucao_texto', '')
+            consulta_existente.micro_metas = dados.get('micro_metas', {})
+            
+            if 'tipo_sessao' in dados:
+                consulta_existente.tipo_sessao = dados['tipo_sessao']
+                
+            db.session.commit()
+            return jsonify({"mensagem": "Agenda atualizada com evolução/falta!"}), 200
+            
+        else:
+            # CRIA UM CARD NOVO (Apenas se não tinha agenda hoje, ou se está marcando uma nova data futura)
+            nova_consulta = Consulta(
+                paciente_id=paciente_id,
+                data_hora=data_hora_requisicao,
+                tipo_sessao=dados.get('tipo_sessao', 'Intervenção de Rotina'),
+                status=status_recebido,
+                evolucao_texto=dados.get('evolucao_texto', ''),
+                micro_metas=dados.get('micro_metas', {})
+            )
+            
+            db.session.add(nova_consulta)
+            db.session.commit()
+            return jsonify({"mensagem": "Novo registo salvo com sucesso!"}), 201
+            
     except Exception as e:
         db.session.rollback()
         return jsonify({"erro": str(e)}), 500
@@ -666,8 +751,10 @@ import os
 from flask import Blueprint, request, jsonify, current_app, url_for
 from app.extensions import db
 from app.models.paciente import Paciente
+from app.models.consulta import Consulta
+from app.models.pedi import AvaliacaoPEDI
 from datetime import datetime
-from sqlalchemy import text
+from sqlalchemy import text, desc
 from werkzeug.utils import secure_filename
 
 paciente_bp = Blueprint('paciente_bp', __name__, url_prefix='/api/pacientes')
@@ -783,6 +870,74 @@ def upload_foto(id):
     db.session.commit()
     
     return jsonify({"url": paciente.foto_url}), 200
+
+# ==============================================================================
+# MOTOR DE INTELIGÊNCIA CLÍNICA (Alertas de Prontidão)
+# ==============================================================================
+@paciente_bp.route('/alertas', methods=['GET'])
+def alertas_prontidao():
+    try:
+        pacientes = Paciente.query.all()
+        alertas = []
+        hoje = datetime.utcnow().date()
+
+        for p in pacientes:
+            # Pega a última avaliação PEDI do paciente
+            ultimo_pedi = AvaliacaoPEDI.query.filter_by(paciente_id=p.id).order_by(desc(AvaliacaoPEDI.data_avaliacao)).first()
+            
+            # Pega as últimas 5 evoluções clínicas realizadas
+            ultimas_consultas = Consulta.query.filter_by(paciente_id=p.id, status='Realizado').order_by(desc(Consulta.data_hora)).limit(5).all()
+            
+            motivos = []
+            
+            # REGRA 1: Tempo desde o último PEDI (Tempo de Reavaliação Padrão)
+            if ultimo_pedi:
+                data_pedi = ultimo_pedi.data_avaliacao
+                if isinstance(data_pedi, str):
+                    try:
+                        data_pedi = datetime.strptime(data_pedi.split(' ')[0], '%Y-%m-%d').date()
+                    except:
+                        data_pedi = hoje
+                elif isinstance(data_pedi, datetime):
+                    data_pedi = data_pedi.date()
+                
+                dias_passados = (hoje - data_pedi).days
+                meses_passados = dias_passados / 30
+                if meses_passados >= 6:
+                    motivos.append(f"A última avaliação PEDI foi há {int(meses_passados)} meses. Recomendada reavaliação de rotina.")
+            else:
+                if len(ultimas_consultas) > 0:
+                    motivos.append("Paciente em intervenção, mas ainda não possui o PEDI base registado.")
+                    
+            # REGRA 2: Consistência de Alta Performance (Escala GAS)
+            gas_total = 0
+            qtd_gas = 0
+            for c in ultimas_consultas:
+                if c.micro_metas and isinstance(c.micro_metas, dict):
+                    # Extrai os valores numéricos válidos da escala GAS (-2 a +2)
+                    valores = [v for k, v in c.micro_metas.items() if v is not None and isinstance(v, (int, float)) and k in ['autocuidado', 'mobilidade', 'funcao_social']]
+                    if valores:
+                        gas_total += sum(valores) / len(valores)
+                        qtd_gas += 1
+                        
+            # Se teve pelo menos 3 sessões com GAS preenchido e a média é alta (+1.0 ou mais)
+            if qtd_gas >= 3:
+                media_gas = gas_total / qtd_gas
+                if media_gas >= 1.0:
+                    motivos.append(f"Alta performance constante detectada (Média GAS: +{media_gas:.1f}). Criança pronta para subir de nível no PEDI.")
+                    
+            # Se houver algum motivo de alerta, adiciona ao painel
+            if motivos:
+                alertas.append({
+                    "paciente_id": p.id,
+                    "nome_paciente": p.nome,
+                    "foto_url": p.foto_url,
+                    "motivos": motivos
+                })
+                
+        return jsonify(alertas), 200
+    except Exception as e:
+        return jsonify({"erro": f"Erro ao processar alertas: {str(e)}"}), 500
 
 ============================================================
 ARQUIVO: app\routes\pedi_bp.py
@@ -1557,7 +1712,43 @@ ARQUIVO: app\templates\index.html
         </header>
 
         <main class="p-6 space-y-10">
-            
+
+            <template x-if="alertas.length > 0">
+                <div class="relative">
+                    <h2 class="text-sm font-black text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-amber-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L1 21h22L12 2zm1 16h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+                        Alertas de Prontidão 
+                    </h2>
+                    <div class="space-y-3">
+                        <template x-for="alerta in alertas" :key="alerta.paciente_id">
+                            <div @click="window.location.href = '/paciente/' + alerta.paciente_id" 
+                                 class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-2xl shadow-sm cursor-pointer hover:bg-amber-100 transition-colors flex items-start gap-4">
+                                
+                                <div class="w-12 h-12 rounded-full bg-amber-200 flex items-center justify-center text-amber-700 font-black text-lg shrink-0 overflow-hidden border-2 border-white shadow-sm">
+                                    <template x-if="alerta.foto_url">
+                                        <img :src="alerta.foto_url" class="w-full h-full object-cover object-top">
+                                    </template>
+                                    <template x-if="!alerta.foto_url">
+                                        <span x-text="alerta.nome_paciente ? alerta.nome_paciente.trim().charAt(0).toUpperCase() : '?'"></span>
+                                    </template>
+                                </div>
+
+                                <div class="flex-1 min-w-0 overflow-hidden">
+                                    <h3 class="font-black text-slate-800 text-sm truncate" x-text="alerta.nome_paciente"></h3>
+                                    <ul class="mt-1.5 space-y-1.5">
+                                        <template x-for="motivo in alerta.motivos">
+                                            <li class="text-xs font-bold text-amber-800 flex items-start gap-1.5 leading-tight">
+                                                <span class="text-amber-500 mt-0.5">•</span>
+                                                <span x-text="motivo"></span>
+                                            </li>
+                                        </template>
+                                    </ul>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
             <div class="relative">
                 <div class="flex justify-between items-end mb-4">
                     <h2 class="text-sm font-black text-slate-800 uppercase tracking-widest flex items-center gap-2">
@@ -1565,13 +1756,13 @@ ARQUIVO: app\templates\index.html
                         Próximos Atendimentos
                     </h2>
                     
-                    <button x-show="agenda.length > 0" @click="abrirModalAgendamento()" class="bg-slate-800 hover:bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-sm active:scale-95 transition-all">
+                    <button @click="abrirModalAgendamento()" class="bg-slate-800 hover:bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-sm active:scale-95 transition-all">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                         Agendar
                     </button>
                 </div>
 
-                <template x-if="agenda.length === 0 && !carregando">
+                <template x-if="agendaVisual.length === 0 && !carregando">
                     <div class="bg-white/80 backdrop-blur-sm p-10 rounded-3xl border-2 border-dashed border-clinica-200 text-center shadow-sm relative overflow-hidden group">
                         <div class="absolute inset-0 bg-gradient-to-br from-clinica-50 to-transparent opacity-50"></div>
                         <svg class="mx-auto h-16 w-16 text-clinica-300 mb-4 relative z-10 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -1585,10 +1776,18 @@ ARQUIVO: app\templates\index.html
                     </div>
                 </template>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <template x-for="item in agenda" :key="item.id">
+                <div x-show="agendaVisual.length > 0" class="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar gap-4 pb-4 items-stretch px-1" style="scroll-behavior: smooth;">
+                    
+                    <div class="min-w-[120px] shrink-0 snap-start flex items-center justify-center" x-show="temMaisPassado">
+                        <button @click="carregarPassado()" class="h-full w-full bg-slate-100/50 hover:bg-slate-200 border-2 border-dashed border-slate-300 rounded-3xl text-slate-500 font-black uppercase tracking-widest text-[10px] flex flex-col items-center justify-center gap-2 transition-colors active:scale-95">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                            Anterior
+                        </button>
+                    </div>
+
+                    <template x-for="item in agendaVisual" :key="item.id">
                         <div @click="window.location.href = '/paciente/' + item.paciente_id" 
-                             class="bg-white/90 backdrop-blur-sm p-6 rounded-3xl shadow-md border-l-4 hover:-translate-y-1 transition-all cursor-pointer group flex items-center gap-4"
+                             class="min-w-[320px] w-[320px] shrink-0 snap-center bg-white/90 backdrop-blur-sm p-6 rounded-3xl shadow-md border-l-4 hover:-translate-y-1 transition-all cursor-pointer group flex items-center gap-4"
                              :class="isHoje(item.data) ? 'border-clinica-500 shadow-clinica-100' : 'border-slate-300'">
                             
                             <div class="w-14 h-14 rounded-full bg-clinica-100 flex items-center justify-center text-clinica-600 font-black text-xl overflow-hidden shrink-0 border-2 border-white shadow-sm transition-colors group-hover:border-clinica-300">
@@ -1596,11 +1795,11 @@ ARQUIVO: app\templates\index.html
                                     <img :src="getPacienteFoto(item.paciente_id)" class="w-full h-full object-cover">
                                 </template>
                                 <template x-if="!getPacienteFoto(item.paciente_id)">
-                                    <span x-text="item.nome_paciente.charAt(0)"></span>
+                                    <span x-text="item.nome_paciente ? item.nome_paciente.trim().charAt(0).toUpperCase() : '?'"></span>
                                 </template>
                             </div>
 
-                            <div class="flex-1 min-w-0">
+                            <div class="flex-1 min-w-0 overflow-hidden">
                                 <div class="flex justify-between items-start mb-1">
                                     <div>
                                         <span class="text-2xl font-black text-slate-800" x-text="item.hora"></span>
@@ -1610,11 +1809,19 @@ ARQUIVO: app\templates\index.html
                                     </div>
                                 </div>
                                 <h3 class="font-black text-slate-700 text-lg truncate group-hover:text-clinica-600 transition-colors" x-text="item.nome_paciente"></h3>
-                                <p class="text-slate-400 text-xs font-bold uppercase tracking-widest" x-text="item.tipo_sessao"></p>
+                                <p class="text-slate-400 text-xs font-bold uppercase tracking-widest truncate" x-text="item.tipo_sessao"></p>
                             </div>
                         </div>
                     </template>
+
+                    <div class="min-w-[120px] shrink-0 snap-start flex items-center justify-center" x-show="temMaisFuturo">
+                        <button @click="carregarFuturo()" class="h-full w-full bg-clinica-50/50 hover:bg-clinica-100 border-2 border-dashed border-clinica-300 rounded-3xl text-clinica-600 font-black uppercase tracking-widest text-[10px] flex flex-col items-center justify-center gap-2 transition-colors active:scale-95">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                            Próximo
+                        </button>
+                    </div>
                 </div>
+
             </div>
 
             <div class="bg-white/90 backdrop-blur-sm p-6 rounded-3xl shadow-sm border border-slate-100">
@@ -1647,13 +1854,13 @@ ARQUIVO: app\templates\index.html
                                     <img :src="paciente.foto_url" class="w-full h-full object-cover">
                                 </template>
                                 <template x-if="!paciente.foto_url">
-                                    <span x-text="paciente.nome.charAt(0)"></span>
+                                    <span x-text="paciente.nome ? paciente.nome.trim().charAt(0).toUpperCase() : '?'"></span>
                                 </template>
                             </div>
 
-                            <div class="flex-1 min-w-0">
+                            <div class="flex-1 min-w-0 overflow-hidden">
                                 <h3 class="font-black text-slate-700 text-sm truncate mb-0.5 group-hover:text-slate-900" x-text="paciente.nome"></h3>
-                                <span class="inline-block text-slate-400 text-[9px] font-bold truncate uppercase tracking-wider" 
+                                <span class="block w-full text-slate-400 text-[9px] font-bold truncate uppercase tracking-wider" 
                                       x-text="paciente.diagnostico || 'Triagem Inicial'"></span>
                             </div>
                             <div class="shrink-0 text-slate-300 group-hover:text-clinica-500 transition-colors">
@@ -1713,7 +1920,7 @@ ARQUIVO: app\templates\index.html
                                 </div>
                                 <select x-model="novoAgendamento.paciente_id" class="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-clinica-500 outline-none text-sm font-bold text-slate-700 shadow-inner">
                                     <option value="">Selecione a criança...</option>
-                                    <template x-for="paciente in pacientes" :key="paciente.id">
+                                    <template x-for="paciente in pacients" :key="paciente.id">
                                         <option :value="paciente.id" x-text="paciente.nome"></option>
                                     </template>
                                 </select>
@@ -1828,8 +2035,9 @@ ARQUIVO: app\templates\index.html
         function gestaoDashboard() {
             return {
                 pacientes: [],
-                agenda: [],
-                agendaHoje: [],
+                agendaHoje: [], 
+                agendaVisual: [], 
+                alertas: [], 
                 carregando: true,
                 pesquisa: '',
                 mostrarLista: false, 
@@ -1837,26 +2045,65 @@ ARQUIVO: app\templates\index.html
                 salvando: false,
                 novoPaciente: { nome: '', data_nascimento: '', escolaridade: '', queixa_principal: '', nome_responsavel: '', telefone_responsavel: '', email_responsavel: '' },
                 diagnosticosSelecionados: [],
-                listaDisfuncoes: ["TEA - Nível de Suporte 1", "TEA - Nível de Suporte 2", "TEA - Nível de Suporte 3", "TDAH", "TPS", "TDC", "Paralisia Cerebral", "Síndrome de Down", "TOD", "Em Investigação", "Outro"],
+                listaDisfuncoes: ["TEA - Nível de Suporte 1", "TEA - Nível de Suporte 2", "TEA - Nível de Suporte 3", "TDAH", "TPS", "TDC", "DI - (Deficiência Intelectual)", "Paralisia Cerebral", "Síndrome de Down", "TOD", "Em Investigação", "Outro"],
                 
                 modalAgendamentoAberto: false,
                 salvandoAgendamento: false,
                 novoAgendamento: { paciente_id: '', data_hora: '', tipo_sessao: 'Intervenção' },
+                
+                // Variáveis para a Filtração Bidirecional
+                offsetFuturo: 0,
+                offsetPassado: 0,
+                temMaisFuturo: true,
+                temMaisPassado: true,
 
                 inicializar() {
                     this.carregando = true;
                     Promise.all([
                         fetch('/api/pacientes/').then(res => res.json()),
-                        fetch('/api/consultas/agenda').then(res => res.json())
-                    ]).then(([dadosPacientes, dadosAgenda]) => {
+                        fetch('/api/consultas/agenda').then(res => res.json()),
+                        fetch('/api/pacientes/alertas').then(res => res.json())
+                    ]).then(([dadosPacientes, dadosAgenda, dadosAlertas]) => {
                         this.pacientes = dadosPacientes;
-                        this.agenda = Array.isArray(dadosAgenda) ? dadosAgenda : [];
+                        this.alertas = Array.isArray(dadosAlertas) ? dadosAlertas : [];
+                        
                         const hoje = new Date().toLocaleDateString('pt-BR');
-                        this.agendaHoje = this.agenda.filter(item => item.data === hoje);
-                        this.carregando = false;
+                        this.agendaHoje = Array.isArray(dadosAgenda) ? dadosAgenda.filter(item => item.data === hoje) : [];
+                        
+                        // Busca a paginação (Carrossel Horizontal) do momento atual para frente
+                        this.carregarFuturo();
+                        
                     }).catch(err => {
                         console.error('Erro ao carregar dashboard:', err);
                         this.carregando = false;
+                    });
+                },
+
+                carregarFuturo() {
+                    fetch(`/api/consultas/agenda_paginada?direcao=futuro&offset=${this.offsetFuturo}&limit=6`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if(data.length < 6) this.temMaisFuturo = false;
+                        
+                        if (data.length > 0) {
+                            this.agendaVisual = [...this.agendaVisual, ...data];
+                            this.offsetFuturo += data.length;
+                        }
+                        this.carregando = false;
+                    });
+                },
+
+                carregarPassado() {
+                    fetch(`/api/consultas/agenda_paginada?direcao=passado&offset=${this.offsetPassado}&limit=6`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.length < 6) this.temMaisPassado = false;
+                        
+                        if (data.length > 0) {
+                            // Coloca os antigos no início da lista!
+                            this.agendaVisual = [...data.reverse(), ...this.agendaVisual]; 
+                            this.offsetPassado += data.length;
+                        }
                     });
                 },
 
@@ -1887,6 +2134,11 @@ ARQUIVO: app\templates\index.html
                     }).then(res => res.json()).then(data => {
                         if (data.id) { 
                             this.fecharModal(); 
+                            this.agendaVisual = [];
+                            this.offsetFuturo = 0;
+                            this.offsetPassado = 0;
+                            this.temMaisFuturo = true;
+                            this.temMaisPassado = true;
                             this.inicializar(); 
                         }
                         this.salvando = false;
@@ -1924,7 +2176,14 @@ ARQUIVO: app\templates\index.html
                         body: JSON.stringify(payload)
                     }).then(res => res.json()).then(data => {
                         this.fecharModalAgendamento();
+                        
+                        this.agendaVisual = [];
+                        this.offsetFuturo = 0;
+                        this.offsetPassado = 0;
+                        this.temMaisFuturo = true;
+                        this.temMaisPassado = true;
                         this.inicializar(); 
+                        
                         this.salvandoAgendamento = false;
                         this.novoAgendamento = { paciente_id: '', data_hora: '', tipo_sessao: 'Intervenção' };
                     }).catch(() => { this.salvandoAgendamento = false; });
@@ -2642,7 +2901,7 @@ ARQUIVO: app\templates\paciente.html
                                     <svg class="h-5 w-5 text-slate-500 transition-transform" :class="{'rotate-180': open}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                                 </button>
                                 <div x-show="open" @click.away="open = false" class="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar p-2">
-                                    <template x-for="opcao in ['TEA - Nível de Suporte 1', 'TEA - Nível de Suporte 2', 'TEA - Nível de Suporte 3', 'TDAH', 'TPS', 'TDC', 'Paralisia Cerebral', 'Síndrome de Down', 'TOD', 'Em Investigação', 'Outro']" :key="opcao">
+                                    <template x-for="opcao in ['TEA - Nível de Suporte 1', 'TEA - Nível de Suporte 2', 'TEA - Nível de Suporte 3', 'TDAH', 'TPS', 'TDC', 'DI - (Deficiência Intelectual)', 'Paralisia Cerebral', 'Síndrome de Down', 'TOD', 'Em Investigação', 'Outro']" :key="opcao">
                                         <label class="flex items-center gap-3 p-3 hover:bg-clinica-50 rounded-lg cursor-pointer">
                                             <input type="checkbox" :value="opcao" x-model="diagnosticosSelecionados" class="w-5 h-5 text-clinica-600 rounded">
                                             <span class="text-sm font-bold text-slate-700" x-text="opcao"></span>
@@ -3313,10 +3572,42 @@ ARQUIVO: app\templates\relatorio.html
             <div class="mb-8">
                 <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 border-b pb-2">Resumo das Últimas Intervenções</h2>
                 <div class="space-y-4">
-                    <template x-for="evo in historicoEvolucoes.slice(0, 5)">
-                        <div class="border-l-2 border-teal-500 pl-4 py-1">
-                            <span class="text-[10px] font-black text-slate-400" x-text="evo.data_hora"></span>
-                            <p class="text-sm font-semibold text-slate-700 mt-1 whitespace-pre-line" x-text="evo.evolucao_texto || 'Sessão com intervenção prática em consultório.'"></p>
+                    <template x-for="evo in historicoEvolucoes.slice(0, 5)" :key="evo.id">
+                        <div class="border-l-4 border-teal-500 pl-4 py-2 bg-slate-50 rounded-r-xl pr-4">
+                            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest" x-text="evo.data_hora"></span>
+                            
+                            <template x-if="evo.micro_metas && (evo.micro_metas.autocuidado !== null || evo.micro_metas.mobilidade !== null || evo.micro_metas.funcao_social !== null)">
+                                <div class="flex flex-wrap gap-2 mt-2 mb-2">
+                                    <template x-if="evo.micro_metas.autocuidado !== null">
+                                        <span class="text-[9px] font-black uppercase px-2 py-1 rounded bg-teal-100 text-teal-800 border border-teal-200">
+                                            Autocuidado: <span x-text="evo.micro_metas.autocuidado > 0 ? '+' + evo.micro_metas.autocuidado : evo.micro_metas.autocuidado"></span>
+                                        </span>
+                                    </template>
+                                    <template x-if="evo.micro_metas.mobilidade !== null">
+                                        <span class="text-[9px] font-black uppercase px-2 py-1 rounded bg-blue-100 text-blue-800 border border-blue-200">
+                                            Mobilidade: <span x-text="evo.micro_metas.mobilidade > 0 ? '+' + evo.micro_metas.mobilidade : evo.micro_metas.mobilidade"></span>
+                                        </span>
+                                    </template>
+                                    <template x-if="evo.micro_metas.funcao_social !== null">
+                                        <span class="text-[9px] font-black uppercase px-2 py-1 rounded bg-rose-100 text-rose-800 border border-rose-200">
+                                            Social: <span x-text="evo.micro_metas.funcao_social > 0 ? '+' + evo.micro_metas.funcao_social : evo.micro_metas.funcao_social"></span>
+                                        </span>
+                                    </template>
+                                </div>
+                            </template>
+
+                            <template x-if="evo.micro_metas && evo.micro_metas.atividades && evo.micro_metas.atividades.length > 0">
+                                <div class="mb-3">
+                                    <span class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Atividades Realizadas:</span>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        <template x-for="ativ in evo.micro_metas.atividades">
+                                            <span class="bg-teal-50 text-teal-700 text-[10px] font-bold px-2 py-1 rounded-md border border-teal-100" x-text="ativ"></span>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <p class="text-sm font-semibold text-slate-700 mt-2 whitespace-pre-line leading-relaxed" x-text="evo.evolucao_texto || 'Sessão estruturada realizada conforme plano terapêutico.'"></p>
                         </div>
                     </template>
                     <template x-if="historicoEvolucoes.length === 0">
@@ -3343,7 +3634,7 @@ ARQUIVO: app\templates\relatorio.html
                 ultimaAnamnese: null, 
                 historicoEvolucoes: [], 
                 carregando: true,
-                temDadosGrafico: false, // Controle de exibição do gráfico
+                temDadosGrafico: false, 
                 
                 carregarDados() {
                     Promise.all([
@@ -3355,10 +3646,12 @@ ARQUIVO: app\templates\relatorio.html
                         this.paciente = dadosPaciente;
                         this.avaliacoesPedi = Array.isArray(dadosPedi) ? dadosPedi : [];
                         if (Array.isArray(dadosAnamnese) && dadosAnamnese.length > 0) this.ultimaAnamnese = dadosAnamnese[0];
-                        this.historicoEvolucoes = Array.isArray(dadosConsultas) ? dadosConsultas.filter(c => c.status === 'Realizado') : [];
+                        
+                        // CORREÇÃO AQUI: adicionado o .reverse() para pegar as mais recentes!
+                        this.historicoEvolucoes = Array.isArray(dadosConsultas) ? dadosConsultas.filter(c => c.status === 'Realizado').reverse() : [];
+                        
                         this.carregando = false;
                         
-                        // Espera o Alpine atualizar o DOM e então renderiza o gráfico
                         this.$nextTick(() => {
                             this.renderizarGrafico();
                         });
@@ -3378,22 +3671,21 @@ ARQUIVO: app\templates\relatorio.html
                 },
 
                 renderizarGrafico() {
-                    // Filtra apenas as evoluções que têm dados GAS válidos
+                    // Aqui precisa de reverse() novamente porque o array original já foi invertido acima,
+                    // e o Chart.js desenha o eixo X da esquerda (antigo) para a direita (recente).
                     const evolucoesGAS = this.historicoEvolucoes.filter(e => 
                         e.micro_metas && 
                         (e.micro_metas.autocuidado !== null || e.micro_metas.mobilidade !== null || e.micro_metas.funcao_social !== null)
-                    ).reverse(); // Inverte para ordem cronológica (da mais antiga para a mais nova)
+                    ).slice().reverse(); 
 
                     if (evolucoesGAS.length === 0) return;
                     
                     this.temDadosGrafico = true;
 
-                    // Extrai as datas (DD/MM) para o eixo X
                     const labels = evolucoesGAS.map(e => {
                         return e.data_hora.split(' ')[0].split('-').reverse().slice(0, 2).join('/');
                     });
 
-                    // Calcula a média do GAS por sessão
                     const dataEvolucao = evolucoesGAS.map(e => {
                         let sum = 0;
                         let count = 0;
@@ -3403,7 +3695,6 @@ ARQUIVO: app\templates\relatorio.html
                         return count > 0 ? parseFloat((sum / count).toFixed(1)) : 0;
                     });
 
-                    // Garante que o canvas existe antes de plotar
                     this.$nextTick(() => {
                         const ctx = document.getElementById('gasChart');
                         if (!ctx) return;
@@ -3415,7 +3706,7 @@ ARQUIVO: app\templates\relatorio.html
                                 datasets: [{
                                     label: 'Média GAS',
                                     data: dataEvolucao,
-                                    borderColor: '#0d9488', // clinica-600
+                                    borderColor: '#0d9488', 
                                     backgroundColor: 'rgba(13, 148, 136, 0.1)',
                                     borderWidth: 3,
                                     pointBackgroundColor: '#fff',

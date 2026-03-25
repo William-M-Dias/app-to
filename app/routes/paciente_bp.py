@@ -4,7 +4,7 @@ from app.extensions import db
 from app.models.paciente import Paciente
 from app.models.consulta import Consulta
 from app.models.pedi import AvaliacaoPEDI
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import text, desc
 from werkzeug.utils import secure_filename
 
@@ -16,7 +16,6 @@ def listar_pacientes():
         pacientes = Paciente.query.all()
         return jsonify([p.to_dict() for p in pacientes]), 200
     except Exception as e:
-        # Se a coluna foto_url der erro, o log dirá exatamente aqui
         return jsonify({"erro": f"Erro ao listar: {str(e)}"}), 500
 
 @paciente_bp.route('/<int:id>', methods=['GET'])
@@ -73,7 +72,6 @@ def atualizar_paciente(id):
 def deletar_paciente(id):
     paciente = Paciente.query.get_or_404(id)
     try:
-        # Nomes das tabelas ajustados conforme seu log do Neon
         db.session.execute(text("DELETE FROM consultas WHERE paciente_id = :pid"), {"pid": id})
         db.session.execute(text("DELETE FROM anamnese WHERE paciente_id = :pid"), {"pid": id})
         db.session.execute(text("DELETE FROM avaliacoes_pedi WHERE paciente_id = :pid"), {"pid": id})
@@ -108,7 +106,6 @@ def upload_foto(id):
     if arquivo.filename == '':
         return jsonify({"erro": "Arquivo sem nome"}), 400
 
-    # SOLUÇÃO DEFINITIVA: Usa o static_folder para encontrar a pasta verdadeira do projeto
     upload_path = os.path.join(current_app.static_folder, 'uploads', 'perfil')
     
     if not os.path.exists(upload_path):
@@ -122,9 +119,6 @@ def upload_foto(id):
     
     return jsonify({"url": paciente.foto_url}), 200
 
-# ==============================================================================
-# MOTOR DE INTELIGÊNCIA CLÍNICA (Alertas de Prontidão)
-# ==============================================================================
 @paciente_bp.route('/alertas', methods=['GET'])
 def alertas_prontidao():
     try:
@@ -133,15 +127,11 @@ def alertas_prontidao():
         hoje = datetime.utcnow().date()
 
         for p in pacientes:
-            # Pega a última avaliação PEDI do paciente
             ultimo_pedi = AvaliacaoPEDI.query.filter_by(paciente_id=p.id).order_by(desc(AvaliacaoPEDI.data_avaliacao)).first()
-            
-            # Pega as últimas 5 evoluções clínicas realizadas
             ultimas_consultas = Consulta.query.filter_by(paciente_id=p.id, status='Realizado').order_by(desc(Consulta.data_hora)).limit(5).all()
             
             motivos = []
             
-            # REGRA 1: Tempo desde o último PEDI (Tempo de Reavaliação Padrão)
             if ultimo_pedi:
                 data_pedi = ultimo_pedi.data_avaliacao
                 if isinstance(data_pedi, str):
@@ -160,24 +150,20 @@ def alertas_prontidao():
                 if len(ultimas_consultas) > 0:
                     motivos.append("Paciente em intervenção, mas ainda não possui o PEDI base registado.")
                     
-            # REGRA 2: Consistência de Alta Performance (Escala GAS)
             gas_total = 0
             qtd_gas = 0
             for c in ultimas_consultas:
                 if c.micro_metas and isinstance(c.micro_metas, dict):
-                    # Extrai os valores numéricos válidos da escala GAS (-2 a +2)
                     valores = [v for k, v in c.micro_metas.items() if v is not None and isinstance(v, (int, float)) and k in ['autocuidado', 'mobilidade', 'funcao_social']]
                     if valores:
                         gas_total += sum(valores) / len(valores)
                         qtd_gas += 1
                         
-            # Se teve pelo menos 3 sessões com GAS preenchido e a média é alta (+1.0 ou mais)
             if qtd_gas >= 3:
                 media_gas = gas_total / qtd_gas
                 if media_gas >= 1.0:
                     motivos.append(f"Alta performance constante detectada (Média GAS: +{media_gas:.1f}). Criança pronta para subir de nível no PEDI.")
                     
-            # Se houver algum motivo de alerta, adiciona ao painel
             if motivos:
                 alertas.append({
                     "paciente_id": p.id,
@@ -189,3 +175,39 @@ def alertas_prontidao():
         return jsonify(alertas), 200
     except Exception as e:
         return jsonify({"erro": f"Erro ao processar alertas: {str(e)}"}), 500
+
+# ==============================================================================
+# NOVO: MOTOR DE INATIVAÇÃO DE PACIENTE E LIMPEZA DE AGENDA (Fase 3)
+# ==============================================================================
+@paciente_bp.route('/<int:id>/status', methods=['PUT'])
+def alterar_status(id):
+    paciente = Paciente.query.get_or_404(id)
+    dados = request.get_json()
+    novo_status = dados.get('status_clinico')
+
+    if not novo_status:
+        return jsonify({"erro": "Status não fornecido."}), 400
+
+    try:
+        paciente.status_clinico = novo_status
+        
+        # A MÁGICA DA LIMPEZA: Se inativar ou der alta, apaga as sessões futuras!
+        if novo_status in ['Inativo', 'Alta']:
+            hoje = datetime.utcnow() - timedelta(hours=3)
+            
+            consultas_futuras = Consulta.query.filter(
+                Consulta.paciente_id == id,
+                Consulta.data_hora > hoje,
+                Consulta.status == 'Agendado'
+            ).all()
+            
+            # Deleta as sessões futuras para liberar espaço na agenda da clínica
+            for c in consultas_futuras:
+                db.session.delete(c)
+                
+        db.session.commit()
+        return jsonify({"mensagem": f"Paciente {novo_status}. Agenda atualizada!"}), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"erro": str(e)}), 500

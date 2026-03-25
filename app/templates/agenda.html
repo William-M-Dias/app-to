@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agenda Interativa | APP-TO</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
+    
+    <script>
+        tailwind.config = {
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Nunito', 'sans-serif'] },
+                    colors: { 
+                        clinica: { 50: '#f0fdfa', 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 900: '#134e4a' } 
+                    } 
+                } 
+            }
+        }
+    </script>
+    
+    <style>
+        body { font-family: 'Nunito', sans-serif; background-color: #f8fafc; }
+        
+        /* Estilizando o calendário para ficar com a cara do sistema */
+        .fc-theme-standard .fc-scrollgrid { border: none !important; }
+        .fc-theme-standard td, .fc-theme-standard th { border-color: #f1f5f9; }
+        .fc-col-header-cell-cushion { font-weight: 800; color: #475569; text-transform: uppercase; font-size: 12px; padding: 12px !important; }
+        .fc-event { 
+            border-radius: 8px; 
+            font-weight: 800; 
+            font-size: 11px; 
+            padding: 3px 6px; 
+            border: none; 
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); 
+            cursor: pointer; 
+            transition: transform 0.2s;
+        }
+        .fc-event:hover { transform: scale(1.02); }
+        .fc-timegrid-slot-label-cushion { font-weight: 800; color: #94a3b8; font-size: 11px; }
+        .fc-button-primary {
+            background-color: #0d9488 !important;
+            border-color: #0d9488 !important;
+            font-weight: 800 !important;
+            text-transform: uppercase !important;
+            border-radius: 8px !important;
+            padding: 8px 16px !important;
+            font-size: 12px !important;
+            box-shadow: 0 4px 6px -1px rgba(13, 148, 136, 0.2) !important;
+        }
+        .fc-button-primary:hover {
+            background-color: #0f766e !important;
+            border-color: #0f766e !important;
+        }
+        .fc-button-active {
+            background-color: #115e59 !important;
+            border-color: #115e59 !important;
+        }
+        .fc-toolbar-title { font-weight: 900 !important; color: #1e293b !important; text-transform: uppercase; font-size: 1.25rem !important; }
+    </style>
+</head>
+<body class="text-slate-800 antialiased h-screen flex flex-col">
+
+    <header class="bg-clinica-600 text-white p-4 shadow-lg shrink-0 relative z-20">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <a href="/" class="p-2 -ml-2 hover:bg-white/20 rounded-full transition-colors active:scale-95">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                </a>
+                <h1 class="text-xl font-black uppercase tracking-widest flex items-center gap-2">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    Quadro Clínico
+                </h1>
+            </div>
+            
+            <div class="flex gap-4 text-[10px] font-black uppercase tracking-widest bg-black/20 px-4 py-2 rounded-full">
+                <span class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-teal-600 shadow-sm border border-white/20"></div> Única</span>
+                <span class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-purple-600 shadow-sm border border-white/20"></div> Recorrente</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow p-4 md:p-6 overflow-hidden max-w-7xl mx-auto w-full flex flex-col relative z-10">
+        <div class="bg-white p-6 rounded-3xl shadow-xl border border-slate-100 h-full flex flex-col relative">
+            <div id='calendar' class="flex-grow"></div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var calendarEl = document.getElementById('calendar');
+            
+            var calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'timeGridWeek', // Visão inicial: Semana
+                locale: 'pt-br',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'timeGridWeek,timeGridDay'
+                },
+                slotMinTime: '07:00:00', // Clínica abre às 7h
+                slotMaxTime: '20:00:00', // Clínica fecha às 20h
+                allDaySlot: false,       // Esconde a linha de "o dia inteiro"
+                editable: true,          // PERMITE O DRAG AND DROP (Arrastar blocos)
+                selectable: true,
+                eventDurationEditable: true, // Permite esticar o bloco para aumentar o tempo
+                events: '/api/consultas/calendario', // Consome a rota que você criou!
+                
+                // MÁGICA 1: O QUE ACONTECE QUANDO A EDNA ARRASTA UM BLOCO:
+                eventDrop: function(info) {
+                    if (!confirm(`Confirmar a mudança de horário de ${info.event.title}?`)) {
+                        info.revert(); // Se ela cancelar, o bloco volta pro lugar original
+                        return;
+                    }
+                    
+                    fetch(`/api/consultas/${info.event.id}/mover`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            nova_data: info.event.startStr,
+                            nova_data_fim: info.event.endStr
+                        })
+                    }).then(res => {
+                        if (!res.ok) {
+                            alert("Erro ao salvar mudança no banco de dados.");
+                            info.revert();
+                        }
+                    }).catch(err => {
+                        alert("Falha de conexão.");
+                        info.revert();
+                    });
+                },
+                
+                // MÁGICA 2: O QUE ACONTECE SE ELA ESTICAR/ENCOLHER O BLOCO DO HORÁRIO:
+                eventResize: function(info) {
+                     fetch(`/api/consultas/${info.event.id}/mover`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            nova_data: info.event.startStr,
+                            nova_data_fim: info.event.endStr
+                        })
+                    }).then(res => {
+                        if (!res.ok) {
+                            alert("Erro ao salvar mudança de tempo.");
+                            info.revert();
+                        }
+                    });
+                },
+                
+                // Clicar no evento abre a ficha do paciente
+                eventClick: function(info) {
+                    // O id do paciente não vem direto no event do FullCalendar, mas se precisarmos
+                    // podemos adicionar no backend futuramente. Por enquanto, foca na edição!
+                }
+            });
+            
+            calendar.render();
+        });
+    </script>
+</body>
+</html>

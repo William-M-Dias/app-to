@@ -19,15 +19,16 @@ class Paciente(db.Model):
     historico_desenvolvimento = db.Column(db.Text)
     intervencoes_atuais = db.Column(db.Text)
     
-    # NOVO: Campo para URL da foto (Fase 6)
+    # Campo para URL da foto
     foto_url = db.Column(db.String(255), nullable=True)
+    
+    # NOVO: Status clínico para controle da agenda inteligente
+    status_clinico = db.Column(db.String(50), default='Ativo')
     
     data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # RELAÇÕES COM CASCADE TOTAL (Resolve o Teste 4)
-    # Ao apagar o paciente, o SQLAlchemy limpa tudo o que estiver ligado a ele automaticamente
+    # RELAÇÕES COM CASCADE TOTAL
     consultas = db.relationship('Consulta', backref='paciente', lazy=True, cascade="all, delete-orphan")
-    # Nota: As outras relações (Anamnese, PEDI) usam backref nos seus próprios arquivos de modelo
 
     def to_dict(self):
         return {
@@ -40,5 +41,6 @@ class Paciente(db.Model):
             "nome_responsavel": self.nome_responsavel,
             "telefone_responsavel": self.telefone_responsavel,
             "email_responsavel": self.email_responsavel,
-            "foto_url": self.foto_url
+            "foto_url": self.foto_url,
+            "status_clinico": self.status_clinico
         }

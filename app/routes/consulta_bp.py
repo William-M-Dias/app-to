@@ -3,6 +3,7 @@ from app.extensions import db
 from app.models.consulta import Consulta
 from datetime import datetime, timedelta
 from sqlalchemy import asc, desc
+import uuid 
 
 consulta_bp = Blueprint('consulta_bp', __name__, url_prefix='/api/consultas')
 
@@ -96,7 +97,7 @@ def listar_consultas_paciente(paciente_id):
     return jsonify(resultado), 200
 
 # ==========================================
-# ROTA INTELIGENTE DE REGISTRO / EVOLUÇÃO
+# ROTA INTELIGENTE DE REGISTRO / EVOLUÇÃO / RECORRÊNCIA
 # ==========================================
 @consulta_bp.route('/', methods=['POST'])
 def registrar_evolucao():
@@ -107,9 +108,10 @@ def registrar_evolucao():
         
     try:
         paciente_id = dados['paciente_id']
-        status_recebido = dados.get('status', 'Realizado')
+        status_recebido = dados.get('status', 'Agendado') 
+        profissional_id = dados.get('profissional_id')
+        duracao_minutos = int(dados.get('duracao_minutos', 50)) 
         
-        # Formatação segura da data
         data_string = dados.get('data_hora')
         if not data_string:
             data_string = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d %H:%M')
@@ -120,13 +122,13 @@ def registrar_evolucao():
             data_string += ' 00:00'
             
         data_hora_requisicao = datetime.strptime(data_string, '%Y-%m-%d %H:%M')
+        data_fim_estimada = data_hora_requisicao + timedelta(minutes=duracao_minutos)
         data_apenas = data_hora_requisicao.date()
         
         consulta_existente = None
         
-        # A MÁGICA: Se ela estiver dando BAIXA (Realizado ou Falta)
-        # Vamos buscar o agendamento original do dia para ATUALIZAR em vez de duplicar
-        if status_recebido in ['Realizado', 'Falta']:
+        # 1. ATUALIZAR UM AGENDAMENTO (Baixa de Sessão: Realizado, Falta ou Cancelado)
+        if status_recebido in ['Realizado', 'Falta', 'Cancelado']:
             inicio_dia = datetime.combine(data_apenas, datetime.min.time())
             fim_dia = datetime.combine(data_apenas, datetime.max.time())
             
@@ -137,23 +139,62 @@ def registrar_evolucao():
                 Consulta.status == 'Agendado'
             ).first()
             
-        if consulta_existente:
-            # ATUALIZA O CARD EXISTENTE (Mantém a hora das 10:00 intacta!)
-            consulta_existente.status = status_recebido
-            consulta_existente.evolucao_texto = dados.get('evolucao_texto', '')
-            consulta_existente.micro_metas = dados.get('micro_metas', {})
+            if consulta_existente:
+                consulta_existente.status = status_recebido
+                consulta_existente.evolucao_texto = dados.get('evolucao_texto', '')
+                consulta_existente.micro_metas = dados.get('micro_metas', {})
+                if 'tipo_sessao' in dados:
+                    consulta_existente.tipo_sessao = dados['tipo_sessao']
+                    
+                db.session.commit()
+                return jsonify({"mensagem": "Agenda atualizada com evolução/falta!"}), 200
+
+        # 2. SE CHEGOU AQUI, É UM NOVO AGENDAMENTO (Podendo ser único ou recorrente)
+        recorrente = dados.get('recorrente', False)
+        
+        if recorrente:
+            dias_semana = dados.get('dias_semana', []) 
+            meses = int(dados.get('meses_recorrencia', 1))
             
-            if 'tipo_sessao' in dados:
-                consulta_existente.tipo_sessao = dados['tipo_sessao']
+            if not dias_semana:
+                dias_semana = [data_hora_requisicao.weekday()]
+                
+            data_limite = data_hora_requisicao + timedelta(days=30 * meses)
+            grupo_id = str(uuid.uuid4()) 
+            
+            data_atual_loop = data_hora_requisicao
+            consultas_criadas = 0
+            
+            while data_atual_loop <= data_limite:
+                if data_atual_loop.weekday() in dias_semana:
+                    nova_consulta = Consulta(
+                        paciente_id=paciente_id,
+                        profissional_id=profissional_id,
+                        data_hora=data_atual_loop,
+                        data_fim=data_atual_loop + timedelta(minutes=duracao_minutos),
+                        recorrente=True,
+                        grupo_recorrencia=grupo_id,
+                        tipo_sessao=dados.get('tipo_sessao', 'Intervenção de Rotina'),
+                        status='Agendado',
+                        evolucao_texto='',
+                        micro_metas={}
+                    )
+                    db.session.add(nova_consulta)
+                    consultas_criadas += 1
+                    
+                data_atual_loop += timedelta(days=1)
                 
             db.session.commit()
-            return jsonify({"mensagem": "Agenda atualizada com evolução/falta!"}), 200
+            return jsonify({"mensagem": f"{consultas_criadas} sessões agendadas com sucesso!"}), 201
             
         else:
-            # CRIA UM CARD NOVO (Apenas se não tinha agenda hoje, ou se está marcando uma nova data futura)
+            # 3. AGENDAMENTO ÚNICO
             nova_consulta = Consulta(
                 paciente_id=paciente_id,
+                profissional_id=profissional_id,
                 data_hora=data_hora_requisicao,
+                data_fim=data_fim_estimada,
+                recorrente=False,
                 tipo_sessao=dados.get('tipo_sessao', 'Intervenção de Rotina'),
                 status=status_recebido,
                 evolucao_texto=dados.get('evolucao_texto', ''),
@@ -162,7 +203,7 @@ def registrar_evolucao():
             
             db.session.add(nova_consulta)
             db.session.commit()
-            return jsonify({"mensagem": "Novo registo salvo com sucesso!"}), 201
+            return jsonify({"mensagem": "Novo registro único salvo com sucesso!"}), 201
             
     except Exception as e:
         db.session.rollback()
@@ -175,6 +216,71 @@ def deletar_consulta(id):
         db.session.delete(consulta)
         db.session.commit()
         return jsonify({"mensagem": "Registro excluído com sucesso!"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"erro": str(e)}), 500
+
+# =====================================================================
+# NOVO: ROTAS DO CALENDÁRIO VISUAL (FULLCALENDAR) - FASE 4
+# =====================================================================
+@consulta_bp.route('/calendario', methods=['GET'])
+def obter_eventos_calendario():
+    from app.models.paciente import Paciente
+    
+    # O FullCalendar envia 'start' e 'end' na URL automaticamente quando a tela é carregada
+    start_str = request.args.get('start')
+    end_str = request.args.get('end')
+    
+    query = Consulta.query.filter(Consulta.status == 'Agendado')
+    
+    if start_str and end_str:
+        # Pega só a parte da data (AAAA-MM-DD)
+        start_date = datetime.strptime(start_str[:10], '%Y-%m-%d')
+        end_date = datetime.strptime(end_str[:10], '%Y-%m-%d')
+        query = query.filter(Consulta.data_hora >= start_date, Consulta.data_hora <= end_date)
+        
+    consultas = query.all()
+    eventos = []
+    
+    for c in consultas:
+        paciente = Paciente.query.get(c.paciente_id)
+        if paciente:
+            # Se não houver data_fim, estima 50 minutos para desenhar o bloco perfeitamente
+            fim_estimado = c.data_fim if c.data_fim else c.data_hora + timedelta(minutes=50)
+            
+            eventos.append({
+                "id": c.id,
+                "title": f"{paciente.nome}",
+                "start": c.data_hora.isoformat(),
+                "end": fim_estimado.isoformat(),
+                # Sessões únicas ficam verde-água (teal), recorrentes ficam roxas (purple)
+                "backgroundColor": "#0d9488" if not c.recorrente else "#7e22ce", 
+                "borderColor": "transparent"
+            })
+            
+    return jsonify(eventos), 200
+
+@consulta_bp.route('/<int:id>/mover', methods=['PUT'])
+def mover_consulta(id):
+    consulta = Consulta.query.get_or_404(id)
+    dados = request.get_json()
+    
+    nova_data_str = dados.get('nova_data')
+    nova_data_fim_str = dados.get('nova_data_fim')
+    
+    if not nova_data_str:
+        return jsonify({"erro": "Nova data não informada"}), 400
+        
+    try:
+        # O FullCalendar envia no padrão ISO: 2026-03-24T10:00:00Z
+        consulta.data_hora = datetime.fromisoformat(nova_data_str.replace('Z', '+00:00')).replace(tzinfo=None)
+        
+        if nova_data_fim_str:
+            consulta.data_fim = datetime.fromisoformat(nova_data_fim_str.replace('Z', '+00:00')).replace(tzinfo=None)
+            
+        db.session.commit()
+        return jsonify({"mensagem": "Horário atualizado com sucesso!"}), 200
+        
     except Exception as e:
         db.session.rollback()
         return jsonify({"erro": str(e)}), 500

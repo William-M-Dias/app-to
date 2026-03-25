@@ -30,3 +30,8 @@ def evolucao_paciente(id):
 @frontend_bp.route('/paciente/<int:id>/relatorio')
 def relatorio_paciente(id):
     return render_template('relatorio.html', paciente_id=id)
+
+# <--- ROTA NOVA: AGENDA VISUAL (FASE 4) --->
+@frontend_bp.route('/agenda')
+def abrir_agenda_visual():
+    return render_template('agenda.html')
