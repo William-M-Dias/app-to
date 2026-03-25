@@ -25,7 +25,8 @@ def create_app():
     from app.routes.obs_clinica_bp import obs_clinica_bp
     from app.routes.anamnese_bp import anamnese_bp
     from app.routes.auth_bp import auth_bp 
-    from app.routes.estatisticas_bp import estatisticas_bp # <-- AQUI: Importação do novo motor de estatísticas
+    from app.routes.estatisticas_bp import estatisticas_bp 
+    from app.routes.documentacao_bp import documentacao_bp # <-- AQUI: Importação do motor de PDF
 
     app.register_blueprint(paciente_bp)
     app.register_blueprint(consulta_bp)
@@ -34,7 +35,8 @@ def create_app():
     app.register_blueprint(obs_clinica_bp)
     app.register_blueprint(anamnese_bp)
     app.register_blueprint(auth_bp) 
-    app.register_blueprint(estatisticas_bp) # <-- AQUI: Registro do novo motor no sistema
+    app.register_blueprint(estatisticas_bp)
+    app.register_blueprint(documentacao_bp) # <-- AQUI: Registro do motor de PDF no sistema
 
     @app.before_request
     def bloquear_acesso():

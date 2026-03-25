@@ -126,9 +126,32 @@ def alertas_prontidao():
         alertas = []
         hoje = datetime.utcnow().date()
 
+        # ==============================================================================
+        # PERFORMANCE MESTRE (O Fim da Lentidão N+1)
+        # Vamos ao banco APENAS 2 vezes e trazemos tudo agrupado na memória super-rápida.
+        # ==============================================================================
+        todas_consultas = Consulta.query.filter_by(status='Realizado').order_by(desc(Consulta.data_hora)).all()
+        todos_pedis = AvaliacaoPEDI.query.order_by(desc(AvaliacaoPEDI.data_avaliacao)).all()
+
+        # Dicionários em memória
+        consultas_por_paciente = {}
+        for c in todas_consultas:
+            if c.paciente_id not in consultas_por_paciente:
+                consultas_por_paciente[c.paciente_id] = []
+            if len(consultas_por_paciente[c.paciente_id]) < 5:
+                consultas_por_paciente[c.paciente_id].append(c)
+
+        pedi_por_paciente = {}
+        for p_aval in todos_pedis:
+            if p_aval.paciente_id not in pedi_por_paciente:
+                pedi_por_paciente[p_aval.paciente_id] = p_aval # Salva apenas o mais recente
+
+        # ==============================================================================
+
         for p in pacientes:
-            ultimo_pedi = AvaliacaoPEDI.query.filter_by(paciente_id=p.id).order_by(desc(AvaliacaoPEDI.data_avaliacao)).first()
-            ultimas_consultas = Consulta.query.filter_by(paciente_id=p.id, status='Realizado').order_by(desc(Consulta.data_hora)).limit(5).all()
+            # Em vez de ir ao banco, lemos da memória (Instantâneo)
+            ultimo_pedi = pedi_por_paciente.get(p.id)
+            ultimas_consultas = consultas_por_paciente.get(p.id, [])
             
             motivos = []
             
