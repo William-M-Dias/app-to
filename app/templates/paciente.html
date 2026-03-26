@@ -104,12 +104,8 @@
                             
                             <div class="relative mx-auto w-24 h-24 mb-4 group cursor-pointer" @click="$refs.fotoInput.click()">
                                 <div class="w-full h-full rounded-full bg-clinica-100 flex items-center justify-center text-clinica-600 font-black text-3xl shadow-lg uppercase overflow-hidden border-4 border-white group-hover:border-clinica-500 transition-all relative z-10 shrink-0">
-                                    <template x-if="paciente.foto_url">
-                                        <img :src="paciente.foto_url" class="w-full h-full object-cover object-top">
-                                    </template>
-                                    <template x-if="!paciente.foto_url">
-                                        <span x-text="paciente.nome.charAt(0)"></span>
-                                    </template>
+                                    
+                                    <img :src="getFotoUrl()" class="w-full h-full object-cover object-top" alt="Avatar do Paciente">
                                     
                                     <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                         <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path></svg>
@@ -201,7 +197,7 @@
                                             <div class="p-3 border border-slate-100 rounded-2xl bg-slate-50/50 group-hover:bg-white transition-colors">
                                                 <h4 class="text-[9px] font-black text-emerald-600 uppercase mb-2 tracking-widest text-center">Alerta Sensorial</h4>
                                                 <div class="flex flex-wrap gap-1.5 justify-center">
-                                                    <template x-for="item in ultimaAnamnese.dados.sensorial">
+                                                    <template x-for="(item, index) in ultimaAnamnese.dados.sensorial" :key="'sensorial-'+index">
                                                         <span class="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9px] font-bold px-2 py-1.5 rounded-md shadow-sm whitespace-normal break-words text-center leading-tight max-w-full" x-text="item.split(':')[0]"></span>
                                                     </template>
                                                 </div>
@@ -212,7 +208,7 @@
                                             <div class="p-3 border border-slate-100 rounded-2xl bg-slate-50/50 group-hover:bg-white transition-colors">
                                                 <h4 class="text-[9px] font-black text-rose-600 uppercase mb-2 tracking-widest text-center">Comportamento/Regulação</h4>
                                                 <div class="flex flex-wrap gap-1.5 justify-center">
-                                                    <template x-for="item in ultimaAnamnese.dados.comportamento">
+                                                    <template x-for="(item, index) in ultimaAnamnese.dados.comportamento" :key="'comportamento-'+index">
                                                         <span class="bg-rose-50 text-rose-700 border border-rose-100 text-[9px] font-bold px-2 py-1.5 rounded-md shadow-sm whitespace-normal break-words text-center leading-tight max-w-full" x-text="item.split(':')[0]"></span>
                                                     </template>
                                                 </div>
@@ -296,7 +292,7 @@
                                 <span class="bg-clinica-50 text-clinica-600 text-[10px] px-2 py-1 rounded-lg shadow-inner" x-text="proximasSessoes.length + ' Agendados'"></span>
                             </h3>
                             <div class="space-y-4 border-l-2 border-clinica-200 ml-3 pl-6 relative">
-                                <template x-for="evo in proximasSessoes" :key="evo.id">
+                                <template x-for="(evo, index) in proximasSessoes" :key="evo.id || 'futuro-'+index">
                                     <div class="relative group">
                                         <div class="absolute -left-[33px] top-2 w-4 h-4 rounded-full border-4 border-white shadow-sm bg-clinica-400"></div>
                                         <div class="bg-white p-5 rounded-3xl shadow-sm border border-clinica-100 transition-colors relative">
@@ -330,7 +326,7 @@
                             </template>
 
                             <div class="space-y-6 border-l-2 border-slate-100 ml-3 pl-6 relative">
-                                <template x-for="evo in historicoPassado" :key="evo.id">
+                                <template x-for="(evo, index) in historicoPassado" :key="evo.id || 'passado-'+index">
                                     <div class="relative group">
                                         <div class="absolute -left-[33px] top-2 w-4 h-4 rounded-full border-4 border-white shadow-sm"
                                              :class="evo.status === 'Realizado' ? 'bg-emerald-500' : 'bg-red-500'"></div>
@@ -378,7 +374,7 @@
                                                 <div class="mb-4">
                                                     <span class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Atividades (Tags)</span>
                                                     <div class="flex flex-wrap gap-1.5">
-                                                        <template x-for="ativ in evo.micro_metas.atividades">
+                                                        <template x-for="(ativ, aIdx) in evo.micro_metas.atividades" :key="'ativ-'+aIdx">
                                                             <span class="bg-clinica-50 text-clinica-700 text-[10px] font-bold px-2 py-1 rounded-md" x-text="ativ"></span>
                                                         </template>
                                                     </div>
@@ -522,6 +518,13 @@
                 diagnosticosSelecionados: [],
                 chartInstance: null,
 
+                // FIX: Função segura para ler a foto (Igual ao Dashboard)
+                getFotoUrl() {
+                    return (this.paciente && this.paciente.foto_url) 
+                        ? this.paciente.foto_url 
+                        : 'https://res.cloudinary.com/dwpd9oht3/image/upload/v1774484404/favicon2_zqc1gu.jpg';
+                },
+
                 carregarDados() {
                     Promise.all([
                         fetch('/api/pacientes/' + this.pacienteId).then(res => res.json()),
@@ -535,7 +538,6 @@
                         
                         let todas = Array.isArray(dadosConsultas) ? dadosConsultas : [];
                         
-                        // Função para transformar data brasileira em objeto Date para ordenar corretamente
                         const parseData = (str) => {
                             if (!str) return new Date(0);
                             if (str.includes('/')) {
@@ -547,12 +549,10 @@
                             return new Date(str);
                         };
 
-                        // Filtra Agendamentos Futuros (Ordena Crescente - do mais próximo ao mais distante)
                         this.proximasSessoes = todas
                             .filter(c => c.status === 'Agendado')
                             .sort((a, b) => parseData(a.data_hora) - parseData(b.data_hora));
                             
-                        // Filtra Histórico Passado (Ordena Decrescente - do mais recente para o mais antigo)
                         this.historicoPassado = todas
                             .filter(c => c.status !== 'Agendado')
                             .sort((a, b) => parseData(b.data_hora) - parseData(a.data_hora));
@@ -608,7 +608,6 @@
                     const ctx = document.getElementById('gasChart');
                     if (!ctx) return;
 
-                    // Para o gráfico, queremos do mais antigo para o mais recente (da esquerda pra direita)
                     const sessoesValidas = this.historicoPassado
                         .filter(e => e.status === 'Realizado' && e.micro_metas)
                         .slice()
@@ -669,6 +668,7 @@
                     const formData = new FormData();
                     formData.append('foto', arquivo);
 
+                    // FIX: Adicionada verificação rigorosa do retorno para pegar o Erro 500
                     fetch(`/api/pacientes/${this.pacienteId}/upload_foto`, {
                         method: 'POST',
                         body: formData
@@ -678,11 +678,16 @@
                         if (data.url) {
                             this.paciente.foto_url = data.url;
                         } else {
-                            alert("Erro ao processar imagem.");
+                            alert(data.erro || "Erro inesperado ao processar a imagem no servidor.");
                         }
                     })
-                    .catch(err => alert("Erro na conexão com servidor."))
-                    .finally(() => { this.subindoFoto = false; });
+                    .catch(err => {
+                        console.error(err);
+                        alert("Ocorreu uma falha no servidor ao processar a foto. Verifique os logs do Render.");
+                    })
+                    .finally(() => { 
+                        this.subindoFoto = false; 
+                    });
                 },
 
                 calcularIdade(dataNasc) {
