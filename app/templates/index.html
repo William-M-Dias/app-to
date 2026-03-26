@@ -122,7 +122,7 @@
                         Alertas de Prontidão 
                     </h2>
                     <div class="space-y-3">
-                        <template x-for="alerta in alertas" :key="alerta.paciente_id">
+                        <template x-for="alerta in alertas" :key="alerta.paciente_id || Math.random()">
                             <div @click="window.location.href = '/paciente/' + alerta.paciente_id" 
                                  class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-2xl shadow-sm cursor-pointer hover:bg-amber-100 transition-colors flex items-start gap-4">
                                 
@@ -188,33 +188,35 @@
                         </button>
                     </div>
 
-                    <template x-for="item in agendaVisual" :key="item.id">
-                        <div @click="window.location.href = '/paciente/' + item.paciente_id" 
-                             class="min-w-[320px] w-[320px] shrink-0 snap-center bg-white/90 backdrop-blur-sm p-6 rounded-3xl shadow-md border-l-4 hover:-translate-y-1 transition-all cursor-pointer group flex items-center gap-4"
-                             :class="isHoje(item.data) ? 'border-clinica-500 shadow-clinica-100' : 'border-slate-300'">
-                            
-                            <div class="w-14 h-14 rounded-full bg-clinica-100 flex items-center justify-center text-clinica-600 font-black text-xl overflow-hidden shrink-0 border-2 border-white shadow-sm transition-colors group-hover:border-clinica-300">
-                                <template x-if="getPacienteFoto(item.paciente_id)">
-                                    <img :src="getPacienteFoto(item.paciente_id)" class="w-full h-full object-cover">
-                                </template>
-                                <template x-if="!getPacienteFoto(item.paciente_id)">
-                                    <span x-text="item.nome_paciente ? item.nome_paciente.trim().charAt(0).toUpperCase() : '?'"></span>
-                                </template>
-                            </div>
-
-                            <div class="flex-1 min-w-0 overflow-hidden">
-                                <div class="flex justify-between items-start mb-1">
-                                    <div>
-                                        <span class="text-2xl font-black text-slate-800" x-text="item.hora"></span>
-                                        <span class="ml-2 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md"
-                                              :class="isHoje(item.data) ? 'bg-clinica-100 text-clinica-700' : 'bg-slate-100 text-slate-500'"
-                                              x-text="isHoje(item.data) ? 'Hoje' : item.data"></span>
-                                    </div>
+                    <template x-for="(item, index) in agendaVisual" :key="item.id || index">
+                        <template x-if="item">
+                            <div @click="window.location.href = '/paciente/' + item.paciente_id" 
+                                 class="min-w-[320px] w-[320px] shrink-0 snap-center bg-white/90 backdrop-blur-sm p-6 rounded-3xl shadow-md border-l-4 hover:-translate-y-1 transition-all cursor-pointer group flex items-center gap-4"
+                                 :class="isHoje(item.data) ? 'border-clinica-500 shadow-clinica-100' : 'border-slate-300'">
+                                
+                                <div class="w-14 h-14 rounded-full bg-clinica-100 flex items-center justify-center text-clinica-600 font-black text-xl overflow-hidden shrink-0 border-2 border-white shadow-sm transition-colors group-hover:border-clinica-300">
+                                    <template x-if="getPacienteFoto(item.paciente_id)">
+                                        <img :src="getPacienteFoto(item.paciente_id)" class="w-full h-full object-cover">
+                                    </template>
+                                    <template x-if="!getPacienteFoto(item.paciente_id)">
+                                        <span x-text="item.nome_paciente ? item.nome_paciente.trim().charAt(0).toUpperCase() : '?'"></span>
+                                    </template>
                                 </div>
-                                <h3 class="font-black text-slate-700 text-lg truncate group-hover:text-clinica-600 transition-colors" x-text="item.nome_paciente"></h3>
-                                <p class="text-slate-400 text-xs font-bold uppercase tracking-widest truncate" x-text="item.tipo_sessao"></p>
+
+                                <div class="flex-1 min-w-0 overflow-hidden">
+                                    <div class="flex justify-between items-start mb-1">
+                                        <div>
+                                            <span class="text-2xl font-black text-slate-800" x-text="item.hora"></span>
+                                            <span class="ml-2 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md"
+                                                  :class="isHoje(item.data) ? 'bg-clinica-100 text-clinica-700' : 'bg-slate-100 text-slate-500'"
+                                                  x-text="isHoje(item.data) ? 'Hoje' : item.data"></span>
+                                        </div>
+                                    </div>
+                                    <h3 class="font-black text-slate-700 text-lg truncate group-hover:text-clinica-600 transition-colors" x-text="item.nome_paciente"></h3>
+                                    <p class="text-slate-400 text-xs font-bold uppercase tracking-widest truncate" x-text="item.tipo_sessao"></p>
+                                </div>
                             </div>
-                        </div>
+                        </template>
                     </template>
 
                     <div class="min-w-[120px] shrink-0 snap-start flex items-center justify-center" x-show="temMaisFuturo">
@@ -495,25 +497,32 @@
                 temMaisFuturo: true,
                 temMaisPassado: true,
 
+                // FIX 1: O carregamento dos dados agora é sequencial para o Alpine não surtar
                 inicializar() {
                     this.carregando = true;
-                    Promise.all([
-                        fetch('/api/pacientes/').then(res => res.json()),
-                        fetch('/api/consultas/agenda').then(res => res.json()),
-                        fetch('/api/pacientes/alertas').then(res => res.json())
-                    ]).then(([dadosPacientes, dadosAgenda, dadosAlertas]) => {
-                        this.pacientes = dadosPacientes;
-                        this.alertas = Array.isArray(dadosAlertas) ? dadosAlertas : [];
-                        
-                        const hoje = new Date().toLocaleDateString('pt-BR');
-                        this.agendaHoje = Array.isArray(dadosAgenda) ? dadosAgenda.filter(item => item.data === hoje) : [];
-                        
-                        this.carregarFuturo();
-                        
-                    }).catch(err => {
-                        console.error('Erro ao carregar dashboard:', err);
-                        this.carregando = false;
-                    });
+                    fetch('/api/pacientes/')
+                        .then(res => res.json())
+                        .then(dadosPacientes => {
+                            this.pacientes = Array.isArray(dadosPacientes) ? dadosPacientes : [];
+                            
+                            // Só busca a agenda DEPOIS que a lista de pacientes já existe na memória
+                            return Promise.all([
+                                fetch('/api/consultas/agenda').then(res => res.json()),
+                                fetch('/api/pacientes/alertas').then(res => res.json())
+                            ]);
+                        })
+                        .then(([dadosAgenda, dadosAlertas]) => {
+                            this.alertas = Array.isArray(dadosAlertas) ? dadosAlertas : [];
+                            
+                            const hoje = new Date().toLocaleDateString('pt-BR');
+                            this.agendaHoje = Array.isArray(dadosAgenda) ? dadosAgenda.filter(item => item.data === hoje) : [];
+                            
+                            this.carregarFuturo();
+                        })
+                        .catch(err => {
+                            console.error('Erro ao carregar dashboard:', err);
+                            this.carregando = false;
+                        });
                 },
 
                 carregarFuturo() {
@@ -541,10 +550,11 @@
                     });
                 },
 
-                // ATUALIZADO: Função com trava de segurança para o Cloudinary + Avatar Padrão
+                // FIX 2: Trava de proteção caso a foto venha undefined ou id não exista
                 getPacienteFoto(id) {
+                    if (!id) return 'https://res.cloudinary.com/dwpd9oht3/image/upload/v1774484404/favicon2_zqc1gu.jpg';
                     const p = this.pacientes.find(p => p.id === id);
-                    return (p && p.foto_url) ? p.foto_url : 'https://res.cloudinary.com/dwpd9oht3/image/upload/v1700000000/default_avatar.png';
+                    return (p && p.foto_url) ? p.foto_url : 'https://res.cloudinary.com/dwpd9oht3/image/upload/v1774484404/favicon2_zqc1gu.jpg';
                 },
 
                 isHoje(dataStr) {
