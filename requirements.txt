@@ -82,3 +82,4 @@ xlsxwriter==3.2.9
 gunicorn
 Pillow
 fpdf
+cloudinary

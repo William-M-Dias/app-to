@@ -19,10 +19,10 @@ class Paciente(db.Model):
     historico_desenvolvimento = db.Column(db.Text)
     intervencoes_atuais = db.Column(db.Text)
     
-    # Campo para URL da foto
-    foto_url = db.Column(db.String(255), nullable=True)
+    # Campo alterado para db.Text para suportar URLs longas do Cloudinary
+    foto_url = db.Column(db.Text, nullable=True)
     
-    # NOVO: Status clínico para controle da agenda inteligente
+    # Status clínico para controle da agenda inteligente
     status_clinico = db.Column(db.String(50), default='Ativo')
     
     data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)

@@ -6,7 +6,9 @@ from app.models.consulta import Consulta
 from app.models.pedi import AvaliacaoPEDI
 from datetime import datetime, timedelta
 from sqlalchemy import text, desc
-from werkzeug.utils import secure_filename
+
+# IMPORTAÇÃO DO MOTOR CLOUDINARY
+from app.utils import upload_foto_paciente
 
 paciente_bp = Blueprint('paciente_bp', __name__, url_prefix='/api/pacientes')
 
@@ -96,6 +98,9 @@ def editar_mapa(id):
         db.session.rollback()
         return jsonify({"erro": str(e)}), 500
 
+# ==============================================================================
+# ROTA DE UPLOAD BLINDADA (CLOUDINARY)
+# ==============================================================================
 @paciente_bp.route('/<int:id>/upload_foto', methods=['POST'])
 def upload_foto(id):
     paciente = Paciente.query.get_or_404(id)
@@ -106,18 +111,19 @@ def upload_foto(id):
     if arquivo.filename == '':
         return jsonify({"erro": "Arquivo sem nome"}), 400
 
-    upload_path = os.path.join(current_app.static_folder, 'uploads', 'perfil')
-    
-    if not os.path.exists(upload_path):
-        os.makedirs(upload_path, exist_ok=True)
-
-    filename = secure_filename(f"avatar_{id}_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg")
-    arquivo.save(os.path.join(upload_path, filename))
-    
-    paciente.foto_url = url_for('static', filename=f'uploads/perfil/{filename}')
-    db.session.commit()
-    
-    return jsonify({"url": paciente.foto_url}), 200
+    try:
+        # Envia para a nuvem usando a função do utils.py
+        url_segura = upload_foto_paciente(arquivo)
+        
+        if url_segura:
+            paciente.foto_url = url_segura
+            db.session.commit()
+            return jsonify({"mensagem": "Foto salva na nuvem!", "url": url_segura}), 200
+        
+        return jsonify({"erro": "Falha no processamento da imagem pela nuvem."}), 500
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"erro": f"Erro interno: {str(e)}"}), 500
 
 @paciente_bp.route('/alertas', methods=['GET'])
 def alertas_prontidao():
@@ -126,14 +132,9 @@ def alertas_prontidao():
         alertas = []
         hoje = datetime.utcnow().date()
 
-        # ==============================================================================
-        # PERFORMANCE MESTRE (O Fim da Lentidão N+1)
-        # Vamos ao banco APENAS 2 vezes e trazemos tudo agrupado na memória super-rápida.
-        # ==============================================================================
         todas_consultas = Consulta.query.filter_by(status='Realizado').order_by(desc(Consulta.data_hora)).all()
         todos_pedis = AvaliacaoPEDI.query.order_by(desc(AvaliacaoPEDI.data_avaliacao)).all()
 
-        # Dicionários em memória
         consultas_por_paciente = {}
         for c in todas_consultas:
             if c.paciente_id not in consultas_por_paciente:
@@ -144,12 +145,9 @@ def alertas_prontidao():
         pedi_por_paciente = {}
         for p_aval in todos_pedis:
             if p_aval.paciente_id not in pedi_por_paciente:
-                pedi_por_paciente[p_aval.paciente_id] = p_aval # Salva apenas o mais recente
-
-        # ==============================================================================
+                pedi_por_paciente[p_aval.paciente_id] = p_aval
 
         for p in pacientes:
-            # Em vez de ir ao banco, lemos da memória (Instantâneo)
             ultimo_pedi = pedi_por_paciente.get(p.id)
             ultimas_consultas = consultas_por_paciente.get(p.id, [])
             
@@ -199,9 +197,6 @@ def alertas_prontidao():
     except Exception as e:
         return jsonify({"erro": f"Erro ao processar alertas: {str(e)}"}), 500
 
-# ==============================================================================
-# NOVO: MOTOR DE INATIVAÇÃO DE PACIENTE E LIMPEZA DE AGENDA (Fase 3)
-# ==============================================================================
 @paciente_bp.route('/<int:id>/status', methods=['PUT'])
 def alterar_status(id):
     paciente = Paciente.query.get_or_404(id)
@@ -213,24 +208,17 @@ def alterar_status(id):
 
     try:
         paciente.status_clinico = novo_status
-        
-        # A MÁGICA DA LIMPEZA: Se inativar ou der alta, apaga as sessões futuras!
         if novo_status in ['Inativo', 'Alta']:
             hoje = datetime.utcnow() - timedelta(hours=3)
-            
             consultas_futuras = Consulta.query.filter(
                 Consulta.paciente_id == id,
                 Consulta.data_hora > hoje,
                 Consulta.status == 'Agendado'
             ).all()
-            
-            # Deleta as sessões futuras para liberar espaço na agenda da clínica
             for c in consultas_futuras:
                 db.session.delete(c)
-                
         db.session.commit()
         return jsonify({"mensagem": f"Paciente {novo_status}. Agenda atualizada!"}), 200
-        
     except Exception as e:
         db.session.rollback()
         return jsonify({"erro": str(e)}), 500

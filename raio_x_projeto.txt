@@ -74,6 +74,93 @@ with app.app_context():
         print("\n✅ O usuário edna@appto.com.br já existe no banco de dados!\n")
 
 ============================================================
+ARQUIVO: diagnostico_master.py
+============================================================
+
+import os
+import shutil
+from dotenv import load_dotenv
+
+# 1. CARREGA AS VARIÁVEIS DE AMBIENTE (A SENHA DO BANCO NEON) ANTES DE TUDO!
+load_dotenv()
+
+from app import create_app
+from app.extensions import db
+from sqlalchemy import text
+
+app = create_app()
+
+def run_diagnostics_and_cleanup():
+    print("==================================================")
+    print(" 🔍 INICIANDO DIAGNÓSTICO E FAXINA DO APP-TO 🔍")
+    print("==================================================\n")
+    
+    print("🧹 1. FAXINA DE PASTAS E ARQUIVOS DESNECESSÁRIOS...")
+    pasta_fantasma = os.path.join('app', 'templates', 'app')
+    if os.path.exists(pasta_fantasma):
+        try:
+            shutil.rmtree(pasta_fantasma)
+            print(f"   ✅ [SUCESSO] Pasta duplicada eliminada: {pasta_fantasma}")
+        except Exception as e:
+            print(f"   ❌ [ERRO] Falha ao tentar apagar a pasta: {str(e)}")
+    else:
+        print("   ✨ [OK] Nenhuma pasta duplicada encontrada na raiz.")
+
+    cache_count = 0
+    for root, dirs, files in os.walk('.', topdown=False):
+        for dir_name in dirs:
+            if dir_name == '__pycache__':
+                dir_path = os.path.join(root, dir_name)
+                try:
+                    shutil.rmtree(dir_path)
+                    cache_count += 1
+                except:
+                    pass
+    print(f"   ✨ [OK] {cache_count} diretórios de lixo (__pycache__) removidos.")
+
+    print("\n📁 2. MAPEAMENTO DA ESTRUTURA CRÍTICA...")
+    pastas_criticas = ['app/templates', 'app/routes', 'app/models']
+    for p in pastas_criticas:
+        if os.path.exists(p):
+            print(f"   ✅ [OK] Pasta íntegra: {p}")
+        else:
+            print(f"   ❌ [ERRO FATAL] Pasta AUSENTE: {p}")
+            
+    arquivos = ['app/templates/agenda.html', 'app/templates/estatisticas.html', 'app/routes/consulta_bp.py']
+    for a in arquivos:
+        if os.path.exists(a):
+            print(f"   ✅ [OK] Arquivo íntegro: {a}")
+        else:
+            print(f"   ❌ [ERRO FATAL] Arquivo AUSENTE: {a}")
+
+    print("\n🗄️ 3. CHECK-UP DO BANCO DE DADOS (NEON)...")
+    with app.app_context():
+        try:
+            db.session.execute(text("SELECT 1"))
+            print("   ✅ [OK] Conexão com banco Neon 100% estável.")
+            
+            total_consultas = db.session.execute(text("SELECT COUNT(*) FROM consultas")).scalar()
+            nulos_prof = db.session.execute(text("SELECT COUNT(*) FROM consultas WHERE profissional_id IS NULL")).scalar()
+            nulos_fim = db.session.execute(text("SELECT COUNT(*) FROM consultas WHERE data_fim IS NULL")).scalar()
+            
+            print(f"   📊 Total de Agendamentos Cadastrados: {total_consultas}")
+            
+            if nulos_prof > 0:
+                print(f"   ⚠️ [ALERTA] Existem {nulos_prof} consultas sem 'profissional_id' vinculado.")
+            else:
+                print("   ✅ [OK] Todas as consultas possuem profissional.")
+                
+        except Exception as e:
+            print(f"   ❌ [ERRO CRÍTICO NO BANCO]: {str(e)}")
+
+    print("\n==================================================")
+    print(" 🚀 DIAGNÓSTICO E FAXINA CONCLUÍDOS!")
+    print("==================================================\n")
+
+if __name__ == '__main__':
+    run_diagnostics_and_cleanup()
+
+============================================================
 ARQUIVO: raio_x_projeto.txt
 ============================================================
 
@@ -166,7 +253,7 @@ Werkzeug==3.1.5
 xlsxwriter==3.2.9
 gunicorn
 Pillow
-
+fpdf
 
 ============================================================
 ARQUIVO: run.py
@@ -234,7 +321,8 @@ def create_app():
     from app.routes.obs_clinica_bp import obs_clinica_bp
     from app.routes.anamnese_bp import anamnese_bp
     from app.routes.auth_bp import auth_bp 
-    from app.routes.estatisticas_bp import estatisticas_bp # <-- AQUI: Importação do novo motor de estatísticas
+    from app.routes.estatisticas_bp import estatisticas_bp 
+    from app.routes.documentacao_bp import documentacao_bp # <-- AQUI: Importação do motor de PDF
 
     app.register_blueprint(paciente_bp)
     app.register_blueprint(consulta_bp)
@@ -243,7 +331,8 @@ def create_app():
     app.register_blueprint(obs_clinica_bp)
     app.register_blueprint(anamnese_bp)
     app.register_blueprint(auth_bp) 
-    app.register_blueprint(estatisticas_bp) # <-- AQUI: Registro do novo motor no sistema
+    app.register_blueprint(estatisticas_bp)
+    app.register_blueprint(documentacao_bp) # <-- AQUI: Registro do motor de PDF no sistema
 
     @app.before_request
     def bloquear_acesso():
@@ -825,6 +914,79 @@ def mover_consulta(id):
         return jsonify({"erro": str(e)}), 500
 
 ============================================================
+ARQUIVO: app\routes\documentacao_bp.py
+============================================================
+
+from flask import Blueprint, make_response
+from fpdf import FPDF
+from datetime import datetime
+
+documentacao_bp = Blueprint('documentacao_bp', __name__, url_prefix='/api/documentacao')
+
+class PDFManual(FPDF):
+    def header(self):
+        self.set_font('Arial', 'B', 16)
+        self.set_text_color(13, 148, 136) # Cor clinica-600
+        self.cell(0, 10, 'APP-TO: Guia Pratico de Uso', 0, 1, 'C')
+        
+        self.set_font('Arial', 'I', 10)
+        self.set_text_color(100, 116, 139) # slate-500
+        self.cell(0, 6, 'Manual Operacional para a Rotina da Clinica', 0, 1, 'C')
+        self.ln(8)
+
+    def footer(self):
+        self.set_y(-15)
+        self.set_font('Arial', 'I', 8)
+        self.set_text_color(128)
+        self.cell(0, 10, f'Página {self.page_no()} | Gerado automaticamente pelo APP-TO em {datetime.now().strftime("%d/%m/%Y")}', 0, 0, 'C')
+
+@documentacao_bp.route('/gerar_pdf', methods=['GET'])
+def gerar_pdf():
+    pdf = PDFManual()
+    pdf.add_page()
+    
+    # --- 1. PACIENTES ---
+    pdf.set_font('Arial', 'B', 13)
+    pdf.set_text_color(30, 41, 59)
+    pdf.cell(0, 10, '1. Gestao de Pacientes e Cadastro', 0, 1)
+    
+    pdf.set_font('Arial', '', 11)
+    pdf.multi_cell(0, 6, "Para cadastrar uma nova criança, clique em 'Novo Paciente' na Mesa de Controle. Preencha os dados de contato dos responsáveis, o laudo e a queixa principal.\n\nIMPORTANTE: Se um paciente receber alta ou interromper o tratamento, altere o status dele para 'Inativo' ou 'Alta' no perfil. O APP-TO cancelará automaticamente todas as sessões futuras dessa criança, liberando espaço na agenda da clínica.")
+    pdf.ln(6)
+
+    # --- 2. AGENDA ---
+    pdf.set_font('Arial', 'B', 13)
+    pdf.cell(0, 10, '2. Como Funciona a Agenda Inteligente', 0, 1)
+    
+    pdf.set_font('Arial', '', 11)
+    pdf.multi_cell(0, 6, "A agenda permite criar sessões Únicas ou Recorrentes. Ao agendar uma sessão recorrente (ex: repetir por 6 meses), o sistema bloqueará aquele horário semanalmente para o paciente.\n\nREMARCAÇÃO: Na tela de Agenda (Visualização Semanal), você pode simplesmente clicar e arrastar (Drag & Drop) a sessão de um dia para o outro. O banco de dados salva a nova data na hora.\n\nCORES DA AGENDA:\nVerde = Realizado | Vermelho = Falta/Cancelado | Roxo = Recorrente | Azul = Única.")
+    pdf.ln(6)
+
+    # --- 3. PRONTUÁRIO ---
+    pdf.set_font('Arial', 'B', 13)
+    pdf.cell(0, 10, '3. Prontuario, Evolucoes e Metas (GAS)', 0, 1)
+    
+    pdf.set_font('Arial', '', 11)
+    pdf.multi_cell(0, 6, "Ao abrir o perfil do paciente, você encontra a linha do tempo de evolução. Em cada sessão realizada, você pode atribuir notas para as micro-metas (Mobilidade, Autocuidado, etc).\n\nQuando o sistema detectar que a criança está com um desempenho médio alto (Média GAS superior a +1) em várias sessões consecutivas, a Mesa de Controle exibirá um 'Alerta de Prontidão', sugerindo que é o momento ideal para aplicar uma nova Avaliação PEDI.")
+    pdf.ln(6)
+    
+    # --- 4. ESTATÍSTICAS ---
+    pdf.set_font('Arial', 'B', 13)
+    pdf.cell(0, 10, '4. Painel de Gestao', 0, 1)
+    
+    pdf.set_font('Arial', '', 11)
+    pdf.multi_cell(0, 6, "Acesse a aba 'Gestão' para ter um panorama completo da clínica. Lá você visualizará gráficos de assiduidade (presenças vs. faltas) e o progresso clínico geral. Isso facilita a tomada de decisão terapêutica e financeira do consultório.")
+
+    # Gera o arquivo
+    pdf_bytes = pdf.output(dest='S').encode('latin-1')
+
+    response = make_response(pdf_bytes)
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = 'attachment; filename=Manual_de_Uso_APP-TO.pdf'
+    
+    return response
+
+============================================================
 ARQUIVO: app\routes\estatisticas_bp.py
 ============================================================
 
@@ -1117,9 +1279,32 @@ def alertas_prontidao():
         alertas = []
         hoje = datetime.utcnow().date()
 
+        # ==============================================================================
+        # PERFORMANCE MESTRE (O Fim da Lentidão N+1)
+        # Vamos ao banco APENAS 2 vezes e trazemos tudo agrupado na memória super-rápida.
+        # ==============================================================================
+        todas_consultas = Consulta.query.filter_by(status='Realizado').order_by(desc(Consulta.data_hora)).all()
+        todos_pedis = AvaliacaoPEDI.query.order_by(desc(AvaliacaoPEDI.data_avaliacao)).all()
+
+        # Dicionários em memória
+        consultas_por_paciente = {}
+        for c in todas_consultas:
+            if c.paciente_id not in consultas_por_paciente:
+                consultas_por_paciente[c.paciente_id] = []
+            if len(consultas_por_paciente[c.paciente_id]) < 5:
+                consultas_por_paciente[c.paciente_id].append(c)
+
+        pedi_por_paciente = {}
+        for p_aval in todos_pedis:
+            if p_aval.paciente_id not in pedi_por_paciente:
+                pedi_por_paciente[p_aval.paciente_id] = p_aval # Salva apenas o mais recente
+
+        # ==============================================================================
+
         for p in pacientes:
-            ultimo_pedi = AvaliacaoPEDI.query.filter_by(paciente_id=p.id).order_by(desc(AvaliacaoPEDI.data_avaliacao)).first()
-            ultimas_consultas = Consulta.query.filter_by(paciente_id=p.id, status='Realizado').order_by(desc(Consulta.data_hora)).limit(5).all()
+            # Em vez de ir ao banco, lemos da memória (Instantâneo)
+            ultimo_pedi = pedi_por_paciente.get(p.id)
+            ultimas_consultas = consultas_por_paciente.get(p.id, [])
             
             motivos = []
             
@@ -1295,7 +1480,7 @@ ARQUIVO: app\templates\agenda.html
         .fc-theme-standard td, .fc-theme-standard th { border-color: #f1f5f9; }
         .fc-col-header-cell-cushion { font-weight: 800; color: #475569; text-transform: uppercase; font-size: 12px; padding: 12px !important; }
         
-        /* O SEGREDO DEFINITIVO PARA NÃO CORTAR OS NOMES NO CALENDÁRIO */
+        /* === MÁGICA VISUAL (CSS PURO) PARA NÃO CORTAR OS NOMES === */
         .fc-event { 
             border-radius: 8px; 
             border: none; 
@@ -1321,7 +1506,7 @@ ARQUIVO: app\templates\agenda.html
             opacity: 0.9;
         }
         .fc-event-title {
-            font-size: 12px !important;
+            font-size: 11px !important;
             font-weight: 800 !important;
             white-space: normal !important;
             word-break: break-word !important;
@@ -1339,18 +1524,14 @@ ARQUIVO: app\templates\agenda.html
             text-transform: uppercase !important;
             border-radius: 8px !important;
             padding: 8px 16px !important;
-            font-size: 12px !important;
+            font-size: 11px !important;
             box-shadow: 0 4px 6px -1px rgba(13, 148, 136, 0.2) !important;
         }
-        .fc-button-primary:hover {
-            background-color: #0f766e !important;
-            border-color: #0f766e !important;
-        }
-        .fc-button-active {
-            background-color: #115e59 !important;
-            border-color: #115e59 !important;
-        }
-        .fc-toolbar-title { font-weight: 900 !important; color: #1e293b !important; text-transform: uppercase; font-size: 1.25rem !important; }
+        .fc-button-primary:hover { background-color: #0f766e !important; border-color: #0f766e !important; }
+        .fc-button-active { background-color: #115e59 !important; border-color: #115e59 !important; }
+        
+        /* Data do calendário menor para não empurrar botões */
+        .fc-toolbar-title { font-weight: 900 !important; color: #1e293b !important; text-transform: uppercase; font-size: 1.1rem !important; }
     </style>
 </head>
 <body class="text-slate-800 antialiased h-screen flex flex-col">
@@ -1394,13 +1575,18 @@ ARQUIVO: app\templates\agenda.html
         document.addEventListener('DOMContentLoaded', function() {
             var calendarEl = document.getElementById('calendar');
             var selectFiltro = document.getElementById('filtro-profissional');
-            
             var isMobile = window.innerWidth < 768;
             
             var calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: isMobile ? 'timeGridDay' : 'timeGridWeek',
                 locale: 'pt-br',
-                dayMinWidth: 120, // <--- MÁGICA DE VERDADE: Garante no mínimo 120px de largura por dia (cria scroll horizontal se faltar tela)
+                
+                /* =======================================================
+                   ATENÇÃO: O 'dayMinWidth' FOI REMOVIDO PARA EVITAR O CRASH!
+                   Formato de data alterado para não esmagar botões no topo.
+                   ======================================================= */
+                titleFormat: { day: '2-digit', month: '2-digit', year: 'numeric' },
+                
                 headerToolbar: {
                     left: 'prev,next today',
                     center: 'title',
@@ -1586,6 +1772,172 @@ ARQUIVO: app\templates\anamnese.html
                         body: JSON.stringify(this.form)
                     }).then(res => res.json()).then(data => {
                         if(data.mensagem) { alert('Sucesso!'); window.location.href = '/paciente/' + this.pacienteId; }
+                    });
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+
+============================================================
+ARQUIVO: app\templates\estatisticas.html
+============================================================
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Estatísticas da Clínica | APP-TO</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Nunito', 'sans-serif'] },
+                    colors: { 
+                        clinica: { 50: '#f0fdfa', 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 900: '#134e4a' } 
+                    } 
+                } 
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #f8fafc; font-family: 'Nunito', sans-serif; }
+    </style>
+</head>
+<body class="text-slate-800 antialiased relative min-h-screen" x-data="gestaoEstatisticas()" x-init="carregarDados()">
+
+    <header class="bg-clinica-600 text-white p-6 shadow-lg relative">
+        <div class="max-w-4xl mx-auto flex items-center gap-4">
+            <a href="/" class="p-2 -ml-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors active:scale-95">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+            </a>
+            <div>
+                <h1 class="text-xl font-black uppercase tracking-widest flex items-center gap-2">Gestão e Estatísticas</h1>
+                <p class="text-clinica-100 text-[10px] font-bold uppercase tracking-widest mt-1">Inteligência de Dados APP-TO</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto p-6 space-y-6">
+        
+        <div x-show="carregando" class="flex justify-center items-center py-20">
+            <svg class="animate-spin h-8 w-8 text-clinica-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+        </div>
+
+        <div x-show="!carregando" style="display: none;" class="space-y-6">
+            
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                
+                <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center text-center">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Diretório Ativo</p>
+                    <p class="text-4xl font-black text-clinica-600" x-text="dados.total_pacientes"></p>
+                    <p class="text-[9px] font-bold text-slate-400 mt-1 uppercase">Pacientes</p>
+                </div>
+
+                <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center text-center">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Assiduidade</p>
+                    <p class="text-4xl font-black text-emerald-500" x-text="dados.taxa_assiduidade + '%'"></p>
+                    <p class="text-[9px] font-bold text-slate-400 mt-1 uppercase">Últimos 30 dias</p>
+                </div>
+
+                <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center text-center">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Carga Semanal</p>
+                    <p class="text-4xl font-black text-slate-800" x-text="dados.carga_semana"></p>
+                    <p class="text-[9px] font-bold text-slate-400 mt-1 uppercase">Sessões Programadas</p>
+                </div>
+
+                <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center text-center">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Faltas no Mês</p>
+                    <p class="text-4xl font-black text-rose-500" x-text="dados.sessoes_faltas"></p>
+                    <p class="text-[9px] font-bold text-slate-400 mt-1 uppercase">Últimos 30 dias</p>
+                </div>
+
+            </div>
+
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                <h2 class="text-sm font-black text-slate-800 uppercase tracking-widest mb-6 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-clinica-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg>
+                    Distribuição Clínica (Diagnósticos)
+                </h2>
+                
+                <div class="relative h-64 w-full">
+                    <canvas id="graficoDiagnosticos"></canvas>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        function gestaoEstatisticas() {
+            return {
+                carregando: true,
+                dados: {
+                    total_pacientes: 0,
+                    taxa_assiduidade: 0,
+                    sessoes_faltas: 0,
+                    carga_semana: 0,
+                    grafico_diagnosticos: { labels: [], data: [] }
+                },
+
+                carregarDados() {
+                    fetch('/api/estatisticas/geral')
+                        .then(res => res.json())
+                        .then(data => {
+                            this.dados = data;
+                            this.carregando = false;
+                            
+                            // Adia a renderização do gráfico até o DOM estar visível
+                            setTimeout(() => {
+                                this.renderizarGrafico();
+                            }, 100);
+                        })
+                        .catch(err => {
+                            console.error("Erro ao carregar estatísticas", err);
+                            this.carregando = false;
+                        });
+                },
+
+                renderizarGrafico() {
+                    const ctx = document.getElementById('graficoDiagnosticos');
+                    if (!ctx) return;
+
+                    new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: this.dados.grafico_diagnosticos.labels,
+                            datasets: [{
+                                data: this.dados.grafico_diagnosticos.data,
+                                backgroundColor: [
+                                    '#0d9488', '#14b8a6', '#2dd4bf', '#5eead4', '#99f6e4',
+                                    '#3b82f6', '#8b5cf6', '#f43f5e', '#f59e0b', '#10b981'
+                                ],
+                                borderWidth: 0,
+                                hoverOffset: 4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'right',
+                                    labels: { font: { family: 'Nunito', weight: 'bold', size: 11 } }
+                                }
+                            },
+                            cutout: '70%'
+                        }
                     });
                 }
             }
@@ -2167,8 +2519,18 @@ ARQUIVO: app\templates\index.html
                     </div>
                 </div>
                 
-                <div class="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-xl border border-white/20 overflow-hidden hidden md:flex shrink-0">
-                    <img src="{{ url_for('static', filename='img/logo_appto_oficial.png') }}?v=2" alt="Logo APP-TO" class="w-full h-full object-cover">
+                <div class="flex items-center gap-3 shrink-0">
+                    <a href="/api/documentacao/gerar_pdf" target="_blank" class="flex items-center gap-2 text-white/90 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full font-bold transition-all active:scale-95 text-[10px] uppercase tracking-widest border border-white/20 backdrop-blur-md shadow-sm">
+                        <svg class="w-4 h-4 text-clinica-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                        </svg>
+                        <span class="hidden md:inline">Guia de Uso</span>
+                        <span class="md:hidden">Guia</span>
+                    </a>
+                    
+                    <div class="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-xl border border-white/20 overflow-hidden hidden md:flex shrink-0">
+                        <img src="{{ url_for('static', filename='img/logo_appto_oficial.png') }}?v=2" alt="Logo APP-TO" class="w-full h-full object-cover">
+                    </div>
                 </div>
             </div>
 
@@ -3010,7 +3372,6 @@ ARQUIVO: app\templates\paciente.html
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 
-        /* ANIMAÇÕES DO FUNDO LÚDICO (EDIÇÃO PREMIUM) */
         @keyframes flutuar {
             0%, 100% { transform: translateY(0) rotate(0deg); }
             50% { transform: translateY(-30px) rotate(15deg); }
@@ -3269,13 +3630,39 @@ ARQUIVO: app\templates\paciente.html
                             </div>
                         </div>
 
+                        <div x-show="proximasSessoes.length > 0" style="display: none;">
+                            <h3 class="text-sm font-black text-clinica-600 mb-4 px-1 uppercase tracking-widest flex justify-between items-center">
+                                Próximos Agendamentos
+                                <span class="bg-clinica-50 text-clinica-600 text-[10px] px-2 py-1 rounded-lg shadow-inner" x-text="proximasSessoes.length + ' Agendados'"></span>
+                            </h3>
+                            <div class="space-y-4 border-l-2 border-clinica-200 ml-3 pl-6 relative">
+                                <template x-for="evo in proximasSessoes" :key="evo.id">
+                                    <div class="relative group">
+                                        <div class="absolute -left-[33px] top-2 w-4 h-4 rounded-full border-4 border-white shadow-sm bg-clinica-400"></div>
+                                        <div class="bg-white p-5 rounded-3xl shadow-sm border border-clinica-100 transition-colors relative">
+                                            <button @click="apagarEvolucao(evo.id)" class="absolute top-4 right-4 text-slate-300 hover:text-red-500 transition-colors p-1 bg-white rounded-full hover:bg-red-50" title="Cancelar Agendamento">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                            </button>
+                                            <div class="flex justify-between items-start">
+                                                <div>
+                                                    <span class="text-sm font-black text-slate-800" x-text="evo.data_hora"></span>
+                                                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest" x-text="evo.tipo_sessao"></p>
+                                                </div>
+                                                <span class="text-[9px] font-black px-2 py-1 rounded-md uppercase tracking-wider bg-clinica-50 text-clinica-700" x-text="evo.status"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
                         <div>
                             <h3 class="text-sm font-black text-slate-500 mb-4 px-1 uppercase tracking-widest flex justify-between items-center">
                                 Histórico de Evoluções
-                                <span class="bg-slate-100 text-slate-500 text-[10px] px-2 py-1 rounded-lg shadow-inner" x-text="historicoEvolucoes.length + ' Registros'"></span>
+                                <span class="bg-slate-100 text-slate-500 text-[10px] px-2 py-1 rounded-lg shadow-inner" x-text="historicoPassado.length + ' Registros'"></span>
                             </h3>
                             
-                            <template x-if="historicoEvolucoes.length === 0">
+                            <template x-if="historicoPassado.length === 0">
                                 <div class="p-8 bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl text-center shadow-sm">
                                     <svg class="mx-auto h-10 w-10 text-slate-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                     <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Nenhuma evolução registada ainda.</p>
@@ -3283,10 +3670,10 @@ ARQUIVO: app\templates\paciente.html
                             </template>
 
                             <div class="space-y-6 border-l-2 border-slate-100 ml-3 pl-6 relative">
-                                <template x-for="evo in historicoEvolucoes" :key="evo.id">
+                                <template x-for="evo in historicoPassado" :key="evo.id">
                                     <div class="relative group">
                                         <div class="absolute -left-[33px] top-2 w-4 h-4 rounded-full border-4 border-white shadow-sm"
-                                             :class="evo.status === 'Realizado' ? 'bg-emerald-500' : (evo.status === 'Faltou' ? 'bg-red-500' : (evo.status === 'Agendado' ? 'bg-blue-400' : 'bg-slate-400'))"></div>
+                                             :class="evo.status === 'Realizado' ? 'bg-emerald-500' : 'bg-red-500'"></div>
                                         
                                         <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 group-hover:border-slate-200 transition-colors relative">
                                             
@@ -3300,7 +3687,7 @@ ARQUIVO: app\templates\paciente.html
                                                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest" x-text="evo.tipo_sessao"></p>
                                                 </div>
                                                 <span class="text-[9px] font-black px-2 py-1 rounded-md uppercase tracking-wider"
-                                                      :class="evo.status === 'Realizado' ? 'bg-emerald-50 text-emerald-700' : (evo.status === 'Faltou' ? 'bg-red-50 text-red-700' : (evo.status === 'Agendado' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-600'))"
+                                                      :class="evo.status === 'Realizado' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'"
                                                       x-text="evo.status"></span>
                                             </div>
 
@@ -3343,9 +3730,6 @@ ARQUIVO: app\templates\paciente.html
                                             </template>
                                             <template x-if="!evo.evolucao_texto && evo.status === 'Realizado'">
                                                 <p class="text-sm font-semibold text-slate-400 italic">Sem anotações adicionais.</p>
-                                            </template>
-                                            <template x-if="!evo.evolucao_texto && evo.status === 'Agendado'">
-                                                <p class="text-sm font-semibold text-slate-400 italic">Sessão programada.</p>
                                             </template>
                                         </div>
                                     </div>
@@ -3466,7 +3850,10 @@ ARQUIVO: app\templates\paciente.html
                 paciente: null,
                 avaliacoesPedi: [],
                 ultimaAnamnese: null,
-                historicoEvolucoes: [],
+                
+                proximasSessoes: [],
+                historicoPassado: [],
+
                 carregando: true,
                 subindoFoto: false, 
                 
@@ -3485,7 +3872,31 @@ ARQUIVO: app\templates\paciente.html
                         this.paciente = dadosPaciente;
                         this.avaliacoesPedi = Array.isArray(dadosPedi) ? dadosPedi : [];
                         if (Array.isArray(dadosAnamnese) && dadosAnamnese.length > 0) this.ultimaAnamnese = dadosAnamnese[0];
-                        this.historicoEvolucoes = Array.isArray(dadosConsultas) ? dadosConsultas : [];
+                        
+                        let todas = Array.isArray(dadosConsultas) ? dadosConsultas : [];
+                        
+                        // Função para transformar data brasileira em objeto Date para ordenar corretamente
+                        const parseData = (str) => {
+                            if (!str) return new Date(0);
+                            if (str.includes('/')) {
+                                const [data, hora] = str.split(' ');
+                                const [d, m, y] = data.split('/');
+                                const [hr, min] = hora ? hora.split(':') : ['00', '00'];
+                                return new Date(y, m - 1, d, hr, min);
+                            }
+                            return new Date(str);
+                        };
+
+                        // Filtra Agendamentos Futuros (Ordena Crescente - do mais próximo ao mais distante)
+                        this.proximasSessoes = todas
+                            .filter(c => c.status === 'Agendado')
+                            .sort((a, b) => parseData(a.data_hora) - parseData(b.data_hora));
+                            
+                        // Filtra Histórico Passado (Ordena Decrescente - do mais recente para o mais antigo)
+                        this.historicoPassado = todas
+                            .filter(c => c.status !== 'Agendado')
+                            .sort((a, b) => parseData(b.data_hora) - parseData(a.data_hora));
+
                         this.carregando = false;
                         
                         this.$nextTick(() => {
@@ -3498,7 +3909,6 @@ ARQUIVO: app\templates\paciente.html
                     });
                 },
 
-                // NOVO: Função para alterar o status do paciente (Ativo/Inativo)
                 mudarStatus(novoStatus) {
                     if (this.paciente && this.paciente.status_clinico === novoStatus) return;
 
@@ -3514,7 +3924,7 @@ ARQUIVO: app\templates\paciente.html
                         if (res.ok) {
                             this.paciente.status_clinico = novoStatus;
                             alert(`Status atualizado para ${novoStatus} com sucesso!`);
-                            this.carregarDados(); // Recarrega para limpar as evoluções/agendamentos futuros deletados
+                            this.carregarDados(); 
                         } else {
                             alert('Erro ao atualizar status do paciente.');
                         }
@@ -3525,8 +3935,8 @@ ARQUIVO: app\templates\paciente.html
                 },
 
                 temDadosParaGrafico() {
-                    if (!this.historicoEvolucoes || this.historicoEvolucoes.length === 0) return false;
-                    const validas = this.historicoEvolucoes.filter(e => e.status === 'Realizado' && e.micro_metas && 
+                    if (!this.historicoPassado || this.historicoPassado.length === 0) return false;
+                    const validas = this.historicoPassado.filter(e => e.status === 'Realizado' && e.micro_metas && 
                         (e.micro_metas.autocuidado !== null || e.micro_metas.mobilidade !== null || e.micro_metas.funcao_social !== null)
                     );
                     return validas.length > 0;
@@ -3538,7 +3948,8 @@ ARQUIVO: app\templates\paciente.html
                     const ctx = document.getElementById('gasChart');
                     if (!ctx) return;
 
-                    const sessoesValidas = this.historicoEvolucoes
+                    // Para o gráfico, queremos do mais antigo para o mais recente (da esquerda pra direita)
+                    const sessoesValidas = this.historicoPassado
                         .filter(e => e.status === 'Realizado' && e.micro_metas)
                         .slice()
                         .reverse();
@@ -3546,6 +3957,7 @@ ARQUIVO: app\templates\paciente.html
                     const labels = sessoesValidas.map(e => {
                         let partes = e.data_hora.split(' ')[0].split('-');
                         if(partes.length === 3) return `${partes[2]}/${partes[1]}`;
+                        if(e.data_hora.includes('/')) return e.data_hora.split(' ')[0].substring(0,5);
                         return e.data_hora;
                     });
 
@@ -3664,7 +4076,7 @@ ARQUIVO: app\templates\paciente.html
                     }
                 },
                 apagarEvolucao(idConsulta) {
-                    if(confirm('Apagar esta evolução?')) {
+                    if(confirm('Tem certeza que deseja apagar este registo?')) {
                         fetch('/api/consultas/' + idConsulta, { method: 'DELETE' })
                         .then(res => {
                             if(res.ok) this.carregarDados();
@@ -4288,172 +4700,6 @@ ARQUIVO: app\templates\relatorio.html
                                 }
                             }
                         });
-                    });
-                }
-            }
-        }
-    </script>
-</body>
-</html>
-
-============================================================
-ARQUIVO: app\templates\app\templates\estatisticas.html
-============================================================
-
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Estatísticas da Clínica | APP-TO</title>
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-    
-    <script>
-        tailwind.config = {
-            theme: { 
-                extend: { 
-                    fontFamily: { sans: ['Nunito', 'sans-serif'] },
-                    colors: { 
-                        clinica: { 50: '#f0fdfa', 100: '#ccfbf1', 500: '#14b8a6', 600: '#0d9488', 900: '#134e4a' } 
-                    } 
-                } 
-            }
-        }
-    </script>
-    <style>
-        body { background-color: #f8fafc; font-family: 'Nunito', sans-serif; }
-    </style>
-</head>
-<body class="text-slate-800 antialiased relative min-h-screen" x-data="gestaoEstatisticas()" x-init="carregarDados()">
-
-    <header class="bg-clinica-600 text-white p-6 shadow-lg relative">
-        <div class="max-w-4xl mx-auto flex items-center gap-4">
-            <a href="/" class="p-2 -ml-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors active:scale-95">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
-            </a>
-            <div>
-                <h1 class="text-xl font-black uppercase tracking-widest flex items-center gap-2">Gestão e Estatísticas</h1>
-                <p class="text-clinica-100 text-[10px] font-bold uppercase tracking-widest mt-1">Inteligência de Dados APP-TO</p>
-            </div>
-        </div>
-    </header>
-
-    <main class="max-w-4xl mx-auto p-6 space-y-6">
-        
-        <div x-show="carregando" class="flex justify-center items-center py-20">
-            <svg class="animate-spin h-8 w-8 text-clinica-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-        </div>
-
-        <div x-show="!carregando" style="display: none;" class="space-y-6">
-            
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                
-                <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center text-center">
-                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Diretório Ativo</p>
-                    <p class="text-4xl font-black text-clinica-600" x-text="dados.total_pacientes"></p>
-                    <p class="text-[9px] font-bold text-slate-400 mt-1 uppercase">Pacientes</p>
-                </div>
-
-                <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center text-center">
-                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Assiduidade</p>
-                    <p class="text-4xl font-black text-emerald-500" x-text="dados.taxa_assiduidade + '%'"></p>
-                    <p class="text-[9px] font-bold text-slate-400 mt-1 uppercase">Últimos 30 dias</p>
-                </div>
-
-                <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center text-center">
-                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Carga Semanal</p>
-                    <p class="text-4xl font-black text-slate-800" x-text="dados.carga_semana"></p>
-                    <p class="text-[9px] font-bold text-slate-400 mt-1 uppercase">Sessões Programadas</p>
-                </div>
-
-                <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center items-center text-center">
-                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Faltas no Mês</p>
-                    <p class="text-4xl font-black text-rose-500" x-text="dados.sessoes_faltas"></p>
-                    <p class="text-[9px] font-bold text-slate-400 mt-1 uppercase">Últimos 30 dias</p>
-                </div>
-
-            </div>
-
-            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-                <h2 class="text-sm font-black text-slate-800 uppercase tracking-widest mb-6 flex items-center gap-2">
-                    <svg class="w-5 h-5 text-clinica-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg>
-                    Distribuição Clínica (Diagnósticos)
-                </h2>
-                
-                <div class="relative h-64 w-full">
-                    <canvas id="graficoDiagnosticos"></canvas>
-                </div>
-            </div>
-
-        </div>
-    </main>
-
-    <script>
-        function gestaoEstatisticas() {
-            return {
-                carregando: true,
-                dados: {
-                    total_pacientes: 0,
-                    taxa_assiduidade: 0,
-                    sessoes_faltas: 0,
-                    carga_semana: 0,
-                    grafico_diagnosticos: { labels: [], data: [] }
-                },
-
-                carregarDados() {
-                    fetch('/api/estatisticas/geral')
-                        .then(res => res.json())
-                        .then(data => {
-                            this.dados = data;
-                            this.carregando = false;
-                            
-                            // Adia a renderização do gráfico até o DOM estar visível
-                            setTimeout(() => {
-                                this.renderizarGrafico();
-                            }, 100);
-                        })
-                        .catch(err => {
-                            console.error("Erro ao carregar estatísticas", err);
-                            this.carregando = false;
-                        });
-                },
-
-                renderizarGrafico() {
-                    const ctx = document.getElementById('graficoDiagnosticos');
-                    if (!ctx) return;
-
-                    new Chart(ctx, {
-                        type: 'doughnut',
-                        data: {
-                            labels: this.dados.grafico_diagnosticos.labels,
-                            datasets: [{
-                                data: this.dados.grafico_diagnosticos.data,
-                                backgroundColor: [
-                                    '#0d9488', '#14b8a6', '#2dd4bf', '#5eead4', '#99f6e4',
-                                    '#3b82f6', '#8b5cf6', '#f43f5e', '#f59e0b', '#10b981'
-                                ],
-                                borderWidth: 0,
-                                hoverOffset: 4
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: {
-                                    position: 'right',
-                                    labels: { font: { family: 'Nunito', weight: 'bold', size: 11 } }
-                                }
-                            },
-                            cutout: '70%'
-                        }
                     });
                 }
             }

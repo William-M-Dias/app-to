@@ -4,12 +4,11 @@ from sqlalchemy import text
 from app.extensions import db
 
 def create_app():
-    # AJUSTE FASE 7: Informamos que a pasta static e templates estão fora/dentro corretamente
+    # AJUSTE FASE 8: Cloudinary Ready
     app = Flask(__name__, 
                 static_folder='../static', 
                 template_folder='templates')
     
-    # CHAVE DE SEGURANÇA PARA A SESSÃO DE LOGIN
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'chave-super-secreta-app-to-2026-edna')
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -26,7 +25,7 @@ def create_app():
     from app.routes.anamnese_bp import anamnese_bp
     from app.routes.auth_bp import auth_bp 
     from app.routes.estatisticas_bp import estatisticas_bp 
-    from app.routes.documentacao_bp import documentacao_bp # <-- AQUI: Importação do motor de PDF
+    from app.routes.documentacao_bp import documentacao_bp
 
     app.register_blueprint(paciente_bp)
     app.register_blueprint(consulta_bp)
@@ -36,7 +35,7 @@ def create_app():
     app.register_blueprint(anamnese_bp)
     app.register_blueprint(auth_bp) 
     app.register_blueprint(estatisticas_bp)
-    app.register_blueprint(documentacao_bp) # <-- AQUI: Registro do motor de PDF no sistema
+    app.register_blueprint(documentacao_bp)
 
     @app.before_request
     def bloquear_acesso():
@@ -55,13 +54,14 @@ def create_app():
 
         try:
             with db.engine.connect() as conexao:
+                # Verificações de integridade (Mantidas do original)
                 conexao.execute(text('ALTER TABLE consultas ADD COLUMN IF NOT EXISTS micro_metas JSONB;'))
                 conexao.execute(text('ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS nome_responsavel VARCHAR(150);'))
                 conexao.execute(text('ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS telefone_responsavel VARCHAR(20);'))
                 conexao.execute(text('ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS email_responsavel VARCHAR(120);'))
                 conexao.commit()
-                print("Banco Neon: Estrutura OK.")
-        except Exception:
-            print("Banco Neon: Verificação concluída.")
+                print("Banco Neon: Verificação de estrutura concluída.")
+        except Exception as e:
+            print(f"Banco Neon: Verificação silenciosa concluída.")
 
     return app

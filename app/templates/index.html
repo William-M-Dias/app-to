@@ -541,9 +541,10 @@
                     });
                 },
 
+                // ATUALIZADO: Função com trava de segurança para o Cloudinary + Avatar Padrão
                 getPacienteFoto(id) {
                     const p = this.pacientes.find(p => p.id === id);
-                    return p ? p.foto_url : null;
+                    return (p && p.foto_url) ? p.foto_url : 'https://res.cloudinary.com/dwpd9oht3/image/upload/v1700000000/default_avatar.png';
                 },
 
                 isHoje(dataStr) {
