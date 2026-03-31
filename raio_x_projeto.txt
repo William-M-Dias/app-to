@@ -254,6 +254,7 @@ xlsxwriter==3.2.9
 gunicorn
 Pillow
 fpdf
+cloudinary
 
 ============================================================
 ARQUIVO: run.py
@@ -291,6 +292,47 @@ from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
 
 ============================================================
+ARQUIVO: app\utils.py
+============================================================
+
+import os
+import cloudinary
+import cloudinary.uploader
+
+# Configuração automática usando as variáveis que você definiu no Group Env do Render
+cloudinary.config( 
+    cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME'), 
+    api_key = os.getenv('CLOUDINARY_API_KEY'), 
+    api_secret = os.getenv('CLOUDINARY_API_SECRET'),
+    secure = True
+)
+
+def upload_foto_paciente(arquivo_imagem):
+    """
+    Envia a foto para o Cloudinary com transformações Clean & Calm.
+    Retorna a URL segura (https) ou None em caso de falha.
+    """
+    try:
+        if not arquivo_imagem:
+            return None
+
+        # O Cloudinary usa IA para detectar o rosto (gravity: face) 
+        # e aplicar o arredondamento (radius: 20) solicitado.
+        upload_result = cloudinary.uploader.upload(
+            arquivo_imagem,
+            folder="app_to/pacientes",
+            transformation=[
+                {'width': 400, 'height': 400, 'crop': 'fill', 'gravity': 'face'},
+                {'fetch_format': 'auto', 'quality': 'auto'},
+                {'radius': 20} 
+            ]
+        )
+        return upload_result.get('secure_url')
+    except Exception as e:
+        print(f"Erro Crítico no Cloudinary: {e}")
+        return None
+
+============================================================
 ARQUIVO: app\__init__.py
 ============================================================
 
@@ -300,12 +342,11 @@ from sqlalchemy import text
 from app.extensions import db
 
 def create_app():
-    # AJUSTE FASE 7: Informamos que a pasta static e templates estão fora/dentro corretamente
+    # AJUSTE FASE 8: Cloudinary Ready
     app = Flask(__name__, 
                 static_folder='../static', 
                 template_folder='templates')
     
-    # CHAVE DE SEGURANÇA PARA A SESSÃO DE LOGIN
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'chave-super-secreta-app-to-2026-edna')
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -322,7 +363,7 @@ def create_app():
     from app.routes.anamnese_bp import anamnese_bp
     from app.routes.auth_bp import auth_bp 
     from app.routes.estatisticas_bp import estatisticas_bp 
-    from app.routes.documentacao_bp import documentacao_bp # <-- AQUI: Importação do motor de PDF
+    from app.routes.documentacao_bp import documentacao_bp
 
     app.register_blueprint(paciente_bp)
     app.register_blueprint(consulta_bp)
@@ -332,7 +373,7 @@ def create_app():
     app.register_blueprint(anamnese_bp)
     app.register_blueprint(auth_bp) 
     app.register_blueprint(estatisticas_bp)
-    app.register_blueprint(documentacao_bp) # <-- AQUI: Registro do motor de PDF no sistema
+    app.register_blueprint(documentacao_bp)
 
     @app.before_request
     def bloquear_acesso():
@@ -351,14 +392,15 @@ def create_app():
 
         try:
             with db.engine.connect() as conexao:
+                # Verificações de integridade (Mantidas do original)
                 conexao.execute(text('ALTER TABLE consultas ADD COLUMN IF NOT EXISTS micro_metas JSONB;'))
                 conexao.execute(text('ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS nome_responsavel VARCHAR(150);'))
                 conexao.execute(text('ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS telefone_responsavel VARCHAR(20);'))
                 conexao.execute(text('ALTER TABLE pacientes ADD COLUMN IF NOT EXISTS email_responsavel VARCHAR(120);'))
                 conexao.commit()
-                print("Banco Neon: Estrutura OK.")
-        except Exception:
-            print("Banco Neon: Verificação concluída.")
+                print("Banco Neon: Verificação de estrutura concluída.")
+        except Exception as e:
+            print(f"Banco Neon: Verificação silenciosa concluída.")
 
     return app
 
@@ -470,10 +512,10 @@ class Paciente(db.Model):
     historico_desenvolvimento = db.Column(db.Text)
     intervencoes_atuais = db.Column(db.Text)
     
-    # Campo para URL da foto
-    foto_url = db.Column(db.String(255), nullable=True)
+    # Campo alterado para db.Text para suportar URLs longas do Cloudinary
+    foto_url = db.Column(db.Text, nullable=True)
     
-    # NOVO: Status clínico para controle da agenda inteligente
+    # Status clínico para controle da agenda inteligente
     status_clinico = db.Column(db.String(50), default='Ativo')
     
     data_cadastro = db.Column(db.DateTime, default=datetime.utcnow)
@@ -1159,7 +1201,9 @@ from app.models.consulta import Consulta
 from app.models.pedi import AvaliacaoPEDI
 from datetime import datetime, timedelta
 from sqlalchemy import text, desc
-from werkzeug.utils import secure_filename
+
+# IMPORTAÇÃO DO MOTOR CLOUDINARY
+from app.utils import upload_foto_paciente
 
 paciente_bp = Blueprint('paciente_bp', __name__, url_prefix='/api/pacientes')
 
@@ -1249,6 +1293,9 @@ def editar_mapa(id):
         db.session.rollback()
         return jsonify({"erro": str(e)}), 500
 
+# ==============================================================================
+# ROTA DE UPLOAD BLINDADA (CLOUDINARY)
+# ==============================================================================
 @paciente_bp.route('/<int:id>/upload_foto', methods=['POST'])
 def upload_foto(id):
     paciente = Paciente.query.get_or_404(id)
@@ -1259,18 +1306,19 @@ def upload_foto(id):
     if arquivo.filename == '':
         return jsonify({"erro": "Arquivo sem nome"}), 400
 
-    upload_path = os.path.join(current_app.static_folder, 'uploads', 'perfil')
-    
-    if not os.path.exists(upload_path):
-        os.makedirs(upload_path, exist_ok=True)
-
-    filename = secure_filename(f"avatar_{id}_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg")
-    arquivo.save(os.path.join(upload_path, filename))
-    
-    paciente.foto_url = url_for('static', filename=f'uploads/perfil/{filename}')
-    db.session.commit()
-    
-    return jsonify({"url": paciente.foto_url}), 200
+    try:
+        # Envia para a nuvem usando a função do utils.py
+        url_segura = upload_foto_paciente(arquivo)
+        
+        if url_segura:
+            paciente.foto_url = url_segura
+            db.session.commit()
+            return jsonify({"mensagem": "Foto salva na nuvem!", "url": url_segura}), 200
+        
+        return jsonify({"erro": "Falha no processamento da imagem pela nuvem."}), 500
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"erro": f"Erro interno: {str(e)}"}), 500
 
 @paciente_bp.route('/alertas', methods=['GET'])
 def alertas_prontidao():
@@ -1279,14 +1327,9 @@ def alertas_prontidao():
         alertas = []
         hoje = datetime.utcnow().date()
 
-        # ==============================================================================
-        # PERFORMANCE MESTRE (O Fim da Lentidão N+1)
-        # Vamos ao banco APENAS 2 vezes e trazemos tudo agrupado na memória super-rápida.
-        # ==============================================================================
         todas_consultas = Consulta.query.filter_by(status='Realizado').order_by(desc(Consulta.data_hora)).all()
         todos_pedis = AvaliacaoPEDI.query.order_by(desc(AvaliacaoPEDI.data_avaliacao)).all()
 
-        # Dicionários em memória
         consultas_por_paciente = {}
         for c in todas_consultas:
             if c.paciente_id not in consultas_por_paciente:
@@ -1297,12 +1340,9 @@ def alertas_prontidao():
         pedi_por_paciente = {}
         for p_aval in todos_pedis:
             if p_aval.paciente_id not in pedi_por_paciente:
-                pedi_por_paciente[p_aval.paciente_id] = p_aval # Salva apenas o mais recente
-
-        # ==============================================================================
+                pedi_por_paciente[p_aval.paciente_id] = p_aval
 
         for p in pacientes:
-            # Em vez de ir ao banco, lemos da memória (Instantâneo)
             ultimo_pedi = pedi_por_paciente.get(p.id)
             ultimas_consultas = consultas_por_paciente.get(p.id, [])
             
@@ -1352,9 +1392,6 @@ def alertas_prontidao():
     except Exception as e:
         return jsonify({"erro": f"Erro ao processar alertas: {str(e)}"}), 500
 
-# ==============================================================================
-# NOVO: MOTOR DE INATIVAÇÃO DE PACIENTE E LIMPEZA DE AGENDA (Fase 3)
-# ==============================================================================
 @paciente_bp.route('/<int:id>/status', methods=['PUT'])
 def alterar_status(id):
     paciente = Paciente.query.get_or_404(id)
@@ -1366,24 +1403,17 @@ def alterar_status(id):
 
     try:
         paciente.status_clinico = novo_status
-        
-        # A MÁGICA DA LIMPEZA: Se inativar ou der alta, apaga as sessões futuras!
         if novo_status in ['Inativo', 'Alta']:
             hoje = datetime.utcnow() - timedelta(hours=3)
-            
             consultas_futuras = Consulta.query.filter(
                 Consulta.paciente_id == id,
                 Consulta.data_hora > hoje,
                 Consulta.status == 'Agendado'
             ).all()
-            
-            # Deleta as sessões futuras para liberar espaço na agenda da clínica
             for c in consultas_futuras:
                 db.session.delete(c)
-                
         db.session.commit()
         return jsonify({"mensagem": f"Paciente {novo_status}. Agenda atualizada!"}), 200
-        
     except Exception as e:
         db.session.rollback()
         return jsonify({"erro": str(e)}), 500
@@ -2563,7 +2593,7 @@ ARQUIVO: app\templates\index.html
                         Alertas de Prontidão 
                     </h2>
                     <div class="space-y-3">
-                        <template x-for="alerta in alertas" :key="alerta.paciente_id">
+                        <template x-for="alerta in alertas" :key="alerta.paciente_id || Math.random()">
                             <div @click="window.location.href = '/paciente/' + alerta.paciente_id" 
                                  class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-2xl shadow-sm cursor-pointer hover:bg-amber-100 transition-colors flex items-start gap-4">
                                 
@@ -2629,33 +2659,35 @@ ARQUIVO: app\templates\index.html
                         </button>
                     </div>
 
-                    <template x-for="item in agendaVisual" :key="item.id">
-                        <div @click="window.location.href = '/paciente/' + item.paciente_id" 
-                             class="min-w-[320px] w-[320px] shrink-0 snap-center bg-white/90 backdrop-blur-sm p-6 rounded-3xl shadow-md border-l-4 hover:-translate-y-1 transition-all cursor-pointer group flex items-center gap-4"
-                             :class="isHoje(item.data) ? 'border-clinica-500 shadow-clinica-100' : 'border-slate-300'">
-                            
-                            <div class="w-14 h-14 rounded-full bg-clinica-100 flex items-center justify-center text-clinica-600 font-black text-xl overflow-hidden shrink-0 border-2 border-white shadow-sm transition-colors group-hover:border-clinica-300">
-                                <template x-if="getPacienteFoto(item.paciente_id)">
-                                    <img :src="getPacienteFoto(item.paciente_id)" class="w-full h-full object-cover">
-                                </template>
-                                <template x-if="!getPacienteFoto(item.paciente_id)">
-                                    <span x-text="item.nome_paciente ? item.nome_paciente.trim().charAt(0).toUpperCase() : '?'"></span>
-                                </template>
-                            </div>
-
-                            <div class="flex-1 min-w-0 overflow-hidden">
-                                <div class="flex justify-between items-start mb-1">
-                                    <div>
-                                        <span class="text-2xl font-black text-slate-800" x-text="item.hora"></span>
-                                        <span class="ml-2 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md"
-                                              :class="isHoje(item.data) ? 'bg-clinica-100 text-clinica-700' : 'bg-slate-100 text-slate-500'"
-                                              x-text="isHoje(item.data) ? 'Hoje' : item.data"></span>
-                                    </div>
+                    <template x-for="(item, index) in agendaVisual" :key="item.id || index">
+                        <template x-if="item">
+                            <div @click="window.location.href = '/paciente/' + item.paciente_id" 
+                                 class="min-w-[320px] w-[320px] shrink-0 snap-center bg-white/90 backdrop-blur-sm p-6 rounded-3xl shadow-md border-l-4 hover:-translate-y-1 transition-all cursor-pointer group flex items-center gap-4"
+                                 :class="isHoje(item.data) ? 'border-clinica-500 shadow-clinica-100' : 'border-slate-300'">
+                                
+                                <div class="w-14 h-14 rounded-full bg-clinica-100 flex items-center justify-center text-clinica-600 font-black text-xl overflow-hidden shrink-0 border-2 border-white shadow-sm transition-colors group-hover:border-clinica-300">
+                                    <template x-if="getPacienteFoto(item.paciente_id)">
+                                        <img :src="getPacienteFoto(item.paciente_id)" class="w-full h-full object-cover">
+                                    </template>
+                                    <template x-if="!getPacienteFoto(item.paciente_id)">
+                                        <span x-text="item.nome_paciente ? item.nome_paciente.trim().charAt(0).toUpperCase() : '?'"></span>
+                                    </template>
                                 </div>
-                                <h3 class="font-black text-slate-700 text-lg truncate group-hover:text-clinica-600 transition-colors" x-text="item.nome_paciente"></h3>
-                                <p class="text-slate-400 text-xs font-bold uppercase tracking-widest truncate" x-text="item.tipo_sessao"></p>
+
+                                <div class="flex-1 min-w-0 overflow-hidden">
+                                    <div class="flex justify-between items-start mb-1">
+                                        <div>
+                                            <span class="text-2xl font-black text-slate-800" x-text="item.hora"></span>
+                                            <span class="ml-2 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md"
+                                                  :class="isHoje(item.data) ? 'bg-clinica-100 text-clinica-700' : 'bg-slate-100 text-slate-500'"
+                                                  x-text="isHoje(item.data) ? 'Hoje' : item.data"></span>
+                                        </div>
+                                    </div>
+                                    <h3 class="font-black text-slate-700 text-lg truncate group-hover:text-clinica-600 transition-colors" x-text="item.nome_paciente"></h3>
+                                    <p class="text-slate-400 text-xs font-bold uppercase tracking-widest truncate" x-text="item.tipo_sessao"></p>
+                                </div>
                             </div>
-                        </div>
+                        </template>
                     </template>
 
                     <div class="min-w-[120px] shrink-0 snap-start flex items-center justify-center" x-show="temMaisFuturo">
@@ -2936,25 +2968,32 @@ ARQUIVO: app\templates\index.html
                 temMaisFuturo: true,
                 temMaisPassado: true,
 
+                // FIX 1: O carregamento dos dados agora é sequencial para o Alpine não surtar
                 inicializar() {
                     this.carregando = true;
-                    Promise.all([
-                        fetch('/api/pacientes/').then(res => res.json()),
-                        fetch('/api/consultas/agenda').then(res => res.json()),
-                        fetch('/api/pacientes/alertas').then(res => res.json())
-                    ]).then(([dadosPacientes, dadosAgenda, dadosAlertas]) => {
-                        this.pacientes = dadosPacientes;
-                        this.alertas = Array.isArray(dadosAlertas) ? dadosAlertas : [];
-                        
-                        const hoje = new Date().toLocaleDateString('pt-BR');
-                        this.agendaHoje = Array.isArray(dadosAgenda) ? dadosAgenda.filter(item => item.data === hoje) : [];
-                        
-                        this.carregarFuturo();
-                        
-                    }).catch(err => {
-                        console.error('Erro ao carregar dashboard:', err);
-                        this.carregando = false;
-                    });
+                    fetch('/api/pacientes/')
+                        .then(res => res.json())
+                        .then(dadosPacientes => {
+                            this.pacientes = Array.isArray(dadosPacientes) ? dadosPacientes : [];
+                            
+                            // Só busca a agenda DEPOIS que a lista de pacientes já existe na memória
+                            return Promise.all([
+                                fetch('/api/consultas/agenda').then(res => res.json()),
+                                fetch('/api/pacientes/alertas').then(res => res.json())
+                            ]);
+                        })
+                        .then(([dadosAgenda, dadosAlertas]) => {
+                            this.alertas = Array.isArray(dadosAlertas) ? dadosAlertas : [];
+                            
+                            const hoje = new Date().toLocaleDateString('pt-BR');
+                            this.agendaHoje = Array.isArray(dadosAgenda) ? dadosAgenda.filter(item => item.data === hoje) : [];
+                            
+                            this.carregarFuturo();
+                        })
+                        .catch(err => {
+                            console.error('Erro ao carregar dashboard:', err);
+                            this.carregando = false;
+                        });
                 },
 
                 carregarFuturo() {
@@ -2982,9 +3021,11 @@ ARQUIVO: app\templates\index.html
                     });
                 },
 
+                // FIX 2: Trava de proteção caso a foto venha undefined ou id não exista
                 getPacienteFoto(id) {
+                    if (!id) return 'https://res.cloudinary.com/dwpd9oht3/image/upload/v1774484404/favicon2_zqc1gu.jpg';
                     const p = this.pacientes.find(p => p.id === id);
-                    return p ? p.foto_url : null;
+                    return (p && p.foto_url) ? p.foto_url : 'https://res.cloudinary.com/dwpd9oht3/image/upload/v1774484404/favicon2_zqc1gu.jpg';
                 },
 
                 isHoje(dataStr) {
@@ -3444,12 +3485,8 @@ ARQUIVO: app\templates\paciente.html
                             
                             <div class="relative mx-auto w-24 h-24 mb-4 group cursor-pointer" @click="$refs.fotoInput.click()">
                                 <div class="w-full h-full rounded-full bg-clinica-100 flex items-center justify-center text-clinica-600 font-black text-3xl shadow-lg uppercase overflow-hidden border-4 border-white group-hover:border-clinica-500 transition-all relative z-10 shrink-0">
-                                    <template x-if="paciente.foto_url">
-                                        <img :src="paciente.foto_url" class="w-full h-full object-cover object-top">
-                                    </template>
-                                    <template x-if="!paciente.foto_url">
-                                        <span x-text="paciente.nome.charAt(0)"></span>
-                                    </template>
+                                    
+                                    <img :src="getFotoUrl()" class="w-full h-full object-cover object-top" alt="Avatar do Paciente">
                                     
                                     <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                         <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path></svg>
@@ -3541,7 +3578,7 @@ ARQUIVO: app\templates\paciente.html
                                             <div class="p-3 border border-slate-100 rounded-2xl bg-slate-50/50 group-hover:bg-white transition-colors">
                                                 <h4 class="text-[9px] font-black text-emerald-600 uppercase mb-2 tracking-widest text-center">Alerta Sensorial</h4>
                                                 <div class="flex flex-wrap gap-1.5 justify-center">
-                                                    <template x-for="item in ultimaAnamnese.dados.sensorial">
+                                                    <template x-for="(item, index) in ultimaAnamnese.dados.sensorial" :key="'sensorial-'+index">
                                                         <span class="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9px] font-bold px-2 py-1.5 rounded-md shadow-sm whitespace-normal break-words text-center leading-tight max-w-full" x-text="item.split(':')[0]"></span>
                                                     </template>
                                                 </div>
@@ -3552,7 +3589,7 @@ ARQUIVO: app\templates\paciente.html
                                             <div class="p-3 border border-slate-100 rounded-2xl bg-slate-50/50 group-hover:bg-white transition-colors">
                                                 <h4 class="text-[9px] font-black text-rose-600 uppercase mb-2 tracking-widest text-center">Comportamento/Regulação</h4>
                                                 <div class="flex flex-wrap gap-1.5 justify-center">
-                                                    <template x-for="item in ultimaAnamnese.dados.comportamento">
+                                                    <template x-for="(item, index) in ultimaAnamnese.dados.comportamento" :key="'comportamento-'+index">
                                                         <span class="bg-rose-50 text-rose-700 border border-rose-100 text-[9px] font-bold px-2 py-1.5 rounded-md shadow-sm whitespace-normal break-words text-center leading-tight max-w-full" x-text="item.split(':')[0]"></span>
                                                     </template>
                                                 </div>
@@ -3636,7 +3673,7 @@ ARQUIVO: app\templates\paciente.html
                                 <span class="bg-clinica-50 text-clinica-600 text-[10px] px-2 py-1 rounded-lg shadow-inner" x-text="proximasSessoes.length + ' Agendados'"></span>
                             </h3>
                             <div class="space-y-4 border-l-2 border-clinica-200 ml-3 pl-6 relative">
-                                <template x-for="evo in proximasSessoes" :key="evo.id">
+                                <template x-for="(evo, index) in proximasSessoes" :key="evo.id || 'futuro-'+index">
                                     <div class="relative group">
                                         <div class="absolute -left-[33px] top-2 w-4 h-4 rounded-full border-4 border-white shadow-sm bg-clinica-400"></div>
                                         <div class="bg-white p-5 rounded-3xl shadow-sm border border-clinica-100 transition-colors relative">
@@ -3670,7 +3707,7 @@ ARQUIVO: app\templates\paciente.html
                             </template>
 
                             <div class="space-y-6 border-l-2 border-slate-100 ml-3 pl-6 relative">
-                                <template x-for="evo in historicoPassado" :key="evo.id">
+                                <template x-for="(evo, index) in historicoPassado" :key="evo.id || 'passado-'+index">
                                     <div class="relative group">
                                         <div class="absolute -left-[33px] top-2 w-4 h-4 rounded-full border-4 border-white shadow-sm"
                                              :class="evo.status === 'Realizado' ? 'bg-emerald-500' : 'bg-red-500'"></div>
@@ -3718,7 +3755,7 @@ ARQUIVO: app\templates\paciente.html
                                                 <div class="mb-4">
                                                     <span class="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Atividades (Tags)</span>
                                                     <div class="flex flex-wrap gap-1.5">
-                                                        <template x-for="ativ in evo.micro_metas.atividades">
+                                                        <template x-for="(ativ, aIdx) in evo.micro_metas.atividades" :key="'ativ-'+aIdx">
                                                             <span class="bg-clinica-50 text-clinica-700 text-[10px] font-bold px-2 py-1 rounded-md" x-text="ativ"></span>
                                                         </template>
                                                     </div>
@@ -3862,6 +3899,13 @@ ARQUIVO: app\templates\paciente.html
                 diagnosticosSelecionados: [],
                 chartInstance: null,
 
+                // FIX: Função segura para ler a foto (Igual ao Dashboard)
+                getFotoUrl() {
+                    return (this.paciente && this.paciente.foto_url) 
+                        ? this.paciente.foto_url 
+                        : 'https://res.cloudinary.com/dwpd9oht3/image/upload/v1774484404/favicon2_zqc1gu.jpg';
+                },
+
                 carregarDados() {
                     Promise.all([
                         fetch('/api/pacientes/' + this.pacienteId).then(res => res.json()),
@@ -3875,7 +3919,6 @@ ARQUIVO: app\templates\paciente.html
                         
                         let todas = Array.isArray(dadosConsultas) ? dadosConsultas : [];
                         
-                        // Função para transformar data brasileira em objeto Date para ordenar corretamente
                         const parseData = (str) => {
                             if (!str) return new Date(0);
                             if (str.includes('/')) {
@@ -3887,12 +3930,10 @@ ARQUIVO: app\templates\paciente.html
                             return new Date(str);
                         };
 
-                        // Filtra Agendamentos Futuros (Ordena Crescente - do mais próximo ao mais distante)
                         this.proximasSessoes = todas
                             .filter(c => c.status === 'Agendado')
                             .sort((a, b) => parseData(a.data_hora) - parseData(b.data_hora));
                             
-                        // Filtra Histórico Passado (Ordena Decrescente - do mais recente para o mais antigo)
                         this.historicoPassado = todas
                             .filter(c => c.status !== 'Agendado')
                             .sort((a, b) => parseData(b.data_hora) - parseData(a.data_hora));
@@ -3948,7 +3989,6 @@ ARQUIVO: app\templates\paciente.html
                     const ctx = document.getElementById('gasChart');
                     if (!ctx) return;
 
-                    // Para o gráfico, queremos do mais antigo para o mais recente (da esquerda pra direita)
                     const sessoesValidas = this.historicoPassado
                         .filter(e => e.status === 'Realizado' && e.micro_metas)
                         .slice()
@@ -4009,6 +4049,7 @@ ARQUIVO: app\templates\paciente.html
                     const formData = new FormData();
                     formData.append('foto', arquivo);
 
+                    // FIX: Adicionada verificação rigorosa do retorno para pegar o Erro 500
                     fetch(`/api/pacientes/${this.pacienteId}/upload_foto`, {
                         method: 'POST',
                         body: formData
@@ -4018,11 +4059,16 @@ ARQUIVO: app\templates\paciente.html
                         if (data.url) {
                             this.paciente.foto_url = data.url;
                         } else {
-                            alert("Erro ao processar imagem.");
+                            alert(data.erro || "Erro inesperado ao processar a imagem no servidor.");
                         }
                     })
-                    .catch(err => alert("Erro na conexão com servidor."))
-                    .finally(() => { this.subindoFoto = false; });
+                    .catch(err => {
+                        console.error(err);
+                        alert("Ocorreu uma falha no servidor ao processar a foto. Verifique os logs do Render.");
+                    })
+                    .finally(() => { 
+                        this.subindoFoto = false; 
+                    });
                 },
 
                 calcularIdade(dataNasc) {

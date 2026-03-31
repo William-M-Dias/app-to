@@ -100,6 +100,12 @@ def registrar_evolucao():
     try:
         paciente_id = dados['paciente_id']
         status_recebido = dados.get('status', 'Agendado') 
+        
+        # 🛡️ CAMADA DE PROTEÇÃO 1: Sanitização do status legado
+        # Se algum cache de navegador antigo enviar "Faltou", o backend traduz para "Falta"
+        if status_recebido == 'Faltou':
+            status_recebido = 'Falta'
+            
         profissional_id = dados.get('profissional_id')
         duracao_minutos = int(dados.get('duracao_minutos', 50)) 
         
@@ -122,11 +128,13 @@ def registrar_evolucao():
             inicio_dia = datetime.combine(data_apenas, datetime.min.time())
             fim_dia = datetime.combine(data_apenas, datetime.max.time())
             
+            # 🛡️ CAMADA DE PROTEÇÃO 2: Busca Resiliente
+            # Removido a restrição (Consulta.status == 'Agendado') para garantir 
+            # que qualquer consulta do paciente no dia seja devidamente atualizada para Falta.
             consulta_existente = Consulta.query.filter(
                 Consulta.paciente_id == paciente_id,
                 Consulta.data_hora >= inicio_dia,
-                Consulta.data_hora <= fim_dia,
-                Consulta.status == 'Agendado'
+                Consulta.data_hora <= fim_dia
             ).first()
             
             if consulta_existente:
