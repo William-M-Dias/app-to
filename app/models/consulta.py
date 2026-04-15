@@ -8,6 +8,9 @@ class Consulta(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     paciente_id = db.Column(db.Integer, db.ForeignKey('pacientes.id'), nullable=False)
     
+    # 👇👇👇 ESTA É A LINHA QUE FALTAVA PARA A OTIMIZAÇÃO FUNCIONAR 👇👇👇
+    paciente = db.relationship('Paciente', backref='consultas_agendadas', lazy=True)
+    
     # NOVO: Profissional responsável pela sessão
     profissional_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=True)
     

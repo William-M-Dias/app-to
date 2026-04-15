@@ -3,25 +3,25 @@ from app.extensions import db
 from app.models.consulta import Consulta
 from datetime import datetime, timedelta
 from sqlalchemy import asc, desc
+from sqlalchemy.orm import joinedload # <--- NOVA IMPORTAÇÃO
 import uuid 
 
 consulta_bp = Blueprint('consulta_bp', __name__, url_prefix='/api/consultas')
 
 @consulta_bp.route('/agenda', methods=['GET'])
 def agenda_global():
-    from app.models.paciente import Paciente 
-    
     hoje_brasil = datetime.utcnow() - timedelta(hours=3)
     hoje_meia_noite = hoje_brasil.replace(hour=0, minute=0, second=0, microsecond=0)
     
-    consultas = Consulta.query.filter(
+    # MUDANÇA: Usando joinedload para buscar Consulta e Paciente juntos
+    consultas = Consulta.query.options(joinedload(Consulta.paciente)).filter(
         Consulta.status == 'Agendado',
         Consulta.data_hora >= hoje_meia_noite
     ).order_by(Consulta.data_hora.asc()).all()
     
     resultado = []
     for c in consultas:
-        paciente = Paciente.query.get(c.paciente_id)
+        paciente = c.paciente # <--- Lê da memória RAM, não do banco
         if paciente:
             resultado.append({
                 "id": c.id,
@@ -36,8 +36,6 @@ def agenda_global():
 
 @consulta_bp.route('/agenda_paginada', methods=['GET'])
 def agenda_paginada():
-    from app.models.paciente import Paciente 
-    
     direcao = request.args.get('direcao', 'futuro')
     offset = int(request.args.get('offset', 0))
     limit = int(request.args.get('limit', 6))
@@ -45,18 +43,19 @@ def agenda_paginada():
     agora = datetime.utcnow() - timedelta(hours=3)
     linha_de_corte = agora - timedelta(minutes=60)
     
+    # MUDANÇA: Usando joinedload nas consultas paginadas
     if direcao == 'futuro':
-        consultas = Consulta.query.filter(
+        consultas = Consulta.query.options(joinedload(Consulta.paciente)).filter(
             Consulta.data_hora >= linha_de_corte
         ).order_by(asc(Consulta.data_hora)).offset(offset).limit(limit).all()
     else:
-        consultas = Consulta.query.filter(
+        consultas = Consulta.query.options(joinedload(Consulta.paciente)).filter(
             Consulta.data_hora < linha_de_corte
         ).order_by(desc(Consulta.data_hora)).offset(offset).limit(limit).all()
         
     resultado = []
     for c in consultas:
-        paciente = Paciente.query.get(c.paciente_id)
+        paciente = c.paciente # <--- Lê da memória RAM
         if paciente:
             data_obj = c.data_hora
             if isinstance(data_obj, str):
@@ -79,6 +78,7 @@ def agenda_paginada():
 
 @consulta_bp.route('/paciente/<int:paciente_id>', methods=['GET'])
 def listar_consultas_paciente(paciente_id):
+    # Rota específica de um paciente não precisa de joinedload pois não itera pacientes
     consultas = Consulta.query.filter_by(paciente_id=paciente_id).order_by(Consulta.data_hora.desc()).all()
     resultado = [{
         "id": c.id,
@@ -101,8 +101,6 @@ def registrar_evolucao():
         paciente_id = dados['paciente_id']
         status_recebido = dados.get('status', 'Agendado') 
         
-        # 🛡️ CAMADA DE PROTEÇÃO 1: Sanitização do status legado
-        # Se algum cache de navegador antigo enviar "Faltou", o backend traduz para "Falta"
         if status_recebido == 'Faltou':
             status_recebido = 'Falta'
             
@@ -128,9 +126,6 @@ def registrar_evolucao():
             inicio_dia = datetime.combine(data_apenas, datetime.min.time())
             fim_dia = datetime.combine(data_apenas, datetime.max.time())
             
-            # 🛡️ CAMADA DE PROTEÇÃO 2: Busca Resiliente
-            # Removido a restrição (Consulta.status == 'Agendado') para garantir 
-            # que qualquer consulta do paciente no dia seja devidamente atualizada para Falta.
             consulta_existente = Consulta.query.filter(
                 Consulta.paciente_id == paciente_id,
                 Consulta.data_hora >= inicio_dia,
@@ -218,13 +213,12 @@ def deletar_consulta(id):
 
 @consulta_bp.route('/calendario', methods=['GET'])
 def obter_eventos_calendario():
-    from app.models.paciente import Paciente
-    
     start_str = request.args.get('start')
     end_str = request.args.get('end')
     prof_id = request.args.get('profissional_id')
     
-    query = Consulta.query
+    # MUDANÇA: Usando joinedload no calendário principal
+    query = Consulta.query.options(joinedload(Consulta.paciente))
     
     if prof_id:
         query = query.filter(Consulta.profissional_id == int(prof_id))
@@ -238,7 +232,7 @@ def obter_eventos_calendario():
     eventos = []
     
     for c in consultas:
-        paciente = Paciente.query.get(c.paciente_id)
+        paciente = c.paciente # <--- Lê da memória RAM
         if paciente:
             fim_estimado = c.data_fim if c.data_fim else c.data_hora + timedelta(minutes=50)
             
@@ -257,7 +251,7 @@ def obter_eventos_calendario():
 
             eventos.append({
                 "id": c.id,
-                "paciente_id": paciente.id, # <--- INJEÇÃO DO ID PARA O CLIQUE FUNCIONAR!
+                "paciente_id": paciente.id, 
                 "title": titulo,
                 "start": c.data_hora.isoformat(),
                 "end": fim_estimado.isoformat(),
